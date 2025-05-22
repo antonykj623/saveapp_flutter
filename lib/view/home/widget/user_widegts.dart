@@ -65,7 +65,6 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
   }
 
   void _showChartDialog() {
-    // Add haptic feedback
     HapticFeedback.mediumImpact();
 
     showDialog(
