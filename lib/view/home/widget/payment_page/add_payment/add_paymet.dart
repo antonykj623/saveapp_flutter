@@ -3,8 +3,6 @@ import 'package:intl/intl.dart';
 import 'package:new_project_2025/view/home/widget/payment_page/databasehelper/data_base_helper.dart';
 import 'package:new_project_2025/view/home/widget/payment_page/payment_class/payment_class.dart';
 
-
-
 class AddPaymentVoucherPage extends StatefulWidget {
   final Payment? payment;
 
@@ -46,7 +44,10 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
       selectedAccount = widget.payment!.accountName;
       _amountController.text = widget.payment!.amount.toString();
       paymentMode = widget.payment!.paymentMode;
-      selectedCashOption = widget.payment!.paymentMode == 'Bank' ? cashOptions[1] : cashOptions[0];
+      selectedCashOption =
+          widget.payment!.paymentMode == 'Bank'
+              ? cashOptions[1]
+              : cashOptions[0];
       _remarksController.text = widget.payment!.remarks ?? '';
     } else {
       selectedDate = DateTime.now();
@@ -159,12 +160,15 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
                               selectedAccount = newValue;
                             });
                           },
-                          items: accounts.map<DropdownMenuItem<String>>((String value) {
-                            return DropdownMenuItem<String>(
-                              value: value,
-                              child: Text(value),
-                            );
-                          }).toList(),
+                          items:
+                              accounts.map<DropdownMenuItem<String>>((
+                                String value,
+                              ) {
+                                return DropdownMenuItem<String>(
+                                  value: value,
+                                  child: Text(value),
+                                );
+                              }).toList(),
                         ),
                       ),
                     ),
@@ -176,7 +180,9 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
                     child: const Icon(Icons.add, color: Colors.white),
                     onPressed: () {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Feature to add new account')),
+                        const SnackBar(
+                          content: Text('Feature to add new account'),
+                        ),
                       );
                     },
                   ),
@@ -287,21 +293,29 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
                               }
                             });
                           },
-                          items: paymentMode == 'Cash'
-                              ? [cashOptions[0]].map<DropdownMenuItem<String>>((String value) {
-                                  return DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  );
-                                }).toList()
-                              : cashOptions
-                                  .sublist(1)
-                                  .map<DropdownMenuItem<String>>((String value) {
-                                  return DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  );
-                                }).toList(),
+                          items:
+                              paymentMode == 'Cash'
+                                  ? [
+                                    cashOptions[0],
+                                  ].map<DropdownMenuItem<String>>((
+                                    String value,
+                                  ) {
+                                    return DropdownMenuItem<String>(
+                                      value: value,
+                                      child: Text(value),
+                                    );
+                                  }).toList()
+                                  : cashOptions
+                                      .sublist(1)
+                                      .map<DropdownMenuItem<String>>((
+                                        String value,
+                                      ) {
+                                        return DropdownMenuItem<String>(
+                                          value: value,
+                                          child: Text(value),
+                                        );
+                                      })
+                                      .toList(),
                         ),
                       ),
                     ),
@@ -359,10 +373,7 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
                     onPressed: _savePayment,
                     child: const Text(
                       'Save',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                      ),
+                      style: TextStyle(color: Colors.white, fontSize: 16),
                     ),
                   ),
                 ),

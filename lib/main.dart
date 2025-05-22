@@ -5,8 +5,7 @@ import 'package:new_project_2025/app/routes/app_routes.dart';
 
 void main() {
   runApp(
-    GetMaterialApp(
-      
+    GetMaterialApp(  
     debugShowCheckedModeBanner: false,
     title: "SAVE App",
     initialRoute: AppRoutes.login,

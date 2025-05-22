@@ -103,7 +103,9 @@ class _ReceiptsPageState extends State<ReceiptsPage> {
         title: const Text('Receipts'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () {},
+          onPressed: () {
+            Navigator.pop(context);
+          },
         ),
       ),
       body: Column(

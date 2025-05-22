@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:new_project_2025/view/home/widget/Receipt/Receipt_screen.dart';
 import 'package:new_project_2025/view/home/widget/payment_page/payhment_page.dart';
+import 'package:new_project_2025/view/home/widget/wallet_page/wallet_page.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
 void main() {
@@ -715,8 +717,13 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       icon: Icons.receipt,
       label: 'Receipts',
       iconColor: Colors.teal,
-      onPressed: (BuildContext context) => debugPrint('Receipts tapped'),
+      onPressed:
+          (BuildContext context) => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => ReceiptsPage()),
+          ),
     ),
+
     CategoryItem(
       icon: Icons.account_balance_wallet,
       label: 'Wallet',
@@ -727,7 +734,11 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       icon: Icons.business_center,
       label: 'Budget',
       iconColor: Colors.teal,
-      onPressed: (BuildContext context) => debugPrint('Budget tapped'),
+      onPressed:
+          (BuildContext context) => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => WalletPage()),
+          ),
     ),
     CategoryItem(
       icon: Icons.account_balance,

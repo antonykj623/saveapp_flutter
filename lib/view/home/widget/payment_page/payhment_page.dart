@@ -82,7 +82,9 @@ class _PaymentsPageState extends State<PaymentsPage> {
         title: const Text('Payments'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () {},
+          onPressed: () {
+            Navigator.pop(context);
+          },
         ),
       ),
       body: Column(
