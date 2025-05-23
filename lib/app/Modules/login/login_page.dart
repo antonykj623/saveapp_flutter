@@ -145,7 +145,10 @@ class LoginScreen extends StatelessWidget {
                     const SizedBox(height: 40),
 
                     TextButton(
-                      onPressed: () {},
+                      onPressed: () {
+
+
+                      },
                       child: const Text(
                         'Don\'t you have account ? Create new one',
                         style: TextStyle(color: Colors.white, fontSize: 20),
