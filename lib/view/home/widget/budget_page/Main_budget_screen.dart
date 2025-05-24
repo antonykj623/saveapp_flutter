@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:new_project_2025/view/home/widget/budget_page/Budegt_database_helper/Budget_data_base.dart';
 import 'package:new_project_2025/view/home/widget/budget_page/Edit_budget_screen/Edit_budget_screen.dart';
 
+void main() {
+  runApp(MaterialApp(home: BudgetScreen()));
+}
+
 class BudgetScreen extends StatefulWidget {
   @override
   _BudgetScreenState createState() => _BudgetScreenState();
