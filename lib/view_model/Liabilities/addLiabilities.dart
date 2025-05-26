@@ -423,6 +423,7 @@ class _SlidebleListState1 extends State<AddLiabilities> {
                       children: [
                         Expanded(
                           child: InkWell(
+
                             onTap: () => selectDate(true),
                             child: Container(
                               height: 50,
