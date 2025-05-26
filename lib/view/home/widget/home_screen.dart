@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+<<<<<<< HEAD
 import 'package:new_project_2025/view/home/widget/CashBank/Receipt_class/receipt_class.dart';
+=======
+import 'package:new_project_2025/view/home/widget/Bank/bank_page/Bank_page.dart';
+>>>>>>> d282c1e6c280ee9b7ac730813747eed25431bbbc
 import 'package:new_project_2025/view/home/widget/Receipt/Receipt_screen.dart';
+import 'package:new_project_2025/view/home/widget/budget_page/Main_budget_screen.dart';
 import 'package:new_project_2025/view/home/widget/payment_page/payhment_page.dart';
 import 'package:new_project_2025/view/home/widget/wallet_page/wallet_page.dart';
 import 'package:new_project_2025/view_model/Billing/blling.dart';
@@ -735,10 +740,18 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       icon: Icons.account_balance_wallet,
       label: 'Wallet',
       iconColor: Colors.teal,
+<<<<<<< HEAD
       onPressed: (BuildContext context) => Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => WalletPage()),
       ),
+=======
+      onPressed:
+          (BuildContext context) => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => WalletPage()),
+          ),
+>>>>>>> d282c1e6c280ee9b7ac730813747eed25431bbbc
     ),
     CategoryItem(
       icon: Icons.business_center,
@@ -747,14 +760,18 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       onPressed:
           (BuildContext context) => Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => WalletPage()),
+            MaterialPageRoute(builder: (context) => BudgetScreen()),
           ),
     ),
     CategoryItem(
       icon: Icons.account_balance,
       label: 'Bank',
       iconColor: Colors.teal,
-      onPressed: (BuildContext context) => debugPrint('Bank tapped'),
+      onPressed:
+          (BuildContext context) => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => BankVoucherListScreen()),
+          ),
     ),
     CategoryItem(
       icon: Icons.book,
