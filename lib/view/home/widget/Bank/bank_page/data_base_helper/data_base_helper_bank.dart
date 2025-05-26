@@ -26,7 +26,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// Database Helper Class
+
 class BankDatabase {
   static final BankDatabase _instance = BankDatabase._internal();
   static Database? _database;
@@ -37,7 +37,7 @@ class BankDatabase {
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDatabase();
+    _database = await _initDatabase();    
     return _database!;
   }
 

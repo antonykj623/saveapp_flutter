@@ -147,7 +147,6 @@ class _AddEditVoucherScreenState extends State<AddEditVoucherScreen> {
               
               SizedBox(height: 16),
               
-              // Transaction Type Dropdown
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
