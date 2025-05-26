@@ -1,14 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:new_project_2025/view/home/widget/Receipt/Receipt_class/receipt_class.dart';
-import 'package:new_project_2025/view/home/widget/Receipt/receipt_database/receipt_database.dart'
-    show DatabaseHelper1;
+import 'package:new_project_2025/view/home/widget/Receipt/add_receipt_voucher_screen/add_receipt_vocher_screen.dart';
+import 'package:new_project_2025/view/home/widget/Receipt/receipt_database/receipt_database.dart';
 import 'package:new_project_2025/view/home/widget/payment_page/Month_date/Moth_datepage.dart';
-
-// import 'package:new_project_2025/view/home/widget/Receipt/Receipt_class/receipt_class.dart';
-// import 'package:new_project_2025/view/home/widget/Receipt/add_receipt_voucher_screen/add_receipt_vocher_screen.dart';
-// import 'package:new_project_2025/view/home/widget/Receipt/receipt_database/receipt_database.dart';
-// import 'package:new_project_2025/view/home/widget/payment_page/Month_date/Moth_datepage.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,23 +24,20 @@ class MyApp extends StatelessWidget {
           accentColor: Colors.pink,
         ),
       ),
-      home: const ReceiptPage(),
+      home: const ReceiptsPage(),
     );
   }
 }
 
-class ReceiptPage extends StatefulWidget {
-  const ReceiptPage({super.key});
+class ReceiptsPage extends StatefulWidget {
+  const ReceiptsPage({super.key});
 
   @override
-  State<ReceiptPage> createState() => _ReceiptsPageState();
+  State<ReceiptsPage> createState() => _ReceiptsPageState();
 }
 
-class _ReceiptsPageState extends State<ReceiptPage> {
+class _ReceiptsPageState extends State<ReceiptsPage> {
   String selectedYearMonth = DateFormat('yyyy-MM').format(DateTime.now());
-  DateTime selected_startDate = DateTime.now();
-  DateTime selected_endDate = DateTime.now();
-
   List<Receipt> receipts = [];
   double total = 0;
   final ScrollController _verticalScrollController = ScrollController();
@@ -63,159 +55,81 @@ class _ReceiptsPageState extends State<ReceiptPage> {
   }
 
   void _loadReceipts() async {
-    // final receiptsList = await DatabaseHelper1.instance.getReceiptsByMonth(
-    //   DateFormat('yyyy-MM-dd').format(selectedDate),
-    // );
-    // setState(() {
-    //   receipts = receiptsList;
-    //   total = receipts.fold(0, (sum, receipt) => sum + receipt.amount);
-    // });
-  }
-
-  void showMonthYearPicker(bool isStart) {
-    showDatePicker(
-      context: context,
-
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    ).then((pickedDate) {
-      if (pickedDate != null) {
-        setState(() {
-          if (isStart) {
-            selected_startDate = pickedDate;
-          } else {
-            selected_endDate = pickedDate;
-          }
-
-          // _loadReceipts();
-        });
-      }
+    final receiptsList = await DatabaseHelper1.instance.getReceiptsByMonth(
+      selectedYearMonth,
+    );
+    setState(() {
+      receipts = receiptsList;
+      total = receipts.fold(0, (sum, receipt) => sum + receipt.amount);
     });
   }
 
-  selectDate(bool isStart) {
-    showDatePicker(
-      context: context,
+  void _showMonthYearPicker() {
+    final yearMonthParts = selectedYearMonth.split('-');
+    final initialYear = int.parse(yearMonthParts[0]);
+    final initialMonth = int.parse(yearMonthParts[1]);
 
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    ).then((pickedDate) {
-      if (pickedDate != null) {
-        setState(() {
-          selectedYearMonth = DateFormat('yyyy-MM').format(pickedDate);
-          if (isStart) {
-            selected_startDate = pickedDate;
-          } else {
-            selected_endDate = pickedDate;
-          }
-          _loadReceipts();
-        });
-      }
-    });
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            content: MonthYearPicker(
+              initialMonth: initialMonth,
+              initialYear: initialYear,
+              onDateSelected: (int month, int year) {
+                setState(() {
+                  selectedYearMonth =
+                      '$year-${month.toString().padLeft(2, '0')}';
+                  _loadReceipts();
+                });
+              },
+            ),
+          ),
+    );
   }
 
   String _getDisplayMonth() {
     final parts = selectedYearMonth.split('-');
     final year = parts[0];
     final month = int.parse(parts[1]);
-    final monthName = DateFormat(
-      'MMMM',
-    ).format(DateTime(int.parse(year), month));
-    return '$monthName $year';
-  }
-
-  String _getDisplayStartDate() {
-    return DateFormat('dd/MM/yyyy').format(selected_startDate);
-  }
-
-  String _getDisplayEndDate() {
-    return DateFormat('dd/MM/yyyy').format(selected_endDate);
+    final monthName = DateFormat('MMMM').format(DateTime(2022, month));
+    return '$monthName/$year';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.teal,
+        title: const Text('Receipts'),
         leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
           onPressed: () {
             Navigator.pop(context);
           },
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
         ),
-        title: const Text('Cash/Bank', style: TextStyle(color: Colors.white)),
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(10.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: <Widget>[
-                 Container(
-                  width: 180,
-                  height: 60,
-                  child: InkWell(
-                    onTap: () {
-                      selectDate(true);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.black),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            _getDisplayStartDate(),
-                            style: const TextStyle(fontSize: 18),
-                          ),
-                          const Icon(Icons.calendar_today),
-                        ],
-                      ),
-                    ),
+          InkWell(
+            onTap: _showMonthYearPicker,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              margin: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _getDisplayMonth(),
+                    style: const TextStyle(fontSize: 18),
                   ),
-                ),
-                Container(
-                  width: 180,
-                  height: 60,
-                  child: InkWell(
-                    onTap: () {
-                      selectDate(false);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.black),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            _getDisplayEndDate(),
-                            style: const TextStyle(fontSize: 18),
-                          ),
-                          const Icon(Icons.calendar_today),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+                  const Icon(Icons.calendar_today),
+                ],
+              ),
             ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.teal,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () {
-              _loadReceipts(); // Reload receipts based on current selections
-            },
-            child: const Text("Search"),
           ),
           Expanded(
             child: Container(
@@ -305,15 +219,24 @@ class _ReceiptsPageState extends State<ReceiptPage> {
                                                               'Edit',
                                                             ),
                                                             onTap: () {
-                                                              // Navigator.pop(context);
-                                                              // Navigator.push(
-                                                              //   context,
-                                                              //   MaterialPageRoute(
-                                                              //     builder: (context) => AddReceiptVoucher(
-                                                              //       receipt: receipt,
-                                                              //     ),
-                                                              //   ),
-                                                              // ).then((_) => _loadReceipts());
+                                                              Navigator.pop(
+                                                                context,
+                                                              );
+                                                              Navigator.push(
+                                                                context,
+                                                                MaterialPageRoute(
+                                                                  builder:
+                                                                      (
+                                                                        context,
+                                                                      ) => AddReceiptVoucherPage(
+                                                                        receipt:
+                                                                            receipt,
+                                                                      ),
+                                                                ),
+                                                              ).then(
+                                                                (_) =>
+                                                                    _loadReceipts(),
+                                                              );
                                                             },
                                                           ),
                                                           ListTile(
@@ -340,9 +263,9 @@ class _ReceiptsPageState extends State<ReceiptPage> {
                                               );
                                             },
                                             child: const Text(
-                                              'View',
+                                              'Edit/Delete',
                                               style: TextStyle(
-                                                color: Colors.green,
+                                                color: Colors.red,
                                               ),
                                             ),
                                           ),
@@ -371,12 +294,12 @@ class _ReceiptsPageState extends State<ReceiptPage> {
         backgroundColor: Theme.of(context).colorScheme.secondary,
         child: const Icon(Icons.add, color: Colors.white),
         onPressed: () {
-          // Navigator.push(
-          //   context,
-          //   MaterialPageRoute(
-          //     builder: (context) => const AddReceiptVoucher(),
-          //   ),
-          // ).then((_) => _loadReceipts());
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AddReceiptVoucherPage(),
+            ),
+          ).then((_) => _loadReceipts());
         },
       ),
     );

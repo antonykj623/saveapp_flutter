@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:new_project_2025/model/images/images.dart';
-import 'package:new_project_2025/view/home/widget/More_page/More_page.dart';
-import 'package:new_project_2025/view/home/widget/Notification_page.dart';
-import 'package:new_project_2025/view/home/widget/report_screen/report_screen.dart';
-import 'package:new_project_2025/view/home/widget/setting_page/setting_page.dart';
+import 'package:new_project_2025/view/home/widget/CashBank/Receipt_class/receipt_class.dart';
+import 'package:new_project_2025/view/home/widget/Receipt/Receipt_screen.dart';
+import 'package:new_project_2025/view/home/widget/payment_page/payhment_page.dart';
+import 'package:new_project_2025/view/home/widget/wallet_page/wallet_page.dart';
+import 'package:new_project_2025/view_model/Billing/blling.dart';
+import 'package:new_project_2025/view_model/CashBank/cashBank.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
+
+import '../../../view_model/AccountSet_up/accountsetup.dart';
+import '../../../view_model/Journal/journal.dart';
+import '../../../view_model/Liabilities/listofLiabilities.dart';
 
 void main() {
   runApp(const MyApp());
@@ -19,10 +24,10 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'SAVE Personal App',
-      theme: ThemeData(
-        primarySwatch: Colors.teal,
-        scaffoldBackgroundColor: const Color(0xFFCFECEC),
-      ),
+      // theme: ThemeData(
+      //   primarySwatch: Colors.teal,
+      //   scaffoldBackgroundColor: const Color(0xFFCFECEC),
+      // ),
       home: const SaveApp(),
       debugShowCheckedModeBanner: false,
     );
@@ -319,7 +324,11 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
             child: PageView(
               controller: _pageController,
               physics: const NeverScrollableScrollPhysics(),
-              children: [_buildHomePage(), ReportScreen(), More()],
+              children: [
+                _buildHomePage(),
+                const ReportScreen(),
+                const MoreScreen(),
+              ],
             ),
           ),
           _buildBottomNavBar(),
@@ -361,7 +370,11 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       ),
       child: Row(
         children: [
-          Image.asset(Images.appbar, height: 50),
+          // Replace Image.asset with a placeholder or actual asset
+          const SizedBox(
+            width: 50,
+            height: 50,
+          ), // Placeholder for missing asset
           const SizedBox(width: 10),
           const Text(
             'My Personal App',
@@ -381,7 +394,9 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => NotificationScreen()),
+                MaterialPageRoute(
+                  builder: (context) => const NotificationScreen(),
+                ),
               );
             },
           ),
@@ -390,7 +405,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => SettingsScreen()),
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
               );
             },
           ),
@@ -592,11 +607,13 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
         itemBuilder: (context, index) {
           final item = items[index];
           return InkWell(
-            onTap:
-                item.onPressed ??
-                () {
-                  debugPrint('${item.label} tapped');
-                },
+            onTap: () {
+              if (item.onPressed != null) {
+                item.onPressed!(context); // Pass context to onPressed
+              } else {
+                debugPrint('${item.label} tapped');
+              }
+            },
             borderRadius: BorderRadius.circular(8),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -696,55 +713,84 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       icon: Icons.credit_card,
       label: 'Payments',
       iconColor: Colors.teal,
-      onPressed: () => debugPrint('Payments tapped'),
+      onPressed: (BuildContext context) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => PaymentsPage()),
+        );
+      },
     ),
     CategoryItem(
       icon: Icons.receipt,
       label: 'Receipts',
       iconColor: Colors.teal,
-      onPressed: () => debugPrint('Receipts tapped'),
+      onPressed:
+          (BuildContext context) => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => ReceiptsPage()),
+          ),
     ),
+
     CategoryItem(
       icon: Icons.account_balance_wallet,
       label: 'Wallet',
       iconColor: Colors.teal,
-      onPressed: () => debugPrint('Wallet tapped'),
+      onPressed: (BuildContext context) => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => WalletPage()),
+      ),
     ),
     CategoryItem(
       icon: Icons.business_center,
       label: 'Budget',
       iconColor: Colors.teal,
-      onPressed: () => debugPrint('Budget tapped'),
+      onPressed:
+          (BuildContext context) => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => WalletPage()),
+          ),
     ),
     CategoryItem(
       icon: Icons.account_balance,
       label: 'Bank',
       iconColor: Colors.teal,
-      onPressed: () => debugPrint('Bank tapped'),
+      onPressed: (BuildContext context) => debugPrint('Bank tapped'),
     ),
     CategoryItem(
       icon: Icons.book,
       label: 'Journal',
       iconColor: Colors.teal,
-      onPressed: () => debugPrint('Journal tapped'),
+      onPressed: (BuildContext context) =>    Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const Journal()),
+      ),
     ),
     CategoryItem(
       icon: Icons.description,
       label: 'Billing',
       iconColor: Colors.teal,
-      onPressed: () => debugPrint('Billing tapped'),
+      onPressed: (BuildContext context) =>    Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const  Billing()),
+      ),
     ),
     CategoryItem(
       icon: Icons.monetization_on,
       label: 'Cash and Bank',
       iconColor: Colors.teal,
-      onPressed: () => debugPrint('Cash and Bank tapped'),
+      onPressed: (BuildContext context) =>  Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => Cashbank()),
+      ),
     ),
     CategoryItem(
       icon: Icons.calculate,
       label: 'Account Setup',
       iconColor: Colors.teal,
-      onPressed: () => debugPrint('Account Setup tapped'),
+      onPressed: (BuildContext context) =>  Navigator.push(
+  context,
+  MaterialPageRoute(builder: (context) => Accountsetup()),
+  ),
     ),
   ];
 
@@ -752,39 +798,43 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
     CategoryItem(
       icon: Icons.trending_up,
       label: 'Investment',
-
       iconColor: Colors.teal,
-      onPressed: () => debugPrint('Investment tapped'),
+      onPressed: (BuildContext context) => debugPrint('Investment tapped'),
     ),
     CategoryItem(
       icon: Icons.lock,
       label: 'Password Manager',
       iconColor: Colors.teal,
-      onPressed: () => debugPrint('Password Manager tapped'),
+      onPressed:
+          (BuildContext context) => debugPrint('Password Manager tapped'),
     ),
     CategoryItem(
       icon: Icons.description,
       label: 'Document Manager',
       iconColor: Colors.teal,
-      onPressed: () => debugPrint('Document Manager tapped'),
+      onPressed:
+          (BuildContext context) => debugPrint('Document Manager tapped'),
     ),
     CategoryItem(
       icon: Icons.account_balance_wallet,
       label: 'Asset',
       iconColor: Colors.teal,
-      onPressed: () => debugPrint('Asset tapped'),
+      onPressed: (BuildContext context) => debugPrint('Asset tapped'),
     ),
     CategoryItem(
       icon: Icons.note_alt,
       label: 'Liability',
       iconColor: Colors.teal,
-      onPressed: () => debugPrint('Liability tapped'),
+      onPressed: (BuildContext context) =>  Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => Liabilities()),
+      ),
     ),
     CategoryItem(
       icon: Icons.security,
       label: 'Insurance',
       iconColor: Colors.teal,
-      onPressed: () => debugPrint('Insurance tapped'),
+      onPressed: (BuildContext context) => debugPrint('Insurance tapped'),
     ),
   ];
 
@@ -793,19 +843,19 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       icon: Icons.task_alt,
       label: 'Task',
       iconColor: Colors.teal,
-      onPressed: () => debugPrint('Task tapped'),
+      onPressed: (BuildContext context) => debugPrint('Task tapped'),
     ),
     CategoryItem(
       icon: Icons.book,
       label: 'Diary',
       iconColor: Colors.teal,
-      onPressed: () => debugPrint('Diary tapped'),
+      onPressed: (BuildContext context) => debugPrint('Diary tapped'),
     ),
     CategoryItem(
       icon: Icons.add_circle_outline,
       label: 'Dream',
       iconColor: Colors.teal,
-      onPressed: () => debugPrint('Dream tapped'),
+      onPressed: (BuildContext context) => debugPrint('Dream tapped'),
     ),
   ];
 
@@ -814,31 +864,32 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       icon: Icons.smartphone,
       label: 'Mobile Recharge',
       iconColor: Colors.teal,
-      onPressed: () => debugPrint('Mobile Recharge tapped'),
+      onPressed: (BuildContext context) => debugPrint('Mobile Recharge tapped'),
     ),
     CategoryItem(
       icon: Icons.satellite_alt,
       label: 'DTH Recharge',
       iconColor: Colors.teal,
-      onPressed: () => debugPrint('DTH Recharge tapped'),
+      onPressed: (BuildContext context) => debugPrint('DTH Recharge tapped'),
     ),
     CategoryItem(
       icon: Icons.contact_mail,
       label: 'Visiting Card',
       iconColor: Colors.teal,
-      onPressed: () => debugPrint('Visiting Card tapped'),
+      onPressed: (BuildContext context) => debugPrint('Visiting Card tapped'),
     ),
     CategoryItem(
       icon: Icons.link,
       label: 'Website Links',
       iconColor: Colors.teal,
-      onPressed: () => debugPrint('Website Links tapped'),
+      onPressed: (BuildContext context) => debugPrint('Website Links tapped'),
     ),
     CategoryItem(
       icon: Icons.warning,
       label: 'Emergency Numbers',
       iconColor: Colors.teal,
-      onPressed: () => debugPrint('Emergency Numbers tapped'),
+      onPressed:
+          (BuildContext context) => debugPrint('Emergency Numbers tapped'),
     ),
   ];
 }
@@ -847,7 +898,7 @@ class CategoryItem {
   final IconData icon;
   final String label;
   final Color iconColor;
-  final VoidCallback? onPressed;
+  final void Function(BuildContext context)? onPressed;
 
   CategoryItem({
     required this.icon,
@@ -863,6 +914,33 @@ class FinancialData {
   final double expense;
 
   FinancialData(this.month, this.income, this.expense);
+}
+
+class ReportScreen extends StatelessWidget {
+  const ReportScreen({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(body: Center(child: Text('Report Screen')));
+  }
+}
+
+class NotificationScreen extends StatelessWidget {
+  const NotificationScreen({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(body: Center(child: Text('Notification Screen')));
+  }
+}
+
+class SettingsScreen extends StatelessWidget {
+  const SettingsScreen({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(body: Center(child: Text('Settings Screen')));
+  }
 }
 
 class MoreScreen extends StatelessWidget {

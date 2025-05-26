@@ -6,9 +6,9 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
-import '../model/receipt.dart';
-import '../services/dbhelper/DatabaseHelper.dart';
-import '../services/dbhelper/dbhelper.dart';
+import '../../model/receipt.dart';
+import '../../services/dbhelper/DatabaseHelper.dart';
+import '../../services/dbhelper/dbhelper.dart';
 
 
 import 'package:intl/intl.dart';
@@ -126,19 +126,20 @@ class _ReceiptsPageState extends State<Ledgercash> {
                //
                     Container(
                       decoration: BoxDecoration(
-                        color: Colors.blue,
+                        color: Colors.white,
                         border: const Border(
                           bottom: BorderSide(color: Colors.black),
                         ),
                       ),
                       child: Row(
                         children: [
-                          _buildHeaderCell('Date', flex: 1),
-                          _buildHeaderCell('Account Name', flex: 2),
-                          _buildHeaderCell('Amount', flex: 1),
-                          _buildHeaderCell('Cash/Bank', flex: 1),
+                          _buildHeaderCell('Date', flex: 2),
+                          _buildHeaderCell('Name', flex: 2),
+                          _buildHeaderCell('Credit', flex: 1),
+                         _buildHeaderCell('Debit', flex: 1),
+
                           // _buildHeaderCell('Action', flex: 1),
-                        ],
+      ],
                       ),
                     ),
                     Expanded(
@@ -154,18 +155,19 @@ class _ReceiptsPageState extends State<Ledgercash> {
                             Column(
                               children: [
                                 Container(
+                                  height:1,
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
+                                  color: Colors.black,
                                     border: const Border(
                                       bottom: BorderSide(color: Colors.black),
                                     ),
                                   ),
                                   child: Row(
                                     children: [
-                                      _buildHeaderCell('Date', flex: 1),
-                                      _buildHeaderCell('Account Name', flex: 2),
-                                      _buildHeaderCell('Amount', flex: 1),
-                                      _buildHeaderCell('Cash/Bank', flex: 1),
+                                      _buildHeaderCell('01-05-2025', flex: 2),
+                                      _buildHeaderCell('Cash', flex: 2),
+                                      _buildHeaderCell('2500', flex: 1),
+                                      _buildHeaderCell('500', flex: 1),
                                       // _buildHeaderCell('Action', flex: 1),
                                     ],
                                   ),
@@ -177,15 +179,15 @@ class _ReceiptsPageState extends State<Ledgercash> {
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 border: const Border(
-                                  bottom: BorderSide(color: Colors.black),
+                                  bottom: BorderSide(color: Colors.black,style: BorderStyle.solid),
                                 ),
                               ),
                               child: Row(
                                 children: [
-                                  _buildHeaderCell('Date', flex: 1),
-                                  _buildHeaderCell('Account Name', flex: 2),
-                                  _buildHeaderCell('Amount', flex: 1),
-                                  _buildHeaderCell('Cash/Bank', flex: 1),
+                                  _buildHeaderCell('11-05-2025', flex: 2),
+                                  _buildHeaderCell('Cash', flex: 2),
+                                  _buildHeaderCell('2600', flex: 1),
+                                  _buildHeaderCell('100', flex: 1),
                                   // _buildHeaderCell('Action', flex: 1),
                                 ],
                               ),
@@ -200,10 +202,10 @@ class _ReceiptsPageState extends State<Ledgercash> {
                               ),
                               child: Row(
                                 children: [
-                                  _buildHeaderCell('Date', flex: 1),
-                                  _buildHeaderCell('Account Name', flex: 2),
-                                  _buildHeaderCell('Amount', flex: 1),
-                                  _buildHeaderCell('Cash/Bank', flex: 1),
+                                  _buildHeaderCell('21-05-2025', flex: 2),
+                                  _buildHeaderCell('Agiriculture', flex: 2),
+                                  _buildHeaderCell('1500', flex: 1),
+                                  _buildHeaderCell('500', flex: 1),
                                   // _buildHeaderCell('Action', flex: 1),
                                 ],
                               ),
@@ -218,11 +220,10 @@ class _ReceiptsPageState extends State<Ledgercash> {
                               ),
                               child: Row(
                                 children: [
-                                  _buildHeaderCell('Date', flex: 1),
-                                  _buildHeaderCell('Account Name', flex: 2),
-                                  _buildHeaderCell('Amount', flex: 1),
-                                  _buildHeaderCell('Cash/Bank', flex: 1),
-                                  // _buildHeaderCell('Action', flex: 1),
+                                  _buildHeaderCell('22-05-2025', flex: 2),
+                                  _buildHeaderCell('Cash', flex: 2),
+                                  _buildHeaderCell('2500', flex: 1),
+                                  _buildHeaderCell('500', flex: 1),
                                 ],
                               ),
 
@@ -236,31 +237,10 @@ class _ReceiptsPageState extends State<Ledgercash> {
                               ),
                               child: Row(
                                 children: [
-                                  _buildHeaderCell('Date', flex: 1),
-                                  _buildHeaderCell('Account Name', flex: 2),
-                                  _buildHeaderCell('Amount', flex: 1),
-                                  _buildHeaderCell('Cash/Bank', flex: 1),
-                                  // _buildHeaderCell('Action', flex: 1),
-                                ],
-                              ),
-
-
-
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: const Border(
-                                  bottom: BorderSide(color: Colors.black),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  _buildHeaderCell('Date', flex: 1),
-                                  _buildHeaderCell('Account Name', flex: 2),
-                                  _buildHeaderCell('Amount', flex: 1),
-                                  _buildHeaderCell('Cash/Bank', flex: 1),
-                                  // _buildHeaderCell('Action', flex: 1),
+                                  _buildHeaderCell('23-05-2025', flex: 2),
+                                  _buildHeaderCell('Cash', flex: 2),
+                                  _buildHeaderCell(' ', flex: 1),
+                                  _buildHeaderCell('500', flex: 1),
                                 ],
                               ),
 
@@ -276,11 +256,10 @@ class _ReceiptsPageState extends State<Ledgercash> {
                               ),
                               child: Row(
                                 children: [
-                                  _buildHeaderCell('Date', flex: 1),
-                                  _buildHeaderCell('Account Name', flex: 2),
-                                  _buildHeaderCell('Amount', flex: 1),
-                                  _buildHeaderCell('Cash/Bank', flex: 1),
-                                  // _buildHeaderCell('Action', flex: 1),
+                                  _buildHeaderCell('24-05-2025', flex: 2),
+                                  _buildHeaderCell(' ', flex: 2),
+                                  _buildHeaderCell('250', flex: 1),
+                                  _buildHeaderCell('500', flex: 1),
                                 ],
                               ),
 
@@ -296,197 +275,218 @@ class _ReceiptsPageState extends State<Ledgercash> {
                               ),
                               child: Row(
                                 children: [
-                                  _buildHeaderCell('Date', flex: 1),
-                                  _buildHeaderCell('Account Name', flex: 2),
-                                  _buildHeaderCell('Amount', flex: 1),
-                                  _buildHeaderCell('Cash/Bank', flex: 1),
-                                  // _buildHeaderCell('Action', flex: 1),
-                                ],
-                              ),
-
-
-
-
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: const Border(
-                                  bottom: BorderSide(color: Colors.black),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  _buildHeaderCell('Date', flex: 1),
-                                  _buildHeaderCell('Account Name', flex: 2),
-                                  _buildHeaderCell('Amount', flex: 1),
-                                  _buildHeaderCell('Cash/Bank', flex: 1),
-                                  // _buildHeaderCell('Action', flex: 1),
+                                  _buildHeaderCell('22-05-2025', flex: 2),
+                                  _buildHeaderCell(' ', flex: 2),
+                                  _buildHeaderCell('2550', flex: 1),
+                                  _buildHeaderCell('5000', flex: 1),
                                 ],
                               ),
 
 
 
                             ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: const Border(
-                                  bottom: BorderSide(color: Colors.black),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  _buildHeaderCell('Date', flex: 1),
-                                  _buildHeaderCell('Account Name', flex: 2),
-                                  _buildHeaderCell('Amount', flex: 1),
-                                  _buildHeaderCell('Cash/Bank', flex: 1),
-                                  // _buildHeaderCell('Action', flex: 1),
-                                ],
-                              ),
-
-
-
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: const Border(
-                                  bottom: BorderSide(color: Colors.black),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  _buildHeaderCell('Date', flex: 1),
-                                  _buildHeaderCell('Account Name', flex: 2),
-                                  _buildHeaderCell('Amount', flex: 1),
-                                  _buildHeaderCell('Cash/Bank', flex: 1),
-                                  // _buildHeaderCell('Action', flex: 1),
-                                ],
-                              ),
-
-
-
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: const Border(
-                                  bottom: BorderSide(color: Colors.black),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  _buildHeaderCell('Date', flex: 1),
-                                  _buildHeaderCell('Account Name', flex: 2),
-                                  _buildHeaderCell('Amount', flex: 1),
-                                  _buildHeaderCell('Cash/Bank', flex: 1),
-                                  // _buildHeaderCell('Action', flex: 1),
-                                ],
-                              ),
-
-
-
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: const Border(
-                                  bottom: BorderSide(color: Colors.black),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  _buildHeaderCell('Date', flex: 1),
-                                  _buildHeaderCell('Account Name', flex: 2),
-                                  _buildHeaderCell('Amount', flex: 1),
-                                  _buildHeaderCell('Cash/Bank', flex: 1),
-                                  // _buildHeaderCell('Action', flex: 1),
-                                ],
-                              ),
-
-
-
-                            ),
-
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: const Border(
-                                  bottom: BorderSide(color: Colors.black),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  _buildHeaderCell('Date', flex: 1),
-                                  _buildHeaderCell('Account Name', flex: 2),
-                                  _buildHeaderCell('Amount', flex: 1),
-                                  _buildHeaderCell('Cash/Bank', flex: 1),
-                                  // _buildHeaderCell('Action', flex: 1),
-                                ],
-                              ),
-
-
-
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: const Border(
-                                  bottom: BorderSide(color: Colors.black),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  _buildHeaderCell('Date', flex: 1),
-                                  _buildHeaderCell('Account Name', flex: 2),
-                                  _buildHeaderCell('Amount', flex: 1),
-                                  _buildHeaderCell('Cash/Bank', flex: 1),
-                                  // _buildHeaderCell('Action', flex: 1),
-                                ],
-                              ),
-
-
-
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: const Border(
-                                  bottom: BorderSide(color: Colors.black),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  _buildHeaderCell('Date', flex: 1),
-                                  _buildHeaderCell('Account Name', flex: 2),
-                                  _buildHeaderCell('Amount', flex: 1),
-                                  _buildHeaderCell('Cash/Bank', flex: 1),
-                                  // _buildHeaderCell('Action', flex: 1),
-                                ],
-                              ),
-
-
-
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: const Border(
-                                  bottom: BorderSide(color: Colors.black),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  _buildHeaderCell('Date', flex: 1),
-                                  _buildHeaderCell('Account Name', flex: 2),
-                                  _buildHeaderCell('Amount', flex: 1),
-                                  _buildHeaderCell('Cash/Bank', flex: 1),
-                                  // _buildHeaderCell('Action', flex: 1),
-                                ],
-                              ),
-
-                            ),
+                            // Container(
+                            //   decoration: BoxDecoration(
+                            //     color: Colors.white,
+                            //     border: const Border(
+                            //       bottom: BorderSide(color: Colors.black),
+                            //     ),
+                            //   ),
+                            //   child: Row(
+                            //     children: [
+                            //       _buildHeaderCell('Date', flex: 1),
+                            //       _buildHeaderCell('Account Name', flex: 2),
+                            //       _buildHeaderCell('Amount', flex: 1),
+                            //       _actionButton('Edit/delete', flex: 1)
+                            //       // _buildHeaderCell('Action', flex: 1),
+                            //     ],
+                            //   ),
+                            //
+                            //
+                            //
+                            //
+                            // ),
+                            // Container(
+                            //   decoration: BoxDecoration(
+                            //     color: Colors.white,
+                            //     border: const Border(
+                            //       bottom: BorderSide(color: Colors.black),
+                            //     ),
+                            //   ),
+                            //   child: Row(
+                            //     children: [
+                            //       _buildHeaderCell('Date', flex: 1),
+                            //       _buildHeaderCell('Account Name', flex: 2),
+                            //       _buildHeaderCell('Amount', flex: 1),
+                            //       _actionButton('Edit/delete', flex: 1)
+                            //       // _buildHeaderCell('Action', flex: 1),
+                            //     ],
+                            //   ),
+                            //
+                            //
+                            //
+                            // ),
+                            // Container(
+                            //   decoration: BoxDecoration(
+                            //     color: Colors.white,
+                            //     border: const Border(
+                            //       bottom: BorderSide(color: Colors.black),
+                            //     ),
+                            //   ),
+                            //   child: Row(
+                            //     children: [
+                            //       _buildHeaderCell('Date', flex: 1),
+                            //       _buildHeaderCell('Account Name', flex: 2),
+                            //       _buildHeaderCell('Amount', flex: 1),
+                            //       _actionButton('Edit/delete', flex: 1)
+                            //       // _buildHeaderCell('Action', flex: 1),
+                            //     ],
+                            //   ),
+                            //
+                            //
+                            //
+                            // ),
+                            // Container(
+                            //   decoration: BoxDecoration(
+                            //     color: Colors.white,
+                            //     border: const Border(
+                            //       bottom: BorderSide(color: Colors.black),
+                            //     ),
+                            //   ),
+                            //   child: Row(
+                            //     children: [
+                            //       _buildHeaderCell('Date', flex: 1),
+                            //       _buildHeaderCell('Account Name', flex: 2),
+                            //       _buildHeaderCell('Amount', flex: 1),
+                            //       _actionButton('Edit/delete', flex: 1)
+                            //       // _buildHeaderCell('Action', flex: 1),
+                            //     ],
+                            //   ),
+                            //
+                            //
+                            //
+                            // ),
+                            // Container(
+                            //   decoration: BoxDecoration(
+                            //     color: Colors.white,
+                            //     border: const Border(
+                            //       bottom: BorderSide(color: Colors.black),
+                            //     ),
+                            //   ),
+                            //   child: Row(
+                            //     children: [
+                            //       _buildHeaderCell('Date', flex: 1),
+                            //       _buildHeaderCell('Account Name', flex: 2),
+                            //       _buildHeaderCell('Amount', flex: 1),
+                            //       _actionButton('Edit/delete', flex: 1)
+                            //       // _buildHeaderCell('Action', flex: 1),
+                            //     ],
+                            //   ),
+                            //
+                            //
+                            //
+                            // ),
+                            // Container(
+                            //   decoration: BoxDecoration(
+                            //     color: Colors.white,
+                            //     border: const Border(
+                            //       bottom: BorderSide(color: Colors.black),
+                            //     ),
+                            //   ),
+                            //   child: Row(
+                            //     children: [
+                            //       _buildHeaderCell('Date', flex: 1),
+                            //       _buildHeaderCell('Account Name', flex: 2),
+                            //       _buildHeaderCell('Amount', flex: 1),
+                            //       _actionButton('Edit/delete', flex: 1)
+                            //       // _buildHeaderCell('Action', flex: 1),
+                            //     ],
+                            //   ),
+                            //
+                            //
+                            //
+                            // ),
+                            //
+                            // Container(
+                            //   decoration: BoxDecoration(
+                            //     color: Colors.white,
+                            //     border: const Border(
+                            //       bottom: BorderSide(color: Colors.black),
+                            //     ),
+                            //   ),
+                            //   child: Row(
+                            //     children: [
+                            //       _buildHeaderCell('Date', flex: 1),
+                            //       _buildHeaderCell('Account Name', flex: 2),
+                            //       _buildHeaderCell('Amount', flex: 1),
+                            //       _actionButton('Edit/delete', flex: 1)
+                            //       // _buildHeaderCell('Action', flex: 1),
+                            //     ],
+                            //   ),
+                            //
+                            //
+                            //
+                            // ),
+                            // Container(
+                            //   decoration: BoxDecoration(
+                            //     color: Colors.white,
+                            //     border: const Border(
+                            //       bottom: BorderSide(color: Colors.black),
+                            //     ),
+                            //   ),
+                            //   child: Row(
+                            //     children: [
+                            //       _buildHeaderCell('Date', flex: 1),
+                            //       _buildHeaderCell('Account Name', flex: 2),
+                            //       _buildHeaderCell('Amount', flex: 1),
+                            //       _actionButton('Edit/delete', flex: 1)
+                            //       // _buildHeaderCell('Action', flex: 1),
+                            //     ],
+                            //   ),
+                            //
+                            //
+                            //
+                            // ),
+                            // Container(
+                            //   decoration: BoxDecoration(
+                            //     color: Colors.white,
+                            //     border: const Border(
+                            //       bottom: BorderSide(color: Colors.black),
+                            //     ),
+                            //   ),
+                            //   child: Row(
+                            //     children: [
+                            //       _buildHeaderCell('Date', flex: 1),
+                            //       _buildHeaderCell('Account Name', flex: 2),
+                            //       _buildHeaderCell('Amount', flex: 1),
+                            //       _actionButton('Edit/delete', flex: 1)
+                            //       // _buildHeaderCell('Action', flex: 1),
+                            //     ],
+                            //   ),
+                            //
+                            //
+                            //
+                            // ),
+                            // Container(
+                            //   decoration: BoxDecoration(
+                            //     color: Colors.white,
+                            //     border: const Border(
+                            //       bottom: BorderSide(color: Colors.black),
+                            //     ),
+                            //   ),
+                            //   child: Row(
+                            //     children: [
+                            //       _buildHeaderCell('Date', flex: 1),
+                            //       _buildHeaderCell('Account Name', flex: 2),
+                            //       _buildHeaderCell('Amount', flex: 1),
+                            //
+                            //       _actionButton('Edit/delete', flex: 1)
+                            //
+                            //       // _buildHeaderCell('Action', flex: 1),
+                            //     ],
+                            //   ),
+                            //
+                            // ),
                           ],
                         ),
                     ),
@@ -631,6 +631,29 @@ class _ReceiptsPageState extends State<Ledgercash> {
         ],
       ),
 
+    );
+  }
+
+
+  Widget _actionButton(String text, {required int flex}) {
+    return Expanded(
+      flex: flex,
+      child: Container(
+        height: 50,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.all(4.0),
+        decoration: BoxDecoration(
+          border: Border(right: BorderSide(color: Colors.black,)),
+        ),
+        child: TextButton(onPressed: (){
+
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => Ledgercash()),
+          );
+
+        }, child: Text("Edit/Delete",textAlign: TextAlign.center,style: TextStyle(fontWeight: FontWeight.bold,color: Colors.red,fontSize: 10),)),
+      ),
     );
   }
 

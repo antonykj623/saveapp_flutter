@@ -1,221 +1,114 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:new_project_2025/view/home/widget/Receipt/Receipt_class/receipt_class.dart';
-import 'package:new_project_2025/view/home/widget/Receipt/receipt_database/receipt_database.dart'
-    show DatabaseHelper1;
 import 'package:new_project_2025/view/home/widget/payment_page/Month_date/Moth_datepage.dart';
+import 'add_payment/add_paymet.dart';
+import 'databasehelper/data_base_helper.dart';
+import 'payment_class/payment_class.dart';
 
-// import 'package:new_project_2025/view/home/widget/Receipt/Receipt_class/receipt_class.dart';
-// import 'package:new_project_2025/view/home/widget/Receipt/add_receipt_voucher_screen/add_receipt_vocher_screen.dart';
-// import 'package:new_project_2025/view/home/widget/Receipt/receipt_database/receipt_database.dart';
-// import 'package:new_project_2025/view/home/widget/payment_page/Month_date/Moth_datepage.dart';
-
-void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class PaymentsPage extends StatefulWidget {
+  const PaymentsPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Receipt Tracker',
-      theme: ThemeData(
-        primarySwatch: Colors.teal,
-        colorScheme: ColorScheme.fromSwatch(
-          primarySwatch: Colors.teal,
-          accentColor: Colors.pink,
-        ),
-      ),
-      home: const ReceiptPage(),
-    );
-  }
+  State<PaymentsPage> createState() => _PaymentsPageState();
 }
 
-class ReceiptPage extends StatefulWidget {
-  const ReceiptPage({super.key});
-
-  @override
-  State<ReceiptPage> createState() => _ReceiptsPageState();
-}
-
-class _ReceiptsPageState extends State<ReceiptPage> {
+class _PaymentsPageState extends State<PaymentsPage> {
   String selectedYearMonth = DateFormat('yyyy-MM').format(DateTime.now());
-  DateTime selected_startDate = DateTime.now();
-  DateTime selected_endDate = DateTime.now();
-
-  List<Receipt> receipts = [];
+  List<Payment> payments = [];
   double total = 0;
+  final ScrollController _horizontalScrollController = ScrollController();
   final ScrollController _verticalScrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    _loadReceipts();
+    _loadPayments();
   }
 
   @override
   void dispose() {
+    _horizontalScrollController.dispose();
     _verticalScrollController.dispose();
     super.dispose();
   }
 
-  void _loadReceipts() async {
-    // final receiptsList = await DatabaseHelper1.instance.getReceiptsByMonth(
-    //   DateFormat('yyyy-MM-dd').format(selectedDate),
-    // );
-    // setState(() {
-    //   receipts = receiptsList;
-    //   total = receipts.fold(0, (sum, receipt) => sum + receipt.amount);
-    // });
-  }
-
-  void showMonthYearPicker(bool isStart) {
-    showDatePicker(
-      context: context,
-
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    ).then((pickedDate) {
-      if (pickedDate != null) {
-        setState(() {
-          if (isStart) {
-            selected_startDate = pickedDate;
-          } else {
-            selected_endDate = pickedDate;
-          }
-
-          // _loadReceipts();
-        });
-      }
+  void _loadPayments() async {
+    final paymentsList = await DatabaseHelper.instance.getPaymentsByMonth(
+      selectedYearMonth,
+    );
+    setState(() {
+      payments = paymentsList;
+      total = payments.fold(0, (sum, payment) => sum + payment.amount);
     });
   }
 
-  selectDate(bool isStart) {
-    showDatePicker(
-      context: context,
+  void _showMonthYearPicker() {
+    final yearMonthParts = selectedYearMonth.split('-');
+    final initialYear = int.parse(yearMonthParts[0]);
+    final initialMonth = int.parse(yearMonthParts[1]);
 
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    ).then((pickedDate) {
-      if (pickedDate != null) {
-        setState(() {
-          selectedYearMonth = DateFormat('yyyy-MM').format(pickedDate);
-          if (isStart) {
-            selected_startDate = pickedDate;
-          } else {
-            selected_endDate = pickedDate;
-          }
-          _loadReceipts();
-        });
-      }
-    });
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            content: MonthYearPicker(
+              initialMonth: initialMonth,
+              initialYear: initialYear,
+              onDateSelected: (int month, int year) {
+                setState(() {
+                  selectedYearMonth =
+                      '$year-${month.toString().padLeft(2, '0')}';
+                  _loadPayments();
+                });
+              },
+            ),
+          ),
+    );
   }
 
   String _getDisplayMonth() {
     final parts = selectedYearMonth.split('-');
     final year = parts[0];
     final month = int.parse(parts[1]);
-    final monthName = DateFormat(
-      'MMMM',
-    ).format(DateTime(int.parse(year), month));
-    return '$monthName $year';
-  }
-
-  String _getDisplayStartDate() {
-    return DateFormat('dd/MM/yyyy').format(selected_startDate);
-  }
-
-  String _getDisplayEndDate() {
-    return DateFormat('dd/MM/yyyy').format(selected_endDate);
+    final monthName = DateFormat('MMMM').format(DateTime(2022, month));
+    return '$monthName/$year';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.teal,
+        actions: [],
+        title: const Text('Payments'),
         leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
           onPressed: () {
             Navigator.pop(context);
           },
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
         ),
-        title: const Text('Cash/Bank', style: TextStyle(color: Colors.white)),
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(10.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: <Widget>[
-                 Container(
-                  width: 180,
-                  height: 60,
-                  child: InkWell(
-                    onTap: () {
-                      selectDate(true);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.black),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            _getDisplayStartDate(),
-                            style: const TextStyle(fontSize: 18),
-                          ),
-                          const Icon(Icons.calendar_today),
-                        ],
-                      ),
-                    ),
+          InkWell(
+            onTap: _showMonthYearPicker,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              margin: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _getDisplayMonth(),
+                    style: const TextStyle(fontSize: 18),
                   ),
-                ),
-                Container(
-                  width: 180,
-                  height: 60,
-                  child: InkWell(
-                    onTap: () {
-                      selectDate(false);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.black),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            _getDisplayEndDate(),
-                            style: const TextStyle(fontSize: 18),
-                          ),
-                          const Icon(Icons.calendar_today),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+                  const Icon(Icons.calendar_today),
+                ],
+              ),
             ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.teal,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () {
-              _loadReceipts(); // Reload receipts based on current selections
-            },
-            child: const Text("Search"),
           ),
           Expanded(
             child: Container(
@@ -242,17 +135,18 @@ class _ReceiptsPageState extends State<ReceiptPage> {
                       ],
                     ),
                   ),
+
                   Expanded(
                     child:
-                        receipts.isEmpty
+                        payments.isEmpty
                             ? const Center(
-                              child: Text('No receipts for this month'),
+                              child: Text('No payments for this month'),
                             )
                             : ListView.builder(
                               controller: _verticalScrollController,
-                              itemCount: receipts.length,
+                              itemCount: payments.length,
                               itemBuilder: (context, index) {
-                                final receipt = receipts[index];
+                                final payment = payments[index];
                                 return Container(
                                   decoration: BoxDecoration(
                                     border: Border(
@@ -264,23 +158,23 @@ class _ReceiptsPageState extends State<ReceiptPage> {
                                   child: Row(
                                     children: [
                                       _buildDataCell(
-                                        DateFormat('dd/M/yyyy').format(
+                                        DateFormat('dd/MM/yyyy').format(
                                           DateFormat(
                                             'yyyy-MM-dd',
-                                          ).parse(receipt.date),
+                                          ).parse(payment.date),
                                         ),
                                         flex: 1,
                                       ),
                                       _buildDataCell(
-                                        receipt.accountName,
+                                        payment.accountName,
                                         flex: 2,
                                       ),
                                       _buildDataCell(
-                                        receipt.amount.toString(),
+                                        payment.amount.toString(),
                                         flex: 1,
                                       ),
                                       _buildDataCell(
-                                        receipt.paymentMode,
+                                        payment.paymentMode,
                                         flex: 1,
                                       ),
                                       Expanded(
@@ -305,15 +199,24 @@ class _ReceiptsPageState extends State<ReceiptPage> {
                                                               'Edit',
                                                             ),
                                                             onTap: () {
-                                                              // Navigator.pop(context);
-                                                              // Navigator.push(
-                                                              //   context,
-                                                              //   MaterialPageRoute(
-                                                              //     builder: (context) => AddReceiptVoucher(
-                                                              //       receipt: receipt,
-                                                              //     ),
-                                                              //   ),
-                                                              // ).then((_) => _loadReceipts());
+                                                              Navigator.pop(
+                                                                context,
+                                                              );
+                                                              Navigator.push(
+                                                                context,
+                                                                MaterialPageRoute(
+                                                                  builder:
+                                                                      (
+                                                                        context,
+                                                                      ) => AddPaymentVoucherPage(
+                                                                        payment:
+                                                                            payment,
+                                                                      ),
+                                                                ),
+                                                              ).then(
+                                                                (_) =>
+                                                                    _loadPayments(),
+                                                              );
                                                             },
                                                           ),
                                                           ListTile(
@@ -321,12 +224,12 @@ class _ReceiptsPageState extends State<ReceiptPage> {
                                                               'Delete',
                                                             ),
                                                             onTap: () async {
-                                                              await DatabaseHelper1
+                                                              await DatabaseHelper
                                                                   .instance
-                                                                  .deleteReceipt(
-                                                                    receipt.id!,
+                                                                  .deletePayment(
+                                                                    payment.id!,
                                                                   );
-                                                              _loadReceipts();
+                                                              _loadPayments();
                                                               if (context
                                                                   .mounted)
                                                                 Navigator.pop(
@@ -340,9 +243,9 @@ class _ReceiptsPageState extends State<ReceiptPage> {
                                               );
                                             },
                                             child: const Text(
-                                              'View',
+                                              'Edit/Delete',
                                               style: TextStyle(
-                                                color: Colors.green,
+                                                color: Colors.red,
                                               ),
                                             ),
                                           ),
@@ -371,12 +274,12 @@ class _ReceiptsPageState extends State<ReceiptPage> {
         backgroundColor: Theme.of(context).colorScheme.secondary,
         child: const Icon(Icons.add, color: Colors.white),
         onPressed: () {
-          // Navigator.push(
-          //   context,
-          //   MaterialPageRoute(
-          //     builder: (context) => const AddReceiptVoucher(),
-          //   ),
-          // ).then((_) => _loadReceipts());
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AddPaymentVoucherPage(),
+            ),
+          ).then((_) => _loadPayments());
         },
       ),
     );

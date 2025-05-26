@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../app/Modules/accounts/addaccount.dart';
-import '../app/Modules/accounts/editaccountdetails.dart';
-import '../app/Modules/accounts/global.dart' as global;
-import '../services/dbhelper/dbhelper.dart';
+import '../../app/Modules/accounts/addaccount.dart';
+import '../../app/Modules/accounts/editaccountdetails.dart';
+import '../../app/Modules/accounts/global.dart' as global;
+import '../../services/dbhelper/dbhelper.dart';
 import 'Add_Acount.dart';
 
 final dbhelper = DatabaseHelper.instance;
@@ -27,14 +27,14 @@ void queryall() async{
 }
 List<Map<String, dynamic>> accItems = [{"accountname":"s"},{"accountname":"s1"}];
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class Accountsetup extends StatefulWidget {
+  const Accountsetup({super.key});
 
   @override
-  State<HomeScreen> createState() => _Home_ScreenState();
+  State<Accountsetup> createState() => _Home_ScreenState();
 }
 List<Map<String, dynamic>> _foundUsers = [];
-class _Home_ScreenState extends State<HomeScreen> {
+class _Home_ScreenState extends State<Accountsetup> {
   @override
   initState() {
     // at the beginning, all users are shown

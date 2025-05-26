@@ -4,8 +4,8 @@ import 'package:intl/intl.dart';
 import '../../../../../model/receipt.dart';
 import '../../../../../services/dbhelper/DatabaseHelper.dart';
 import '../../../../../services/dbhelper/dbhelper.dart';
-import '../../../../../view_model/cashBank.dart';
-import '../../../../../view_model/cashandBank.dart';
+import '../../../../../view_model/CashBank/cashBank.dart';
+
 import 'monthYearPicker.dart';
 // import 'package:new_project_2025/view/home/widget/Receipt/Receipt_class/receipt_class.dart';
 // import 'package:new_project_2025/view/home/widget/Receipt/add_receipt_voucher_screen/add_receipt_vocher_screen.dart';
@@ -32,19 +32,19 @@ class MyApp extends StatelessWidget {
           accentColor: Colors.pink,
         ),
       ),
-      home: const ReceiptPage(),
+      home: const CashBank(),
     );
   }
 }
 
-class ReceiptPage extends StatefulWidget {
-  const ReceiptPage({super.key});
+class CashBank extends StatefulWidget {
+  const CashBank({super.key});
 
   @override
-  State<ReceiptPage> createState() => _ReceiptsPageState();
+  State<CashBank> createState() => _ReceiptsPageState();
 }
 
-class _ReceiptsPageState extends State<ReceiptPage> {
+class _ReceiptsPageState extends State<CashBank> {
   String selectedYearMonth = DateFormat('yyyy-MM').format(DateTime.now());
   DateTime selected_startDate = DateTime.now();
   DateTime selected_endDate = DateTime.now();

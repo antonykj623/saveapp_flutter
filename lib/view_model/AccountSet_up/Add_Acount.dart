@@ -6,7 +6,7 @@ import 'package:path/path.dart';
 import 'package:quickalert/models/quickalert_type.dart';
 import 'package:quickalert/widgets/quickalert_dialog.dart';
 
-import '../services/dbhelper/dbhelper.dart';
+import '../../services/dbhelper/dbhelper.dart';
 
 
 
@@ -152,7 +152,7 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
           height: 500,
           // height: MediaQuery.of(context).size.height,
           //   width: MediaQuery.of(context).size.width,
-          color: const Color.fromARGB(255, 255, 255, 255),
+         // color: const Color.fromARGB(255, 255, 255, 255),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -193,7 +193,7 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
               const SizedBox(height: 20),
 
            Container(
-             decoration: ShapeDecoration(shape: BeveledRectangleBorder(side: BorderSide(width: 1.0,style: BorderStyle.solid),borderRadius: BorderRadius.all(Radius.circular(0)))
+             decoration: ShapeDecoration(shape: BeveledRectangleBorder(side: BorderSide(width: .5,style: BorderStyle.solid),borderRadius: BorderRadius.all(Radius.circular(0)))
              ),
 
 
@@ -236,7 +236,7 @@ SizedBox(height: 20),
                 controller:openingbalance,
 
                 decoration: InputDecoration(
-                  hintStyle: TextStyle(color: Colors.black),
+                  hintStyle: TextStyle(color: Colors.black,fontWeight: FontWeight.bold),
 
 
                   //   hintStyle: (TextStyle(color: Colors.white)),
@@ -274,7 +274,7 @@ SizedBox(height: 20),
     horizontal: 20.0, vertical: 5.0),
 
       border:
-      OutlineInputBorder(borderRadius: BorderRadius.circular(5.0)),
+      OutlineInputBorder(borderRadius: BorderRadius.circular(3.0)),
     ),
       child:
               DropdownButton(
