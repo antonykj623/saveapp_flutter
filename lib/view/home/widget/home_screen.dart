@@ -1,10 +1,15 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:new_project_2025/view/home/widget/Bank/bank_page/Bank_page.dart';
+import 'package:new_project_2025/view/home/widget/Notification_page.dart';
 import 'package:new_project_2025/view/home/widget/Receipt/Receipt_screen.dart';
 import 'package:new_project_2025/view/home/widget/budget_page/Main_budget_screen.dart';
+import 'package:new_project_2025/view/home/widget/investment/investmentList_pag/Investment_List_screen.dart';
 import 'package:new_project_2025/view/home/widget/payment_page/payhment_page.dart';
+import 'package:new_project_2025/view/home/widget/setting_page/setting_page.dart'
+    show SettingsScreen;
 import 'package:new_project_2025/view/home/widget/wallet_page/wallet_page.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
@@ -214,7 +219,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                 tooltipBehavior: TooltipBehavior(enable: true),
                 series: <CartesianSeries<FinancialData, String>>[
                   ColumnSeries<FinancialData, String>(
-                    name: 'Income',
+                    name: 'Inccome',
                     dataSource: getChartData(),
                     xValueMapper: (FinancialData data, _) => data.month,
                     yValueMapper: (FinancialData data, _) => data.income,
@@ -365,11 +370,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       ),
       child: Row(
         children: [
-          // Replace Image.asset with a placeholder or actual asset
-          const SizedBox(
-            width: 50,
-            height: 50,
-          ), // Placeholder for missing asset
+          const SizedBox(width: 50, height: 50),
           const SizedBox(width: 10),
           const Text(
             'My Personal App',
@@ -389,9 +390,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const NotificationScreen(),
-                ),
+                MaterialPageRoute(builder: (context) => NotificationScreen()),
               );
             },
           ),
@@ -400,7 +399,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                MaterialPageRoute(builder: (context) => SettingsScreen()),
               );
             },
           ),
@@ -787,7 +786,11 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       icon: Icons.trending_up,
       label: 'Investment',
       iconColor: Colors.teal,
-      onPressed: (BuildContext context) => debugPrint('Investment tapped'),
+      onPressed:
+          (BuildContext context) => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => InvestmentListScreen()),
+          ),
     ),
     CategoryItem(
       icon: Icons.lock,
@@ -910,23 +913,23 @@ class ReportScreen extends StatelessWidget {
   }
 }
 
-class NotificationScreen extends StatelessWidget {
-  const NotificationScreen({Key? key}) : super(key: key);
+// class NotificationScreen extends StatelessWidget {
+//   const NotificationScreen({Key? key}) : super(key: key);
 
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: Text('Notification Screen')));
-  }
-}
+//   @override
+//   Widget build(BuildContext context) {
+//     return const Scaffold(body: Center(child: Text('Notification Screen')));
+//   }
+// }
 
-class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({Key? key}) : super(key: key);
+// class SettingsScreen extends StatelessWidget {
+//   const SettingsScreen({Key? key}) : super(key: key);
 
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: Text('Settings Screen')));
-  }
-}
+//   @override
+//   Widget build(BuildContext context) {
+//     return const Scaffold(body: Center(child: Text('Settings Screen')));
+//   }
+// }
 
 class MoreScreen extends StatelessWidget {
   const MoreScreen({Key? key}) : super(key: key);
