@@ -1,22 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-<<<<<<< HEAD
+
 import 'package:new_project_2025/view/home/widget/CashBank/Receipt_class/receipt_class.dart';
-=======
+
 import 'package:new_project_2025/view/home/widget/Bank/bank_page/Bank_page.dart';
->>>>>>> d282c1e6c280ee9b7ac730813747eed25431bbbc
+
 import 'package:new_project_2025/view/home/widget/Receipt/Receipt_screen.dart';
 import 'package:new_project_2025/view/home/widget/budget_page/Main_budget_screen.dart';
 import 'package:new_project_2025/view/home/widget/payment_page/payhment_page.dart';
 import 'package:new_project_2025/view/home/widget/wallet_page/wallet_page.dart';
 import 'package:new_project_2025/view_model/Billing/blling.dart';
 import 'package:new_project_2025/view_model/CashBank/cashBank.dart';
+import 'package:new_project_2025/view_model/investment11/investment.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
 import '../../../view_model/AccountSet_up/accountsetup.dart';
+import '../../../view_model/investment11/addinvestment.dart';
 import '../../../view_model/Journal/journal.dart';
 import '../../../view_model/Liabilities/listofLiabilities.dart';
+import 'investment/model_class1/model_class.dart';
 
 void main() {
   runApp(const MyApp());
@@ -740,18 +743,13 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       icon: Icons.account_balance_wallet,
       label: 'Wallet',
       iconColor: Colors.teal,
-<<<<<<< HEAD
       onPressed: (BuildContext context) => Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => WalletPage()),
       ),
-=======
-      onPressed:
-          (BuildContext context) => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => WalletPage()),
-          ),
->>>>>>> d282c1e6c280ee9b7ac730813747eed25431bbbc
+
+
+
     ),
     CategoryItem(
       icon: Icons.business_center,
@@ -816,7 +814,10 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       icon: Icons.trending_up,
       label: 'Investment',
       iconColor: Colors.teal,
-      onPressed: (BuildContext context) => debugPrint('Investment tapped'),
+      onPressed: (BuildContext context) =>  Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => Investment()),
+      ),
     ),
     CategoryItem(
       icon: Icons.lock,

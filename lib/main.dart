@@ -23,7 +23,7 @@ import 'package:new_project_2025/view_model/CashBank/ledgerCashtable.dart';
 
 
 void main() {
-<<<<<<< HEAD
+
 
   runApp((MaterialApp(home: Ledgercash(),)));
   // runApp(
@@ -45,9 +45,9 @@ void main() {
     theme: ThemeData(primarySwatch: Colors.teal),
   ));
 
-=======
+
   runApp(const MyApp());
->>>>>>> d282c1e6c280ee9b7ac730813747eed25431bbbc
+
 }
 
 class MyApp extends StatelessWidget {

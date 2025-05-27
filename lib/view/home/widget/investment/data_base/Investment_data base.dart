@@ -49,25 +49,25 @@ class DatabaseHelper {
     ''');
   }
 
-  Future<int> insertInvestment(Investment investment) async {
+  Future<int> insertInvestment(InvestmentAsset investment) async {
     final db = await database;
     return await db.insert('investments', investment.toMap());
   }
 
-  Future<List<Investment>> getAllInvestments() async {
+  Future<List<InvestmentAsset>> getAllInvestments() async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query('investments');
     
-    List<Investment> investments = [];
+    List<InvestmentAsset> investments = [];
     for (var map in maps) {
-      Investment investment = Investment.fromMap(map);
+      InvestmentAsset investment = InvestmentAsset.fromMap(map);
       investment.reminderDates = await getReminderDatesForInvestment(investment.id!);
       investments.add(investment);
     }
     return investments;
   }
 
-  Future<Investment?> getInvestment(int id) async {
+  Future<InvestmentAsset?> getInvestment(int id) async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       'investments',
@@ -76,14 +76,14 @@ class DatabaseHelper {
     );
 
     if (maps.isNotEmpty) {
-      Investment investment = Investment.fromMap(maps.first);
+      InvestmentAsset investment = InvestmentAsset.fromMap(maps.first);
       investment.reminderDates = await getReminderDatesForInvestment(id);
       return investment;
     }
     return null;
   }
 
-  Future<int> updateInvestment(Investment investment) async {
+  Future<int> updateInvestment(InvestmentAsset investment) async {
     final db = await database;
     return await db.update(
       'investments',

@@ -1,4 +1,4 @@
-class Investment {
+class InvestmentAsset {
   int? id;
   String accountName;
   double amount;
@@ -7,7 +7,7 @@ class Investment {
   String? remarks;
   String? documentPath;
 
-  Investment({
+  InvestmentAsset({
     this.id,
     required this.accountName,
     required this.amount,
@@ -28,8 +28,8 @@ class Investment {
     };
   }
 
-  factory Investment.fromMap(Map<String, dynamic> map) {
-    return Investment(
+  factory InvestmentAsset.fromMap(Map<String, dynamic> map) {
+    return InvestmentAsset(
       id: map['id'],
       accountName: map['accountName'],
       amount: map['amount'],
