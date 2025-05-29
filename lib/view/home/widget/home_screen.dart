@@ -16,6 +16,8 @@ import 'package:new_project_2025/view_model/investment11/investment.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
 import '../../../view_model/AccountSet_up/accountsetup.dart';
+import '../../../view_model/DocumentManager/documentManager.dart';
+import '../../../view_model/Task/task.dart';
 import '../../../view_model/investment11/addinvestment.dart';
 import '../../../view_model/Journal/journal.dart';
 import '../../../view_model/Liabilities/listofLiabilities.dart';
@@ -831,7 +833,10 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       label: 'Document Manager',
       iconColor: Colors.teal,
       onPressed:
-          (BuildContext context) => debugPrint('Document Manager tapped'),
+          (BuildContext context) => Navigator.push(
+  context,
+  MaterialPageRoute(builder: (context) => Documentmanager()),
+  ),
     ),
     CategoryItem(
       icon: Icons.account_balance_wallet,
@@ -861,7 +866,10 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       icon: Icons.task_alt,
       label: 'Task',
       iconColor: Colors.teal,
-      onPressed: (BuildContext context) => debugPrint('Task tapped'),
+      onPressed: (BuildContext context) => Navigator.push(
+  context,
+  MaterialPageRoute(builder: (context) => Tasks()),
+  ),
     ),
     CategoryItem(
       icon: Icons.book,

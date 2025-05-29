@@ -1,4 +1,4 @@
-import 'dart:ffi';
+
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -64,8 +64,7 @@ final TextEditingController emiamount = TextEditingController();
 final TextEditingController emiperiod = TextEditingController();
 var emi = 0;
 var dropdownvalu = 'Monthly';
-var dropdownvalu1 = 'My Savings';0
-//var dropdownvalu1 = 'Non EMI';
+var dropdownvalu1 = 'My Savings';
 //var dropdownvalu2 = 'Debit';
 var id = ["How to Use", "Help on Whatsapp", "Mail Us", "About Us", "Privasy Policy","Terms and Conditions For Use","FeedBack","Share"];
 DateTime selected_startDate = DateTime.now();
