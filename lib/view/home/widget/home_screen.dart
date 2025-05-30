@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:carousel_slider/carousel_slider.dart';
@@ -7,6 +6,7 @@ import 'package:new_project_2025/view/home/widget/Notification_page.dart';
 import 'package:new_project_2025/view/home/widget/Receipt/Receipt_screen.dart';
 import 'package:new_project_2025/view/home/widget/budget_page/Main_budget_screen.dart';
 import 'package:new_project_2025/view/home/widget/investment/investmentList_pag/Investment_List_screen.dart';
+import 'package:new_project_2025/view/home/widget/password_manger/password_list_screen/password_list_screens.dart';
 import 'package:new_project_2025/view/home/widget/payment_page/payhment_page.dart';
 import 'package:new_project_2025/view/home/widget/setting_page/setting_page.dart'
     show SettingsScreen;
@@ -797,7 +797,10 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       label: 'Password Manager',
       iconColor: Colors.teal,
       onPressed:
-          (BuildContext context) => debugPrint('Password Manager tapped'),
+          (BuildContext context) => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => PasswordListPage()),
+          ),
     ),
     CategoryItem(
       icon: Icons.description,

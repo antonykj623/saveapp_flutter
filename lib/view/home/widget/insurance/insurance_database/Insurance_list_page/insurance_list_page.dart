@@ -96,6 +96,14 @@ class _InsuranceListPageState extends State<InsuranceListPage> {
                         final insurance = _insurances[index];
                         return Card(
                           margin: const EdgeInsets.only(bottom: 16.0),
+                          shape: RoundedRectangleBorder(
+                            side: BorderSide(
+                              color: Colors.blueGrey.shade400,
+                              width: 1.5,
+                            ),
+                            borderRadius: BorderRadius.circular(8.0),
+                          ),
+
                           child: Padding(
                             padding: const EdgeInsets.all(16.0),
                             child: Column(
