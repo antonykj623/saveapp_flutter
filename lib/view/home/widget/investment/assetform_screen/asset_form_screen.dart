@@ -5,7 +5,7 @@ import 'package:new_project_2025/view/home/widget/investment/documentUpload_scre
 import 'package:new_project_2025/view/home/widget/investment/model_class1/model_class.dart';
 
 class AssetFormScreen extends StatefulWidget {
-  final Investment? investment;
+  final InvestmentAsset? investment;
 
   const AssetFormScreen({Key? key, this.investment}) : super(key: key);
 
@@ -402,7 +402,7 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
 
   void _saveInvestment() async {
     if (_formKey.currentState!.validate()) {
-      final investment = Investment(
+      final investment = InvestmentAsset(
         id: widget.investment?.id,
         accountName: _accountNameController.text,
         amount: double.parse(_amountController.text),

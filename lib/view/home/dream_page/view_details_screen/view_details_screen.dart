@@ -2,8 +2,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:intl/number_symbols_data.dart';
 import 'package:new_project_2025/view/home/dream_page/add_dream_screen/add_dream_screen.dart';
 import 'package:new_project_2025/view/home/dream_page/model_dream_page/model_dream.dart';
+import 'package:new_project_2025/view/home/dream_page/view_miles_stone/view_mile_stone.dart';
 
 class ViewDetailsScreen extends StatefulWidget {
   final Dream dream;
@@ -181,11 +183,16 @@ class _ViewDetailsScreenState extends State<ViewDetailsScreen> {
               ),
             ),
             SizedBox(height: 12),
-            Container(
+          Container(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  // View Milestone functionality
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ViewMilestonesPage(),
+                    ),
+                  );
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.grey[300],

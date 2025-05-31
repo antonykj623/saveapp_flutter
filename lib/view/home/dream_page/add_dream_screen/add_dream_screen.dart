@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+import 'package:new_project_2025/view/home/dream_page/mile_stone_screen/miles_stone_screen.dart';
 import 'package:new_project_2025/view/home/dream_page/model_dream_page/model_dream.dart';
 
 class AddDreamScreen extends StatefulWidget {
@@ -201,12 +202,22 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
                   border: Border.all(color: Colors.grey),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Add MileStone'),
-                    Icon(Icons.keyboard_arrow_down),
-                  ],
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => AddMileStonePage(),
+                      ),
+                    );
+                  },
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Add MileStone'),
+                      Icon(Icons.keyboard_arrow_down),
+                    ],
+                  ),
                 ),
               ),
               SizedBox(height: 16),
@@ -636,4 +647,4 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
       });
     }
   }
-}    
+}

@@ -14,7 +14,7 @@ class InvestmentListScreen extends StatefulWidget {
 
 class _InvestmentListScreenState extends State<InvestmentListScreen> {
   final DatabaseHelper _databaseHelper = DatabaseHelper();
-  List<Investment> _investments = [];
+  List<InvestmentAsset> _investments = [];
   bool _isLoading = true;
 
   @override

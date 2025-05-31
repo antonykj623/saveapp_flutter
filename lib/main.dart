@@ -16,8 +16,38 @@ import 'package:new_project_2025/view/home/widget/investment/investmentList_pag/
 // }
 
 
+
+import 'package:new_project_2025/view_model/CashBank/ledgerCashtable.dart';
+
+
+
+
 void main() {
+
+
+  runApp((MaterialApp(home: Ledgercash(),)));
+  // runApp(
+  //
+  //   GetMaterialApp(
+  //   debugShowCheckedModeBanner: false,
+  //   title: "SAVE App",
+  //   initialRoute: AppRoutes.login,
+  //   getPages: AppPages.pages,
+  //   theme: ThemeData(primarySwatch: Colors.teal),
+  // ));
+
+  runApp(
+    GetMaterialApp(  
+    debugShowCheckedModeBanner: false,
+    title: "SAVE App",
+    initialRoute: AppRoutes.login,
+    getPages: AppPages.pages,
+    theme: ThemeData(primarySwatch: Colors.teal),
+  ));
+
+
   runApp(const MyApp());
+
 }
 
 class MyApp extends StatelessWidget {

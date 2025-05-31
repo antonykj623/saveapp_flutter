@@ -4,7 +4,7 @@ import 'package:new_project_2025/view/home/widget/investment/data_base/Investmen
 import 'package:new_project_2025/view/home/widget/investment/model_class1/model_class.dart';
 
 class AssetDetailScreen extends StatefulWidget {
-  final Investment investment;
+  final InvestmentAsset investment;
 
   const AssetDetailScreen({Key? key, required this.investment}) : super(key: key);
 
