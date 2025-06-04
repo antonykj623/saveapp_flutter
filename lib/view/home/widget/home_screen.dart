@@ -23,7 +23,11 @@ import 'package:syncfusion_flutter_charts/charts.dart';
 
 import '../../../view_model/AccountSet_up/accountsetup.dart';
 import '../../../view_model/DocumentManager/documentManager.dart';
+import '../../../view_model/My Diary/diary.dart';
+import '../../../view_model/VisitingCard/test.dart';
 import '../../../view_model/Task/task.dart';
+import '../../../view_model/VisitingCard/visitingcard.dart';
+import '../../../view_model/VisitingCard/your businessCard.dart';
 import '../../../view_model/investment11/addinvestment.dart';
 import '../../../view_model/Journal/journal.dart';
 import '../../../view_model/Liabilities/listofLiabilities.dart';
@@ -883,7 +887,10 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       icon: Icons.book,
       label: 'Diary',
       iconColor: Colors.teal,
-      onPressed: (BuildContext context) => debugPrint('Diary tapped'),
+      onPressed: (BuildContext context) =>Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => Diary()),
+      ),
     ),
     CategoryItem(
       icon: Icons.add_circle_outline,
@@ -914,7 +921,10 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       icon: Icons.contact_mail,
       label: 'Visiting Card',
       iconColor: Colors.teal,
-      onPressed: (BuildContext context) => debugPrint('Visiting Card tapped'),
+      onPressed: (BuildContext context) => Navigator.push(
+  context,
+  MaterialPageRoute(builder: (context) => AddVisitingCard()),
+  ),
     ),
     CategoryItem(
       icon: Icons.link,
@@ -933,6 +943,9 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
           ),
     ),
   ];
+}
+
+class Test {
 }
 
 class CategoryItem {

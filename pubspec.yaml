@@ -48,7 +48,7 @@ dependencies:
   intl: ^0.20.2 
   flutter_pdfview: ^1.4.0+1
   printing: ^5.14.2
-  share_plus:
+  share_plus: ^11.0.0
   flutter_lints: ^5.0.0  
   # share_plus: ^10.1.4
   # The following adds the Cupertino Icons font to your application.
@@ -88,7 +88,6 @@ flutter:
     - assets/logo.png
     - assets/appbar.png
     - assets/Invoice.jpg
-    - assets/
   
 
   # An image asset can refer to one or more resolution-specific "variants", see
