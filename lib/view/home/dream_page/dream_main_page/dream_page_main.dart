@@ -130,7 +130,7 @@ class _MyDreamScreenState extends State<MyDreamScreen> {
                                 SizedBox(width: 8),
                                 Expanded(
                                   child: LinearProgressIndicator(
-                                    minHeight: 15,
+                                    minHeight: 15 ,
                                     value: dream.progressPercentage / 100,
                                     backgroundColor: Colors.grey[300],
                                     valueColor: AlwaysStoppedAnimation<Color>(

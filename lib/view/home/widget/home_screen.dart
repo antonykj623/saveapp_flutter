@@ -4,8 +4,8 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'package:new_project_2025/view/home/dream_page/dream_main_page/dream_page_main.dart';
 
 import 'package:new_project_2025/view/home/widget/CashBank/Receipt_class/receipt_class.dart';
-
 import 'package:new_project_2025/view/home/widget/Bank/bank_page/Bank_page.dart';
+import 'package:new_project_2025/view/home/widget/Emergency_numbers_screen/Emergency_screen.dart';
 import 'package:new_project_2025/view/home/widget/Notification_page.dart';
 import 'package:new_project_2025/view/home/widget/Receipt/Receipt_screen.dart';
 import 'package:new_project_2025/view/home/widget/budget_page/Main_budget_screen.dart';
@@ -860,7 +860,11 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       icon: Icons.security,
       label: 'Insurance',
       iconColor: Colors.teal,
-      onPressed: (BuildContext context) => Navigator.push(context, MaterialPageRoute(builder: (context)=>InsuranceListPage()))
+      onPressed:
+          (BuildContext context) => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => InsuranceListPage()),
+          ),
     ),
   ];
 
@@ -923,7 +927,10 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       label: 'Emergency Numbers',
       iconColor: Colors.teal,
       onPressed:
-          (BuildContext context) => debugPrint('Emergency Numbers tapped'),
+          (BuildContext context) => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => EmergencyNumbersScreen()),
+          ),
     ),
   ];
 }
