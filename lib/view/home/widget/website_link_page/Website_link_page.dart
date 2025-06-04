@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:new_project_2025/view/home/widget/website_link_page/add_website_link_page.dart';
 import 'package:share_plus/share_plus.dart';
 
 void main() {
-  runApp(MyApp());
+  runApp(MyApp1());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp1 extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -56,7 +55,11 @@ class _WebLinksListPageState extends State<WebLinksListPage> {
         backgroundColor: Colors.teal[600],
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () {},
+          onPressed: () {
+            Navigator.of(
+              context,
+            ).pop(); // Correct: Returns to the previous page
+          },
         ),
         title: Text(
           'Web Links',
@@ -94,6 +97,9 @@ class _WebLinksListPageState extends State<WebLinksListPage> {
                 setState(() {
                   webLinks.add(webLink);
                 });
+                Navigator.pop(
+                  context,
+                ); // Correct: Returns to WebLinksListPage after adding
               },
             ),
       ),
@@ -112,6 +118,9 @@ class _WebLinksListPageState extends State<WebLinksListPage> {
                 setState(() {
                   webLinks[index] = webLink;
                 });
+                Navigator.pop(
+                  context,
+                ); // Correct: Returns to WebLinksListPage after editing
               },
             ),
       ),
@@ -205,7 +214,7 @@ class _WebLinkCardState extends State<WebLinkCard> {
                 TextButton(
                   onPressed: widget.onShare,
                   child: Text(
-                    'Share', 
+                    'Share',
                     style: TextStyle(color: Colors.green[700], fontSize: 16),
                   ),
                 ),
@@ -283,3 +292,169 @@ class _WebLinkCardState extends State<WebLinkCard> {
   }
 }
 
+// Sample implementation of AddEditWebLinkPage
+class AddEditWebLinkPage extends StatefulWidget {
+  final WebLink? webLink;
+  final bool isEdit;
+  final Function(WebLink) onSave;
+
+  AddEditWebLinkPage({this.webLink, this.isEdit = false, required this.onSave});
+
+  @override
+  _AddEditWebLinkPageState createState() => _AddEditWebLinkPageState();
+}
+
+class _AddEditWebLinkPageState extends State<AddEditWebLinkPage> {
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController _websiteLinkController;
+  late TextEditingController _usernameController;
+  late TextEditingController _passwordController;
+  late TextEditingController _descriptionController;
+
+  @override
+  void initState() {
+    super.initState();
+    _websiteLinkController = TextEditingController(
+      text: widget.webLink?.websiteLink ?? '',
+    );
+    _usernameController = TextEditingController(
+      text: widget.webLink?.username ?? '',
+    );
+    _passwordController = TextEditingController(
+      text: widget.webLink?.password ?? '',
+    );
+    _descriptionController = TextEditingController(
+      text: widget.webLink?.description ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _websiteLinkController.dispose();
+    _usernameController.dispose();
+    _passwordController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.teal[600],
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            Navigator.pop(context); // Correct: Returns to WebLinksListPage
+          },
+        ),
+        title: Text(
+          widget.isEdit ? 'Edit Web Link' : 'Add Web Link',
+          style: TextStyle(color: Colors.white, fontSize: 20),
+        ),
+        elevation: 0,
+      ),
+      body: Padding(
+        padding: EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              TextFormField(
+                controller: _websiteLinkController,
+                decoration: InputDecoration(
+                  labelText: 'Website Link',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a website link';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: 16),
+              TextFormField(
+                controller: _usernameController,
+                decoration: InputDecoration(
+                  labelText: 'Username',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a username';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: 16),
+              TextFormField(
+                controller: _passwordController,
+                decoration: InputDecoration(
+                  labelText: 'Password',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a password';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: 16),
+              TextFormField(
+                controller: _descriptionController,
+                decoration: InputDecoration(
+                  labelText: 'Description',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a description';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  OutlinedButton(
+                    onPressed: () {
+                      Navigator.pop(
+                        context,
+                      ); // Correct: Returns to WebLinksListPage
+                    },
+                    child: Text('Cancel'),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: Colors.teal),
+                    ),
+                  ),
+                  SizedBox(width: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      if (_formKey.currentState!.validate()) {
+                        final webLink = WebLink(
+                          websiteLink: _websiteLinkController.text,
+                          username: _usernameController.text,
+                          password: _passwordController.text,
+                          description: _descriptionController.text,
+                        );
+                        widget.onSave(webLink);
+                        // Note: Navigator.pop is handled in the onSave callback
+                      }
+                    },
+                    child: Text(widget.isEdit ? 'Save' : 'Add'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal[600],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

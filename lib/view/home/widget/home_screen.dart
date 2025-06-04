@@ -10,12 +10,15 @@ import 'package:new_project_2025/view/home/widget/Notification_page.dart';
 import 'package:new_project_2025/view/home/widget/Receipt/Receipt_screen.dart';
 import 'package:new_project_2025/view/home/widget/budget_page/Main_budget_screen.dart';
 import 'package:new_project_2025/view/home/widget/insurance/insurance_database/Insurance_list_page/insurance_list_page.dart';
+import 'package:new_project_2025/view/home/widget/investment/Assetdetails_page/assets_details_screen.dart';
+import 'package:new_project_2025/view/home/widget/investment/assetform_screen/asset_form_screen.dart';
 import 'package:new_project_2025/view/home/widget/investment/investmentList_pag/Investment_List_screen.dart';
 import 'package:new_project_2025/view/home/widget/password_manger/password_list_screen/password_list_screens.dart';
 import 'package:new_project_2025/view/home/widget/payment_page/payhment_page.dart';
 import 'package:new_project_2025/view/home/widget/setting_page/setting_page.dart'
     show SettingsScreen;
 import 'package:new_project_2025/view/home/widget/wallet_page/wallet_page.dart';
+import 'package:new_project_2025/view/home/widget/website_link_page/Website_link_page.dart';
 import 'package:new_project_2025/view_model/Billing/blling.dart';
 import 'package:new_project_2025/view_model/CashBank/cashBank.dart';
 import 'package:new_project_2025/view_model/investment11/investment.dart';
@@ -822,7 +825,11 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       icon: Icons.trending_up,
       label: 'Investment',
       iconColor: Colors.teal,
-      onPressed: (BuildContext context) => debugPrint('Investment tapped'),
+      onPressed:
+          (BuildContext context) => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => Investment()),
+          ),
     ),
     CategoryItem(
       icon: Icons.lock,
@@ -848,7 +855,15 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       icon: Icons.account_balance_wallet,
       label: 'Asset',
       iconColor: Colors.teal,
-      onPressed: (BuildContext context) => debugPrint('Asset tapped'),
+      onPressed:(BuildContext context1){
+
+  Navigator.push(
+    context1,
+    MaterialPageRoute(builder: (context) => AssetDetailScreen()),
+  );
+
+
+      }
     ),
     CategoryItem(
       icon: Icons.note_alt,
@@ -887,10 +902,11 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       icon: Icons.book,
       label: 'Diary',
       iconColor: Colors.teal,
-      onPressed: (BuildContext context) =>Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => Diary()),
-      ),
+      onPressed:
+          (BuildContext context) => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => Diary()),
+          ),
     ),
     CategoryItem(
       icon: Icons.add_circle_outline,
@@ -921,16 +937,21 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       icon: Icons.contact_mail,
       label: 'Visiting Card',
       iconColor: Colors.teal,
-      onPressed: (BuildContext context) => Navigator.push(
-  context,
-  MaterialPageRoute(builder: (context) => AddVisitingCard()),
-  ),
+      onPressed:
+          (BuildContext context) => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => AddVisitingCard()),
+          ),
     ),
     CategoryItem(
       icon: Icons.link,
       label: 'Website Links',
       iconColor: Colors.teal,
-      onPressed: (BuildContext context) => debugPrint('Website Links tapped'),
+      onPressed:
+          (BuildContext context) => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => WebLinksListPage()),
+          ),
     ),
     CategoryItem(
       icon: Icons.warning,
@@ -945,8 +966,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
   ];
 }
 
-class Test {
-}
+class Test {}
 
 class CategoryItem {
   final IconData icon;

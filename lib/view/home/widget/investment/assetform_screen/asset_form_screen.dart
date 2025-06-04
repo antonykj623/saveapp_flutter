@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:new_project_2025/view/home/widget/investment/data_base/Investment_data%20base.dart';
 import 'package:new_project_2025/view/home/widget/investment/documentUpload_screen/Doument_uplaod.screen.dart';
 import 'package:new_project_2025/view/home/widget/investment/model_class1/model_class.dart';
 
@@ -14,9 +13,7 @@ class AssetFormScreen extends StatefulWidget {
 }
 
 class _AssetFormScreenState extends State<AssetFormScreen> {
-  final DatabaseHelper _databaseHelper = DatabaseHelper();
   final _formKey = GlobalKey<FormState>();
-
   late TextEditingController _accountNameController;
   late TextEditingController _amountController;
   late TextEditingController _remarksController;
@@ -26,16 +23,10 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
   @override
   void initState() {
     super.initState();
-    _accountNameController = TextEditingController(
-      text: widget.investment?.accountName ?? 'Estate',
-    );
-    _amountController = TextEditingController(
-      text: widget.investment?.amount.toString() ?? '0',
-    );
-    _remarksController = TextEditingController(
-      text: widget.investment?.remarks ?? '',
-    );
-    _selectedDate = widget.investment?.dateOfPurchase;
+    _accountNameController = TextEditingController(text: widget.investment?.accountName ?? 'Estate');
+    _amountController = TextEditingController(text: widget.investment?.amount.toString() ?? '0');
+    _remarksController = TextEditingController(text: widget.investment?.remarks ?? '');
+    _selectedDate = widget.investment?.dateOfPurchase ?? DateTime.now();
     _reminderDates = List.from(widget.investment?.reminderDates ?? []);
   }
 
@@ -49,6 +40,21 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Define the default dropdown items
+    final List<String> defaultAccountTypes = [
+      'Estate',
+      'Stocks',
+      'Bonds',
+      'Real Estate',
+      'Other',
+    ];
+
+    // Include the investment's accountName in the dropdown items if it's not already present
+    final String currentAccountName = _accountNameController.text;
+    final List<String> accountTypes = defaultAccountTypes.contains(currentAccountName)
+        ? defaultAccountTypes
+        : [...defaultAccountTypes, currentAccountName];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Asset', style: TextStyle(color: Colors.white)),
@@ -74,21 +80,14 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
-                      value: _accountNameController.text,
+                      value: accountTypes.contains(currentAccountName) ? currentAccountName : 'Estate',
                       isExpanded: true,
-                      items:
-                          [
-                            'Estate',
-                            'Stocks',
-                            'Bonds',
-                            'Real Estate',
-                            'Other',
-                          ].map((String value) {
-                            return DropdownMenuItem<String>(
-                              value: value,
-                              child: Text(value),
-                            );
-                          }).toList(),
+                      items: accountTypes.map((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value),
+                        );
+                      }).toList(),
                       onChanged: (String? newValue) {
                         setState(() {
                           _accountNameController.text = newValue ?? 'Estate';
@@ -132,10 +131,7 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
                 // Date of Purchase
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16.0,
-                    vertical: 16.0,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     border: Border.all(color: Colors.grey),
@@ -163,10 +159,7 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
                               ? DateFormat('yyyy-MM-dd').format(_selectedDate!)
                               : 'Select Date of Purchase',
                           style: TextStyle(
-                            color:
-                                _selectedDate != null
-                                    ? Colors.black
-                                    : Colors.grey[600],
+                            color: _selectedDate != null ? Colors.black : Colors.grey[600],
                           ),
                         ),
                         const Icon(Icons.calendar_today, color: Colors.grey),
@@ -214,35 +207,26 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 8),
-                        ..._reminderDates
-                            .map(
-                              (reminder) => Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 2.0,
+                        ..._reminderDates.map(
+                          (reminder) => Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 2.0),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(DateFormat('yyyy-MM-dd').format(reminder.date)),
+                                Text(reminder.description),
+                                IconButton(
+                                  icon: const Icon(Icons.close, size: 20),
+                                  onPressed: () {
+                                    setState(() {
+                                      _reminderDates.remove(reminder);
+                                    });
+                                  },
                                 ),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      DateFormat(
-                                        'yyyy-MM-dd',
-                                      ).format(reminder.date),
-                                    ),
-                                    Text(reminder.description),
-                                    IconButton(
-                                      icon: const Icon(Icons.close, size: 20),
-                                      onPressed: () {
-                                        setState(() {
-                                          _reminderDates.remove(reminder);
-                                        });
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            )
-                            .toList(),
+                              ],
+                            ),
+                          ),
+                        ).toList(),
                       ],
                     ),
                   ),
@@ -351,9 +335,7 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
                     lastDate: DateTime(2030),
                   );
                   if (picked != null) {
-                    dateController.text = DateFormat(
-                      'yyyy-MM-dd',
-                    ).format(picked);
+                    dateController.text = DateFormat('yyyy-MM-dd').format(picked);
                   }
                 },
               ),
@@ -376,15 +358,12 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
             ),
             TextButton(
               onPressed: () {
-                if (dateController.text.isNotEmpty &&
-                    descriptionController.text.isNotEmpty) {
+                if (dateController.text.isNotEmpty && descriptionController.text.isNotEmpty) {
                   setState(() {
                     _reminderDates.add(
                       ReminderDate(
                         investmentId: widget.investment?.id ?? 0,
-                        date: DateFormat(
-                          'yyyy-MM-dd',
-                        ).parse(dateController.text),
+                        date: DateFormat('yyyy-MM-dd').parse(dateController.text),
                         description: descriptionController.text,
                       ),
                     );
@@ -400,45 +379,30 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
     );
   }
 
-  void _saveInvestment() async {
+  void _saveInvestment() {
     if (_formKey.currentState!.validate()) {
-      final investment = InvestmentAsset(
-        id: widget.investment?.id,
+      if (_selectedDate == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a date of purchase')),
+        );
+        return;
+      }
+
+      final updatedInvestment = InvestmentAsset(
+        id: widget.investment?.id ?? 0,
         accountName: _accountNameController.text,
         amount: double.parse(_amountController.text),
         dateOfPurchase: _selectedDate,
-        remarks:
-            _remarksController.text.isEmpty ? null : _remarksController.text,
+        remarks: _remarksController.text,
         reminderDates: _reminderDates,
       );
 
-      try {
-        if (widget.investment?.id != null) {
-          await _databaseHelper.updateInvestment(investment);
-          await _databaseHelper.deleteReminderDatesForInvestment(
-            widget.investment!.id!,
-          );
-          for (var reminderDate in _reminderDates) {
-            reminderDate.investmentId = widget.investment!.id!;
-            await _databaseHelper.insertReminderDate(reminderDate);
-          }
-        } else {
-          int investmentId = await _databaseHelper.insertInvestment(investment);
-          for (var reminderDate in _reminderDates) {
-            reminderDate.investmentId = investmentId;
-            await _databaseHelper.insertReminderDate(reminderDate);
-          }
-        }
+      print('Saving investment: $updatedInvestment');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Investment saved successfully')),
+      );
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Investment saved successfully')),
-        );
-        Navigator.pop(context, true);
-      } catch (e) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error saving investment: $e')));
-      }
+      Navigator.pop(context, updatedInvestment);
     }
   }
 }

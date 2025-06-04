@@ -390,7 +390,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
         ],
       ),
     );
-  }
+  } 
 
   Widget _buildCarouselSlider() {
     return Column(
