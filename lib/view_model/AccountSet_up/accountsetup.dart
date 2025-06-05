@@ -6,6 +6,7 @@ import '../../app/Modules/accounts/editaccountdetails.dart';
 import '../../app/Modules/accounts/global.dart' as global;
 import '../../services/dbhelper/dbhelper.dart';
 import 'Add_Acount.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 final dbhelper = DatabaseHelper.instance;
 void queryall() async{
@@ -25,7 +26,7 @@ void queryall() async{
   }
   );
 }
-List<Map<String, dynamic>> accItems = [{"accountname":"s"},{"accountname":"s1"}];
+List<Map<String, dynamic>> accItems = [{"accountname":"Acountname1"},{"accountname":"s1"}];
 
 class Accountsetup extends StatefulWidget {
   const Accountsetup({super.key});
