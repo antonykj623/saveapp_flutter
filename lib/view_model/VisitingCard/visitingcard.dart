@@ -6,8 +6,6 @@ import 'package:image_picker/image_picker.dart';
 import 'addVisitingcard.dart';
 import 'test.dart';
 
-
-
 class VisitingCard extends StatefulWidget {
   const VisitingCard({super.key});
 
@@ -20,7 +18,9 @@ class _VisitingCardFormState extends State<VisitingCard> {
   final ImagePicker _picker = ImagePicker();
 
   Future<void> _pickImage() async {
-    final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+    final XFile? pickedFile = await _picker.pickImage(
+      source: ImageSource.gallery,
+    );
 
     if (pickedFile != null) {
       setState(() {
@@ -30,15 +30,10 @@ class _VisitingCardFormState extends State<VisitingCard> {
   }
 
   final List<dynamic> _images = [
-
     "assets/1.jpg",
 
-
-
     "assets/2.jpg",
-    "assets/3.jpg"
-
-
+    "assets/3.jpg",
   ];
   int _currentIndex = 0;
   final picker = ImagePicker();
@@ -51,20 +46,20 @@ class _VisitingCardFormState extends State<VisitingCard> {
   //     });
   //   }
   // }
-  final TextEditingController  name = TextEditingController();
-  final TextEditingController  email = TextEditingController();
-  final TextEditingController  phone = TextEditingController();
-  final TextEditingController  whatsapnumber = TextEditingController();
-  final TextEditingController  landphone = TextEditingController();
-  final TextEditingController  companyName = TextEditingController();
-  final TextEditingController  desig = TextEditingController();
-  final TextEditingController  website= TextEditingController();
-  final TextEditingController  saveapplink = TextEditingController();
-  final TextEditingController  couponcode = TextEditingController();
-  final TextEditingController  fblink = TextEditingController();
-  final TextEditingController  instalink= TextEditingController();
-  final TextEditingController  youtubelink = TextEditingController();
-  final TextEditingController  companyaddress = TextEditingController();
+  final TextEditingController name = TextEditingController();
+  final TextEditingController email = TextEditingController();
+  final TextEditingController phone = TextEditingController();
+  final TextEditingController whatsapnumber = TextEditingController();
+  final TextEditingController landphone = TextEditingController();
+  final TextEditingController companyName = TextEditingController();
+  final TextEditingController desig = TextEditingController();
+  final TextEditingController website = TextEditingController();
+  final TextEditingController saveapplink = TextEditingController();
+  final TextEditingController couponcode = TextEditingController();
+  final TextEditingController fblink = TextEditingController();
+  final TextEditingController instalink = TextEditingController();
+  final TextEditingController youtubelink = TextEditingController();
+  final TextEditingController companyaddress = TextEditingController();
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -76,16 +71,19 @@ class _VisitingCardFormState extends State<VisitingCard> {
           },
           icon: const Icon(Icons.arrow_back, color: Colors.white),
         ),
-        title: const Text('Add VisitingCard Details', style: TextStyle(color: Colors.white)),
+        title: const Text(
+          'Add VisitingCard Details',
+          style: TextStyle(color: Colors.white),
+        ),
       ),
-      body:SingleChildScrollView(
+      body: SingleChildScrollView(
         padding: EdgeInsets.all(16),
         child: Column(
           children: [
-            Text(
-              'Visiting Card Background',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey),
-            ),
+            // Text(
+            //   'Visiting Card Background',
+            //   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey),
+            // ),
             SizedBox(height: 10),
             Stack(
               children: [
@@ -95,20 +93,22 @@ class _VisitingCardFormState extends State<VisitingCard> {
                     color: Colors.white,
                     height: MediaQuery.of(context).size.height / 4.2,
                     child: CarouselSlider(
-                      items: _images.map((img) {
-                        return Container(
-                          margin: EdgeInsets.all(6.0),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8.0),
-                            image: DecorationImage(
-                              image: img is String
-                                  ? AssetImage(img) as ImageProvider
-                                  : FileImage(img),
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        );
-                      }).toList(),
+                      items:
+                          _images.map((img) {
+                            return Container(
+                              margin: EdgeInsets.all(6.0),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8.0),
+                                image: DecorationImage(
+                                  image:
+                                      img is String
+                                          ? AssetImage(img) as ImageProvider
+                                          : FileImage(img),
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            );
+                          }).toList(),
                       options: CarouselOptions(
                         height: 180.0,
                         enlargeCenterPage: true,
@@ -141,20 +141,19 @@ class _VisitingCardFormState extends State<VisitingCard> {
             ),
             SizedBox(height: 20),
 
-
             TextFormField(
-
               enabled: true,
-              controller:name,
+              controller: name,
 
               decoration: InputDecoration(
-                hintStyle: TextStyle(color: Colors.black,fontWeight: FontWeight.bold),
-
+                hintStyle: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
 
                 //   hintStyle: (TextStyle(color: Colors.white)),
                 enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(
-                      color: Colors.black),
+                  borderSide: BorderSide(color: Colors.black),
                 ),
                 // focusedBorder: OutlineInputBorder(
                 //   borderSide: BorderSide(
@@ -163,15 +162,12 @@ class _VisitingCardFormState extends State<VisitingCard> {
                 // ),
                 hintText: "Name",
 
-
-
-
                 fillColor: Colors.transparent,
                 filled: true,
-                //  prefixIcon: const Icon(Icons.password,color:Colors.white)
 
+                //  prefixIcon: const Icon(Icons.password,color:Colors.white)
               ),
-              validator:(value) {
+              validator: (value) {
                 if (value == "") {
                   return ' Please enter name';
                 }
@@ -179,107 +175,100 @@ class _VisitingCardFormState extends State<VisitingCard> {
               },
               //    obscureText: true,
             ),
-            SizedBox(height: 20,),
-        Row(
-          children: [
-            // First TextField
-            Expanded(
-              child: TextFormField(
+            SizedBox(height: 20),
+            Row(
+              children: [
+                // First TextField
+                Expanded(
+                  child: TextFormField(
+                    enabled: true,
+                    controller: phone,
 
-        enabled: true,
-          controller:phone,
+                    decoration: InputDecoration(
+                      hintStyle: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                      ),
 
-          decoration: InputDecoration(
-            hintStyle: TextStyle(color: Colors.black,fontWeight: FontWeight.bold),
+                      //   hintStyle: (TextStyle(color: Colors.white)),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: Colors.black),
+                      ),
+                      // focusedBorder: OutlineInputBorder(
+                      //   borderSide: BorderSide(
+                      //       color: const Color.fromARGB(255, 254, 255, 255), width: .5),
+                      //
+                      // ),
+                      hintText: "Phone Number",
 
+                      fillColor: Colors.transparent,
+                      filled: true,
 
-            //   hintStyle: (TextStyle(color: Colors.white)),
-            enabledBorder: OutlineInputBorder(
-              borderSide: BorderSide(
-                  color: Colors.black),
-            ),
-            // focusedBorder: OutlineInputBorder(
-            //   borderSide: BorderSide(
-            //       color: const Color.fromARGB(255, 254, 255, 255), width: .5),
-            //
-            // ),
-            hintText: "Phone Number",
-
-
-
-
-            fillColor: Colors.transparent,
-            filled: true,
-            //  prefixIcon: const Icon(Icons.password,color:Colors.white)
-
-          ),
-          validator:(value) {
-            if (value == "") {
-              return ' Please enter Phone';
-            }
-            return null;
-          },
-          //    obscureText: true,
-        ),
-            ),
-            SizedBox(width: 16), // space between the two fields
-            // Second TextField
-            Expanded(
-              child:  TextFormField(
-
-                enabled: true,
-                controller:whatsapnumber,
-
-                decoration: InputDecoration(
-                  hintStyle: TextStyle(color: Colors.black,fontWeight: FontWeight.bold),
-
-
-                  //   hintStyle: (TextStyle(color: Colors.white)),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(
-                        color: Colors.black),
+                      //  prefixIcon: const Icon(Icons.password,color:Colors.white)
+                    ),
+                    validator: (value) {
+                      if (value == "") {
+                        return ' Please enter Phone';
+                      }
+                      return null;
+                    },
+                    //    obscureText: true,
                   ),
-                  // focusedBorder: OutlineInputBorder(
-                  //   borderSide: BorderSide(
-                  //       color: const Color.fromARGB(255, 254, 255, 255), width: .5),
-                  //
-                  // ),
-                  hintText: "Whatsapp Number",
-
-
-
-
-                  fillColor: Colors.transparent,
-                  filled: true,
-                  //  prefixIcon: const Icon(Icons.password,color:Colors.white)
-
                 ),
-                validator:(value) {
-                  if (value == "") {
-                    return ' Please enter Whatsapnumber';
-                  }
-                  return null;
-                },
-                //    obscureText: true,
-              ),
-              ),
+                SizedBox(width: 16), // space between the two fields
+                // Second TextField
+                Expanded(
+                  child: TextFormField(
+                    enabled: true,
+                    controller: whatsapnumber,
 
-          ],
-        ),
-            SizedBox(height: 20,),
+                    decoration: InputDecoration(
+                      hintStyle: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                      ),
+
+                      //   hintStyle: (TextStyle(color: Colors.white)),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: Colors.black),
+                      ),
+                      // focusedBorder: OutlineInputBorder(
+                      //   borderSide: BorderSide(
+                      //       color: const Color.fromARGB(255, 254, 255, 255), width: .5),
+                      //
+                      // ),
+                      hintText: "Whatsapp Number",
+
+                      fillColor: Colors.transparent,
+                      filled: true,
+
+                      //  prefixIcon: const Icon(Icons.password,color:Colors.white)
+                    ),
+                    validator: (value) {
+                      if (value == "") {
+                        return ' Please enter Whatsapnumber';
+                      }
+                      return null;
+                    },
+                    //    obscureText: true,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 20),
             TextFormField(
-
               enabled: true,
-              controller:landphone,
+              controller: landphone,
 
               decoration: InputDecoration(
-                hintStyle: TextStyle(color: Colors.black,fontWeight: FontWeight.bold),
-
+                hintStyle: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
 
                 //   hintStyle: (TextStyle(color: Colors.white)),
                 enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(
-                      color: Colors.black),
+                  borderSide: BorderSide(color: Colors.black),
                 ),
                 // focusedBorder: OutlineInputBorder(
                 //   borderSide: BorderSide(
@@ -288,15 +277,12 @@ class _VisitingCardFormState extends State<VisitingCard> {
                 // ),
                 hintText: "Land Phone Number",
 
-
-
-
                 fillColor: Colors.transparent,
                 filled: true,
-                //  prefixIcon: const Icon(Icons.password,color:Colors.white)
 
+                //  prefixIcon: const Icon(Icons.password,color:Colors.white)
               ),
-              validator:(value) {
+              validator: (value) {
                 if (value == "") {
                   return ' Please enter LandPhoneNumber';
                 }
@@ -304,20 +290,20 @@ class _VisitingCardFormState extends State<VisitingCard> {
               },
               //    obscureText: true,
             ),
-            SizedBox(height: 20,),
+            SizedBox(height: 20),
             TextFormField(
-
               enabled: true,
-              controller:email,
+              controller: email,
 
               decoration: InputDecoration(
-                hintStyle: TextStyle(color: Colors.black,fontWeight: FontWeight.bold),
-
+                hintStyle: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
 
                 //   hintStyle: (TextStyle(color: Colors.white)),
                 enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(
-                      color: Colors.black),
+                  borderSide: BorderSide(color: Colors.black),
                 ),
                 // focusedBorder: OutlineInputBorder(
                 //   borderSide: BorderSide(
@@ -326,15 +312,12 @@ class _VisitingCardFormState extends State<VisitingCard> {
                 // ),
                 hintText: "Email",
 
-
-
-
                 fillColor: Colors.transparent,
                 filled: true,
-                //  prefixIcon: const Icon(Icons.password,color:Colors.white)
 
+                //  prefixIcon: const Icon(Icons.password,color:Colors.white)
               ),
-              validator:(value) {
+              validator: (value) {
                 if (value == "") {
                   return ' Please enter Email';
                 }
@@ -342,20 +325,20 @@ class _VisitingCardFormState extends State<VisitingCard> {
               },
               //    obscureText: true,
             ),
-            SizedBox(height: 20,),
+            SizedBox(height: 20),
             TextFormField(
-
               enabled: true,
-              controller:companyName,
+              controller: companyName,
 
               decoration: InputDecoration(
-                hintStyle: TextStyle(color: Colors.black,fontWeight: FontWeight.bold),
-
+                hintStyle: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
 
                 //   hintStyle: (TextStyle(color: Colors.white)),
                 enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(
-                      color: Colors.black),
+                  borderSide: BorderSide(color: Colors.black),
                 ),
                 // focusedBorder: OutlineInputBorder(
                 //   borderSide: BorderSide(
@@ -364,15 +347,12 @@ class _VisitingCardFormState extends State<VisitingCard> {
                 // ),
                 hintText: "Company Name",
 
-
-
-
                 fillColor: Colors.transparent,
                 filled: true,
-                //  prefixIcon: const Icon(Icons.password,color:Colors.white)
 
+                //  prefixIcon: const Icon(Icons.password,color:Colors.white)
               ),
-              validator:(value) {
+              validator: (value) {
                 if (value == "") {
                   return ' Please Enter Company Name';
                 }
@@ -381,21 +361,21 @@ class _VisitingCardFormState extends State<VisitingCard> {
               //    obscureText: true,
             ),
 
-          SizedBox(height: 20,),
+            SizedBox(height: 20),
 
             TextFormField(
-
               enabled: true,
-              controller:desig,
+              controller: desig,
 
               decoration: InputDecoration(
-                hintStyle: TextStyle(color: Colors.black,fontWeight: FontWeight.bold),
-
+                hintStyle: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
 
                 //   hintStyle: (TextStyle(color: Colors.white)),
                 enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(
-                      color: Colors.black),
+                  borderSide: BorderSide(color: Colors.black),
                 ),
                 // focusedBorder: OutlineInputBorder(
                 //   borderSide: BorderSide(
@@ -404,15 +384,12 @@ class _VisitingCardFormState extends State<VisitingCard> {
                 // ),
                 hintText: "Designation/Profession",
 
-
-
-
                 fillColor: Colors.transparent,
                 filled: true,
-                //  prefixIcon: const Icon(Icons.password,color:Colors.white)
 
+                //  prefixIcon: const Icon(Icons.password,color:Colors.white)
               ),
-              validator:(value) {
+              validator: (value) {
                 if (value == "") {
                   return ' Enter Designation';
                 }
@@ -420,21 +397,21 @@ class _VisitingCardFormState extends State<VisitingCard> {
               },
               //    obscureText: true,
             ),
-            SizedBox(height: 20,),
+            SizedBox(height: 20),
 
             TextFormField(
-
               enabled: true,
-              controller:website,
+              controller: website,
 
               decoration: InputDecoration(
-                hintStyle: TextStyle(color: Colors.black,fontWeight: FontWeight.bold),
-
+                hintStyle: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
 
                 //   hintStyle: (TextStyle(color: Colors.white)),
                 enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(
-                      color: Colors.black),
+                  borderSide: BorderSide(color: Colors.black),
                 ),
                 // focusedBorder: OutlineInputBorder(
                 //   borderSide: BorderSide(
@@ -443,15 +420,12 @@ class _VisitingCardFormState extends State<VisitingCard> {
                 // ),
                 hintText: " Website",
 
-
-
-
                 fillColor: Colors.transparent,
                 filled: true,
-                //  prefixIcon: const Icon(Icons.password,color:Colors.white)
 
+                //  prefixIcon: const Icon(Icons.password,color:Colors.white)
               ),
-              validator:(value) {
+              validator: (value) {
                 if (value == "") {
                   return 'Website';
                 }
@@ -459,21 +433,21 @@ class _VisitingCardFormState extends State<VisitingCard> {
               },
               //    obscureText: true,
             ),
-            SizedBox(height: 20,),
+            SizedBox(height: 20),
 
             TextFormField(
-
               enabled: true,
-              controller:saveapplink,
+              controller: saveapplink,
 
               decoration: InputDecoration(
-                hintStyle: TextStyle(color: Colors.black,fontWeight: FontWeight.bold),
-
+                hintStyle: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
 
                 //   hintStyle: (TextStyle(color: Colors.white)),
                 enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(
-                      color: Colors.black),
+                  borderSide: BorderSide(color: Colors.black),
                 ),
                 // focusedBorder: OutlineInputBorder(
                 //   borderSide: BorderSide(
@@ -482,15 +456,12 @@ class _VisitingCardFormState extends State<VisitingCard> {
                 // ),
                 hintText: "Save App link",
 
-
-
-
                 fillColor: Colors.transparent,
                 filled: true,
-                //  prefixIcon: const Icon(Icons.password,color:Colors.white)
 
+                //  prefixIcon: const Icon(Icons.password,color:Colors.white)
               ),
-              validator:(value) {
+              validator: (value) {
                 if (value == "") {
                   return 'Save app link';
                 }
@@ -498,21 +469,21 @@ class _VisitingCardFormState extends State<VisitingCard> {
               },
               //    obscureText: true,
             ),
-            SizedBox(height: 20,),
+            SizedBox(height: 20),
 
             TextFormField(
-
               enabled: true,
-              controller:couponcode,
+              controller: couponcode,
 
               decoration: InputDecoration(
-                hintStyle: TextStyle(color: Colors.black,fontWeight: FontWeight.bold),
-
+                hintStyle: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
 
                 //   hintStyle: (TextStyle(color: Colors.white)),
                 enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(
-                      color: Colors.black),
+                  borderSide: BorderSide(color: Colors.black),
                 ),
                 // focusedBorder: OutlineInputBorder(
                 //   borderSide: BorderSide(
@@ -521,15 +492,12 @@ class _VisitingCardFormState extends State<VisitingCard> {
                 // ),
                 hintText: "Coupon Code",
 
-
-
-
                 fillColor: Colors.transparent,
                 filled: true,
-                //  prefixIcon: const Icon(Icons.password,color:Colors.white)
 
+                //  prefixIcon: const Icon(Icons.password,color:Colors.white)
               ),
-              validator:(value) {
+              validator: (value) {
                 if (value == "") {
                   return 'Coupon Code';
                 }
@@ -538,21 +506,21 @@ class _VisitingCardFormState extends State<VisitingCard> {
               //    obscureText: true,
             ),
 
-            SizedBox(height: 20,),
+            SizedBox(height: 20),
 
             TextFormField(
-
               enabled: true,
-              controller:fblink,
+              controller: fblink,
 
               decoration: InputDecoration(
-                hintStyle: TextStyle(color: Colors.black,fontWeight: FontWeight.bold),
-
+                hintStyle: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
 
                 //   hintStyle: (TextStyle(color: Colors.white)),
                 enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(
-                      color: Colors.black),
+                  borderSide: BorderSide(color: Colors.black),
                 ),
                 // focusedBorder: OutlineInputBorder(
                 //   borderSide: BorderSide(
@@ -561,15 +529,12 @@ class _VisitingCardFormState extends State<VisitingCard> {
                 // ),
                 hintText: "FaceBook Link",
 
-
-
-
                 fillColor: Colors.transparent,
                 filled: true,
-                //  prefixIcon: const Icon(Icons.password,color:Colors.white)
 
+                //  prefixIcon: const Icon(Icons.password,color:Colors.white)
               ),
-              validator:(value) {
+              validator: (value) {
                 if (value == "") {
                   return 'FaceBook Link';
                 }
@@ -578,21 +543,21 @@ class _VisitingCardFormState extends State<VisitingCard> {
               //    obscureText: true,
             ),
 
-            SizedBox(height: 20,),
+            SizedBox(height: 20),
 
             TextFormField(
-
               enabled: true,
-              controller:instalink,
+              controller: instalink,
 
               decoration: InputDecoration(
-                hintStyle: TextStyle(color: Colors.black,fontWeight: FontWeight.bold),
-
+                hintStyle: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
 
                 //   hintStyle: (TextStyle(color: Colors.white)),
                 enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(
-                      color: Colors.black),
+                  borderSide: BorderSide(color: Colors.black),
                 ),
                 // focusedBorder: OutlineInputBorder(
                 //   borderSide: BorderSide(
@@ -601,15 +566,12 @@ class _VisitingCardFormState extends State<VisitingCard> {
                 // ),
                 hintText: "Instagram Link",
 
-
-
-
                 fillColor: Colors.transparent,
                 filled: true,
-                //  prefixIcon: const Icon(Icons.password,color:Colors.white)
 
+                //  prefixIcon: const Icon(Icons.password,color:Colors.white)
               ),
-              validator:(value) {
+              validator: (value) {
                 if (value == "") {
                   return 'Instagram Link';
                 }
@@ -618,21 +580,21 @@ class _VisitingCardFormState extends State<VisitingCard> {
               //    obscureText: true,
             ),
 
-            SizedBox(height: 20,),
+            SizedBox(height: 20),
 
             TextFormField(
-
               enabled: true,
-              controller:youtubelink,
+              controller: youtubelink,
 
               decoration: InputDecoration(
-                hintStyle: TextStyle(color: Colors.black,fontWeight: FontWeight.bold),
-
+                hintStyle: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
 
                 //   hintStyle: (TextStyle(color: Colors.white)),
                 enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(
-                      color: Colors.black),
+                  borderSide: BorderSide(color: Colors.black),
                 ),
                 // focusedBorder: OutlineInputBorder(
                 //   borderSide: BorderSide(
@@ -641,15 +603,12 @@ class _VisitingCardFormState extends State<VisitingCard> {
                 // ),
                 hintText: "Youtube Link",
 
-
-
-
                 fillColor: Colors.transparent,
                 filled: true,
-                //  prefixIcon: const Icon(Icons.password,color:Colors.white)
 
+                //  prefixIcon: const Icon(Icons.password,color:Colors.white)
               ),
-              validator:(value) {
+              validator: (value) {
                 if (value == "") {
                   return 'Youtube Link';
                 }
@@ -666,7 +625,7 @@ class _VisitingCardFormState extends State<VisitingCard> {
                 borderRadius: BorderRadius.circular(4),
               ),
               child: TextFormField(
-                controller:companyaddress,
+                controller: companyaddress,
                 maxLines: 3,
                 decoration: const InputDecoration(
                   border: InputBorder.none,
@@ -675,15 +634,17 @@ class _VisitingCardFormState extends State<VisitingCard> {
                 ),
               ),
             ),
-SizedBox(
-  height: 30,
-  child: Center(
-    child: Text('Company Logo',style: TextStyle(fontWeight: FontWeight.bold),),
-  ),
-),
-            SizedBox(height: 20,),
+            SizedBox(
+              height: 30,
+              child: Center(
+                child: Text(
+                  'Company Logo',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+            SizedBox(height: 20),
             Center(
-              
               child: GestureDetector(
                 onTap: _pickImage,
                 child: Stack(
@@ -697,9 +658,10 @@ SizedBox(
                         border: Border.all(color: Colors.grey),
                         borderRadius: BorderRadius.circular(8),
                         image: DecorationImage(
-                          image: _image != null
-                              ? FileImage(_image!)
-                              : AssetImage('assets/3.jpg') as ImageProvider,
+                          image:
+                              _image != null
+                                  ? FileImage(_image!)
+                                  : AssetImage('assets/3.jpg') as ImageProvider,
                           fit: BoxFit.cover,
                         ),
                       ),
@@ -722,46 +684,42 @@ SizedBox(
               ),
             ),
 
-
-SizedBox(height: 50,),
+            SizedBox(height: 50),
 
             ElevatedButton(
               onPressed: () {
-
                 String selectedImage = _images[_currentIndex];
 
-                Navigator.push(context,MaterialPageRoute(builder:(context)=> VisitingCardPage(imageUrl: selectedImage )));
-
-
-
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder:
+                        (context) => VisitingCardPage(imageUrl: selectedImage),
+                  ),
+                );
               },
               style: ElevatedButton.styleFrom(
                 padding: EdgeInsets.symmetric(horizontal: 40, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
                 backgroundColor: Colors.teal,
                 foregroundColor: Colors.white,
               ),
               child: Text('Submit'),
             ),
-
-
           ],
         ),
       ),
     );
   }
-
-
 }
 
 Widget buildTextField(String hint) {
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 8),
     child: TextField(
-      decoration: InputDecoration(
-        hintText: hint,
-        border: OutlineInputBorder(),
-      ),
+      decoration: InputDecoration(hintText: hint, border: OutlineInputBorder()),
     ),
   );
 }
@@ -775,4 +733,3 @@ Widget buildDoubleField(String hint1, String hint2) {
     ],
   );
 }
-

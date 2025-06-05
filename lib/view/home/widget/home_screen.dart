@@ -19,9 +19,12 @@ import 'package:new_project_2025/view/home/widget/setting_page/setting_page.dart
     show SettingsScreen;
 import 'package:new_project_2025/view/home/widget/wallet_page/wallet_page.dart';
 import 'package:new_project_2025/view/home/widget/website_link_page/Website_link_page.dart';
+<<<<<<< HEAD
 import 'package:new_project_2025/view_model/Accountfiles/CashAccount.dart';
 import 'package:new_project_2025/view_model/Accountfiles/ExpenseAccount.dart';
 import 'package:new_project_2025/view_model/Accountfiles/incomeAccount.dart';
+=======
+>>>>>>> 4325c58292a5ddccff71198dcfe3a5bb575267e6
 import 'package:new_project_2025/view_model/Billing/blling.dart';
 import 'package:new_project_2025/view_model/CashBank/cashBank.dart';
 import 'package:new_project_2025/view_model/investment11/investment.dart';
@@ -839,9 +842,15 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       iconColor: Colors.teal,
       onPressed:
           (BuildContext context) => Navigator.push(
+<<<<<<< HEAD
         context,
         MaterialPageRoute(builder: (context) => Investment()),
       ),
+=======
+            context,
+            MaterialPageRoute(builder: (context) => Investment()),
+          ),
+>>>>>>> 4325c58292a5ddccff71198dcfe3a5bb575267e6
     ),
     CategoryItem(
       icon: Icons.lock,
@@ -864,6 +873,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       ),
     ),
     CategoryItem(
+<<<<<<< HEAD
         icon: Icons.account_balance_wallet,
         label: 'Asset',
         iconColor: Colors.teal,
@@ -876,6 +886,20 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
 
 
         }
+=======
+      icon: Icons.account_balance_wallet,
+      label: 'Asset',
+      iconColor: Colors.teal,
+      onPressed:(BuildContext context1){
+
+  Navigator.push(
+    context1,
+    MaterialPageRoute(builder: (context) => AssetDetailScreen()),
+  );
+
+
+      }
+>>>>>>> 4325c58292a5ddccff71198dcfe3a5bb575267e6
     ),
     CategoryItem(
       icon: Icons.note_alt,
@@ -893,9 +917,15 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       iconColor: Colors.teal,
       onPressed:
           (BuildContext context) => Navigator.push(
+<<<<<<< HEAD
         context,
         MaterialPageRoute(builder: (context) => InsuranceListPage()),
       ),
+=======
+            context,
+            MaterialPageRoute(builder: (context) => InsuranceListPage()),
+          ),
+>>>>>>> 4325c58292a5ddccff71198dcfe3a5bb575267e6
     ),
   ];
 
@@ -916,9 +946,15 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       iconColor: Colors.teal,
       onPressed:
           (BuildContext context) => Navigator.push(
+<<<<<<< HEAD
         context,
         MaterialPageRoute(builder: (context) => Diary()),
       ),
+=======
+            context,
+            MaterialPageRoute(builder: (context) => Diary()),
+          ),
+>>>>>>> 4325c58292a5ddccff71198dcfe3a5bb575267e6
     ),
     CategoryItem(
       icon: Icons.add_circle_outline,
@@ -951,9 +987,15 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       iconColor: Colors.teal,
       onPressed:
           (BuildContext context) => Navigator.push(
+<<<<<<< HEAD
         context,
         MaterialPageRoute(builder: (context) => AddVisitingCard()),
       ),
+=======
+            context,
+            MaterialPageRoute(builder: (context) => AddVisitingCard()),
+          ),
+>>>>>>> 4325c58292a5ddccff71198dcfe3a5bb575267e6
     ),
     CategoryItem(
       icon: Icons.link,
@@ -961,9 +1003,15 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       iconColor: Colors.teal,
       onPressed:
           (BuildContext context) => Navigator.push(
+<<<<<<< HEAD
         context,
         MaterialPageRoute(builder: (context) => WebLinksListPage()),
       ),
+=======
+            context,
+            MaterialPageRoute(builder: (context) => WebLinksListPage()),
+          ),
+>>>>>>> 4325c58292a5ddccff71198dcfe3a5bb575267e6
     ),
     CategoryItem(
       icon: Icons.warning,
@@ -971,9 +1019,15 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       iconColor: Colors.teal,
       onPressed:
           (BuildContext context) => Navigator.push(
+<<<<<<< HEAD
         context,
         MaterialPageRoute(builder: (context) => EmergencyNumbersScreen()),
       ),
+=======
+            context,
+            MaterialPageRoute(builder: (context) => EmergencyNumbersScreen()),
+          ),
+>>>>>>> 4325c58292a5ddccff71198dcfe3a5bb575267e6
     ),
   ];
 }

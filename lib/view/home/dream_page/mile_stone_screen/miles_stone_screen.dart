@@ -29,7 +29,7 @@ class _AddMileStonePageState extends State<AddMileStonePage> {
   @override
   void initState() {
     super.initState();
-  
+
     milestones.add(
       MileStone(
         startDate: DateTime.now(),
@@ -66,7 +66,7 @@ class _AddMileStonePageState extends State<AddMileStonePage> {
             ),
           );
         }
-        
+
         _resetForm();
       });
     }
@@ -535,33 +535,33 @@ class _AddMileStonePageState extends State<AddMileStonePage> {
   }
 }
 
-class MyApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'MileStone App',
-      theme: ThemeData(primarySwatch: Colors.blue),
-      home: HomePage(),
-    );
-  }
-}
+// class MyApp extends StatelessWidget {
+//   @override
+//   Widget build(BuildContext context) {
+//     return MaterialApp(
+//       title: 'MileStone App',
+//       theme: ThemeData(primarySwatch: Colors.blue),
+//       home: HomePage(),
+//     );
+//   }
+// }
 
-class HomePage extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('MileStone App')),
-      body: Center(
-        child: ElevatedButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => AddMileStonePage()),
-            );
-          },
-          child: Text('Add MileStone'),
-        ),
-      ),
-    );
-  }
-}
+// class HomePage extends StatelessWidget {
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       appBar: AppBar(title: Text('MileStone App')),
+//       body: Center(
+//         child: ElevatedButton(
+//           onPressed: () {
+//             Navigator.push(
+//               context,
+//               MaterialPageRoute(builder: (context) => AddMileStonePage()),
+//             );
+//           },
+//           child: Text('Add MileStone'),
+//         ),
+//       ),
+//     );
+//   }
+// }
