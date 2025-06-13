@@ -57,7 +57,7 @@ class _PasswordListPageState extends State<PasswordListPage> {
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
-            // Handle back navigation
+            Navigator.of(context).pop();
           },
         ),
         elevation: 0,

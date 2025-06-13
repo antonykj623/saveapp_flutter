@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:new_project_2025/view/home/dream_page/dream_main_page/dream_page_main.dart';
-
 import 'package:new_project_2025/view/home/widget/CashBank/Receipt_class/receipt_class.dart';
 import 'package:new_project_2025/view/home/widget/Bank/bank_page/Bank_page.dart';
 import 'package:new_project_2025/view/home/widget/Emergency_numbers_screen/Emergency_screen.dart';
 import 'package:new_project_2025/view/home/widget/Notification_page.dart';
 import 'package:new_project_2025/view/home/widget/Receipt/Receipt_screen.dart';
-import 'package:new_project_2025/view/home/widget/budget_page/Main_budget_screen.dart';
+import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
+import 'package:new_project_2025/view/home/widget/save_DB/Main_budget_screen.dart';
 import 'package:new_project_2025/view/home/widget/insurance/insurance_database/Insurance_list_page/insurance_list_page.dart';
 import 'package:new_project_2025/view/home/widget/investment/Assetdetails_page/assets_details_screen.dart';
 import 'package:new_project_2025/view/home/widget/investment/assetform_screen/asset_form_screen.dart';
@@ -23,7 +23,6 @@ import 'package:new_project_2025/view_model/Billing/blling.dart';
 import 'package:new_project_2025/view_model/CashBank/cashBank.dart';
 import 'package:new_project_2025/view_model/investment11/investment.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
-
 import '../../../view_model/AccountSet_up/accountsetup.dart';
 import '../../../view_model/DocumentManager/documentManager.dart';
 import '../../../view_model/My Diary/diary.dart';
@@ -35,6 +34,8 @@ import '../../../view_model/investment11/addinvestment.dart';
 import '../../../view_model/Journal/journal.dart';
 import '../../../view_model/Liabilities/listofLiabilities.dart';
 import 'investment/model_class1/model_class.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:new_project_2025/view/home/dream_page/dream_class/db_class.dart';
 
 void main() {
   runApp(const MyApp());
@@ -47,10 +48,6 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'SAVE Personal App',
-      // theme: ThemeData(
-      //   primarySwatch: Colors.teal,
-      //   scaffoldBackgroundColor: const Color(0xFFCFECEC),
-      // ),
       home: const SaveApp(),
       debugShowCheckedModeBanner: false,
     );
@@ -71,6 +68,9 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
   late AnimationController _animationController;
   String selectedYear = '2025';
   final List<String> years = ['2023', '2024', '2025', '2026'];
+  List<String> addedTargets = [];
+  List<TargetCategory> targetCategories = [];
+  bool isLoading = true;
 
   final List<String> _carouselImages = [
     'https://images.pexels.com/photos/8386440/pexels-photo-8386440.jpeg',
@@ -86,7 +86,34 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(milliseconds: 700),
     );
+
+    TargetCategoryService.addDefaultTargetCategories();
   }
+
+  Future<void> _loadAddedTargetsAndCategories() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final int? counter = prefs.getInt('targetadded');
+
+      setState(() {
+        isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading data: $e');
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  TargetCategory? _getCategoryByName(String name) {
+    try {
+      return targetCategories.firstWhere((cat) => cat.name == name);
+    } catch (e) {
+      return null;
+    }
+  }
+
 
   @override
   void dispose() {
@@ -362,6 +389,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
   }
 
   Widget _buildHomePage() {
+
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -375,6 +403,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
           _buildCategoryGrid(_lifeCategories),
           _buildSectionHeader('Utilities'),
           _buildCategoryGrid(_utilitiesCategories),
+          _buildSectionHeader('My Dream Targets'),
           _buildChartButton(),
           const SizedBox(height: 10),
         ],
@@ -626,7 +655,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
           return InkWell(
             onTap: () {
               if (item.onPressed != null) {
-                item.onPressed!(context); // Pass context to onPressed
+                item.onPressed!(context);
               } else {
                 debugPrint('${item.label} tapped');
               }
@@ -747,7 +776,6 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
             MaterialPageRoute(builder: (context) => ReceiptsPage()),
           ),
     ),
-
     CategoryItem(
       icon: Icons.account_balance_wallet,
       label: 'Wallet',
@@ -762,11 +790,6 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       icon: Icons.business_center,
       label: 'Budget',
       iconColor: Colors.teal,
-      onPressed:
-          (BuildContext context) => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => BudgetScreen()),
-          ),
     ),
     CategoryItem(
       icon: Icons.account_balance,
@@ -855,15 +878,12 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       icon: Icons.account_balance_wallet,
       label: 'Asset',
       iconColor: Colors.teal,
-      onPressed:(BuildContext context1){
-
-  Navigator.push(
-    context1,
-    MaterialPageRoute(builder: (context) => AssetDetailScreen()),
-  );
-
-
-      }
+      onPressed: (BuildContext context1) {
+        Navigator.push(
+          context1,
+          MaterialPageRoute(builder: (context) => AssetDetailScreen()),
+        );
+      },
     ),
     CategoryItem(
       icon: Icons.note_alt,
@@ -998,24 +1018,6 @@ class ReportScreen extends StatelessWidget {
     return const Scaffold(body: Center(child: Text('Report Screen')));
   }
 }
-
-// class NotificationScreen extends StatelessWidget {
-//   const NotificationScreen({Key? key}) : super(key: key);
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return const Scaffold(body: Center(child: Text('Notification Screen')));
-//   }
-// }
-
-// class SettingsScreen extends StatelessWidget {
-//   const SettingsScreen({Key? key}) : super(key: key);
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return const Scaffold(body: Center(child: Text('Settings Screen')));
-//   }
-// }
 
 class MoreScreen extends StatelessWidget {
   const MoreScreen({Key? key}) : super(key: key);

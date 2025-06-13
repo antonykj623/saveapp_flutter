@@ -77,4 +77,19 @@ class DatabaseHelper1 {
       whereArgs: [receipt.id],
     );
   }
+// Add this method to your DatabaseHelper class
+Future<int> updateData(String tableName, Map<String, dynamic> data, int id) async {
+  try {
+    final db = await database;
+    return await db.update(
+      tableName,
+      data,
+      where: 'keyid = ?',
+      whereArgs: [id],
+    );
+  } catch (e) {
+    print('Error updating data in $tableName: $e');
+    return 0;
+  }
+}
 }
