@@ -57,7 +57,6 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
 
   Future<void> _initializeData() async {
     try {
-
       await _loadTargetCategories();
     } catch (e) {
       setState(() {
@@ -507,6 +506,36 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceEvenly,
                                 children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      category.isCustom
+                                          ? IconButton(
+                                            icon: const Icon(
+                                              Icons.edit,
+                                              size: 18,
+                                            ),
+                                            color:
+                                                isUsed
+                                                    ? Colors.grey
+                                                    : Colors.teal,
+                                            tooltip:
+                                                isUsed
+                                                    ? 'Cannot edit: Category in use'
+                                                    : 'Edit category',
+                                            onPressed:
+                                                isUsed
+                                                    ? null
+                                                    : () {
+                                                      Navigator.pop(context);
+                                                      _showAddNewCategoryDialog(
+                                                        category: category,
+                                                      );
+                                                    },
+                                          )
+                                          : const SizedBox.shrink(),
+                                    ],
+                                  ),
                                   Expanded(
                                     child: Center(
                                       child: _buildCategoryIcon(
@@ -536,31 +565,31 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
                                           ),
                                         ),
 
-                                        category.isCustom
-                                            ? IconButton(
-                                              icon: const Icon(
-                                                Icons.edit,
-                                                size: 18,
-                                              ),
-                                              color:
-                                                  isUsed
-                                                      ? Colors.grey
-                                                      : Colors.teal,
-                                              tooltip:
-                                                  isUsed
-                                                      ? 'Cannot edit: Category in use'
-                                                      : 'Edit category',
-                                              onPressed:
-                                                  isUsed
-                                                      ? null
-                                                      : () {
-                                                        Navigator.pop(context);
-                                                        _showAddNewCategoryDialog(
-                                                          category: category,
-                                                        );
-                                                      },
-                                            )
-                                            : const SizedBox.shrink(), // Better than Container()
+                                        // category.isCustom
+                                        //     ? IconButton(
+                                        //       icon: const Icon(
+                                        //         Icons.edit,
+                                        //         size: 18,
+                                        //       ),
+                                        //       color:
+                                        //           isUsed
+                                        //               ? Colors.grey
+                                        //               : Colors.teal,
+                                        //       tooltip:
+                                        //           isUsed
+                                        //               ? 'Cannot edit: Category in use'
+                                        //               : 'Edit category',
+                                        //       onPressed:
+                                        //           isUsed
+                                        //               ? null
+                                        //               : () {
+                                        //                 Navigator.pop(context);
+                                        //                 _showAddNewCategoryDialog(
+                                        //                   category: category,
+                                        //                 );
+                                        //               },
+                                        //     )
+                                        //     : const SizedBox.shrink(), // Better than Container()
                                       ],
                                     ),
                                   ),
