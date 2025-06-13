@@ -208,7 +208,11 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
                         ),
                         const SizedBox(height: 8),
                         ..._reminderDates.map(
+
+                              
+
                           (reminder) => Padding(
+
                             padding: const EdgeInsets.symmetric(vertical: 2.0),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,

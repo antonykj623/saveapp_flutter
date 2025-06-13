@@ -2,18 +2,36 @@
 // import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 // import 'package:new_project_2025/view/home/widget/save_DB/Edit_budget_screen/Edit_budget_screen.dart';
 
+
 // void main() {
 //   runApp(MaterialApp(home: BudgetScreen()));
 // }
+
+
+//
+// import '../budget_page/Budegt_database_helper/Budget_data_base.dart';
+//
+// void main() {
+//   runApp(MaterialApp(home: BudgetScreen()));
+// }
+//
 
 // class BudgetScreen extends StatefulWidget {
 //   @override
 //   _BudgetScreenState createState() => _BudgetScreenState();
 // }
 
+
 // class _BudgetScreenState extends State<BudgetScreen> {
 //   final DatabaseHelper _dbHelper = DatabaseHelper();
 //   final TextEditingController _amountController = TextEditingController();
+
+
+//
+// class _BudgetScreenState extends State<BudgetScreen> {
+//   final DatabaseHelper _dbHelper = DatabaseHelper();
+//   final TextEditingController _amountController = TextEditingController();
+//
 
 //   int selectedYear = DateTime.now().year;
 //   String? selectedAccount;
@@ -29,7 +47,6 @@
 //     'Entertainment',
 //   ];
 //   double totalAmount = 0.0;
-
 //   List<String> months = [
 //     'Jan',
 //     'Feb',
@@ -71,10 +88,6 @@
 //         _calculateTotal();
 //       });
 //     }
-//   }
-
-//   void _calculateTotal() {
-//     totalAmount = budgets.fold(0.0, (sum, budget) => sum + budget.amount);
 //   }
 
 //   Future<void> _submitBudget() async {

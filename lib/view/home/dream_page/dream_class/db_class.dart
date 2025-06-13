@@ -32,7 +32,7 @@ class TargetCategoryService {
 
           Map<String, dynamic> dbData = {
             'data': defaultCategories[i]['name'],
-            'iscustom': 'false',
+            'isCustom': 'false',
             'iconimage': imageBytes,
           };
 
@@ -90,7 +90,7 @@ class TargetCategoryService {
 
       Map<String, dynamic> dbData = {
         'data': name,
-        'iscustom': 'true',
+        'isCustom': 'true',
         'iconimage': iconImage,
       };
 

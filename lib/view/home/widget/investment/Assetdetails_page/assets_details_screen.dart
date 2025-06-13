@@ -37,7 +37,9 @@ class AssetDetailScreen extends StatefulWidget {
 
 
   const AssetDetailScreen({Key? key,})
-    : super(key: key);
+
+      : super(key: key);
+
 
   @override
   State<AssetDetailScreen> createState() => _AssetDetailScreenState();
@@ -58,8 +60,12 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
       appBar: AppBar(
         leading: IconButton(
           onPressed: () {
+
+
+            Navigator.of(context).pop(true);
+
       
-              Navigator.of(context).pop(true);
+  
           },
           icon: const Icon(Icons.arrow_back),
         ),
@@ -99,7 +105,9 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
                         ),
                         const Text(':', style: TextStyle(fontSize: 16)),
                         Text(
-                     "investment account",
+
+                          "investment account",
+
                           style: const TextStyle(fontSize: 16),
                         ),
                       ],

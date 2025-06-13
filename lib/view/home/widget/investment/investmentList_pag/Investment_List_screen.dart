@@ -25,7 +25,7 @@ class _InvestmentListScreenState extends State<InvestmentListScreen> {
       _isLoading = true;
     });
 
-    // Simulate loading with sample data (no database)
+    // Simulate loading with sample data (replace with DB logic if needed)
     await Future.delayed(const Duration(seconds: 1));
 
     setState(() {
@@ -60,82 +60,78 @@ class _InvestmentListScreenState extends State<InvestmentListScreen> {
       ),
       body: Container(
         color: const Color(0xFFF5F5F5),
-        child:
-            _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _investments.isEmpty
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _investments.isEmpty
                 ? const Center(
-                  child: Text(
-                    'No investments found.\nTap + to add your first investment.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
-                  ),
-                )
+                    child: Text(
+                      'No investments found.\nTap + to add your first investment.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                  )
                 : ListView.builder(
-                  padding: const EdgeInsets.all(16.0),
-                  itemCount: _investments.length,
-                  itemBuilder: (context, index) {
-                    final investment = _investments[index];
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12.0),
-                      child: Card(
-                        elevation: 2,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8.0),
-                        ),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.all(16.0),
-                          title: Text(
-                            investment.accountName,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w500,
-                            ),
+                    padding: const EdgeInsets.all(16.0),
+                    itemCount: _investments.length,
+                    itemBuilder: (context, index) {
+                      final investment = _investments[index];
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12.0),
+                        child: Card(
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8.0),
                           ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 8),
-                              Text(
-                                'Amount: ${investment.amount}',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.black87,
-                                ),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.all(16.0),
+                            title: Text(
+                              investment.accountName,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w500,
                               ),
-                              if (investment.dateOfPurchase != null) ...[
-                                const SizedBox(height: 4),
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 8),
                                 Text(
-                                  'Purchase Date: ${investment.dateOfPurchase!.toString().split(' ')[0]}',
+                                  'Amount: ₹${investment.amount}',
                                   style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey,
+                                    fontSize: 16,
+                                    color: Colors.black87,
                                   ),
                                 ),
-                              ],
-                            ],
-                          ),
-                          trailing: const Icon(Icons.arrow_forward_ios),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (context) => AssetDetailScreen(
-                               
+                                if (investment.dateOfPurchase != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Purchase Date: ${investment.dateOfPurchase!.toString().split(' ')[0]}',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey,
                                     ),
-                              ),
-                            ).then((result) {
-                              if (result == true) {
-                                _loadInvestments();
-                              }
-                            });
-                          },
+                                  ),
+                                ],
+                              ],
+                            ),
+                            trailing: const Icon(Icons.arrow_forward_ios),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => AssetDetailScreen(),
+                                ),
+                              ).then((result) {
+                                if (result == true) {
+                                  _loadInvestments();
+                                }
+                              });
+                            },
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                ),
+                      );
+                    },
+                  ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {

@@ -1,6 +1,7 @@
 // import 'package:flutter/material.dart';
 // import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 
+
 // class EditBudgetScreen extends StatefulWidget {
 //   final BudgetClass budget;
 //   final VoidCallback onUpdate;
@@ -14,6 +15,25 @@
 // class _EditBudgetScreenState extends State<EditBudgetScreen> {
 //   final DatabaseHelper _dbHelper = DatabaseHelper();
 //   final TextEditingController _amountController = TextEditingController();
+
+
+//
+// import '../../budget_page/Budegt_database_helper/Budget_data_base.dart';
+//
+// class EditBudgetScreen extends StatefulWidget {
+//   final BudgetClass budget;
+//   final VoidCallback onUpdate;
+//
+//   EditBudgetScreen({required this.budget, required this.onUpdate});
+//
+//   @override
+//   _EditBudgetScreenState createState() => _EditBudgetScreenState();
+// }
+//
+// class _EditBudgetScreenState extends State<EditBudgetScreen> {
+//   final BudgetDatabaseHelper _dbHelper = BudgetDatabaseHelper();
+//   final TextEditingController _amountController = TextEditingController();
+//
 
 //   String? selectedAccount;
 //   int selectedYear = 2025;
