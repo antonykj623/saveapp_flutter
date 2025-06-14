@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:new_project_2025/view/home/widget/payment_page/databasehelper/data_base_helper.dart';
+import 'dart:convert';
+
 import 'package:new_project_2025/view/home/widget/payment_page/payment_class/payment_class.dart';
+import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 
 class AddPaymentVoucherPage extends StatefulWidget {
   final Payment? payment;
@@ -20,14 +22,6 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
   String paymentMode = 'Cash';
   String? selectedCashOption;
   final TextEditingController _remarksController = TextEditingController();
-
-  final List<String> accounts = [
-    'Agriculture Expenses',
-    'Agriculture Income',
-    'Household Expenses',
-    'Salary Income',
-    'Miscellaneous',
-  ];
 
   final List<String> cashOptions = [
     'Cash',
@@ -69,6 +63,21 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
     }
   }
 
+  void _showSearchableAccountDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return SearchableAccountDialog(
+          onAccountSelected: (String accountName) {
+            setState(() {
+              selectedAccount = accountName;
+            });
+          },
+        );
+      },
+    );
+  }
+
   void _savePayment() async {
     if (_formKey.currentState!.validate()) {
       final payment = Payment(
@@ -80,11 +89,11 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
         remarks: _remarksController.text,
       );
 
-      if (widget.payment == null) {
-        await DatabaseHelper.instance.insertPayment(payment);
-      } else {
-        await DatabaseHelper.instance.updatePayment(payment);
-      }
+      // if (widget.payment == null) {
+      //   await DatabaseHelper.instance.insertPayment(payment);
+      // } else {
+      //   await DatabaseHelper.instance.updatePayment(payment);
+      // }
 
       if (context.mounted) {
         Navigator.pop(context);
@@ -141,34 +150,28 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
                         border: Border.all(color: Colors.grey),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButtonFormField<String>(
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
+                      child: InkWell(
+                        onTap: () {
+                          _showSearchableAccountDialog(context);
+                        },
+                        child: Container(
+                          height: 50,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                selectedAccount ?? 'Select An Account',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color:
+                                      selectedAccount != null
+                                          ? Colors.black
+                                          : Colors.grey[600],
+                                ),
+                              ),
+                              Icon(Icons.arrow_drop_down),
+                            ],
                           ),
-                          hint: const Text('Select An Account'),
-                          value: selectedAccount,
-                          isExpanded: true,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please select an account';
-                            }
-                            return null;
-                          },
-                          onChanged: (String? newValue) {
-                            setState(() {
-                              selectedAccount = newValue;
-                            });
-                          },
-                          items:
-                              accounts.map<DropdownMenuItem<String>>((
-                                String value,
-                              ) {
-                                return DropdownMenuItem<String>(
-                                  value: value,
-                                  child: Text(value),
-                                );
-                              }).toList(),
                         ),
                       ),
                     ),
@@ -380,6 +383,107 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class SearchableAccountDialog extends StatefulWidget {
+  final Function(String) onAccountSelected;
+
+  const SearchableAccountDialog({super.key, required this.onAccountSelected});
+
+  @override
+  State<SearchableAccountDialog> createState() =>
+      _SearchableAccountDialogState();
+}
+
+class _SearchableAccountDialogState extends State<SearchableAccountDialog> {
+  final TextEditingController _searchController = TextEditingController();
+  String searchQuery = '';
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      child: Container(
+        height: 400,
+        padding: EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Text(
+              'Select Account',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 16),
+            TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                prefixIcon: Icon(Icons.search),
+                hintText: 'Search by Account Name',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  searchQuery = value;
+                });
+              },
+            ),
+            SizedBox(height: 16),
+            Expanded(
+              child: FutureBuilder<List<Map<String, dynamic>>>(
+                future: new DatabaseHelper().getAllData(
+                  "TABLE_ACCOUNTSETTINGS",
+                ),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(child: CircularProgressIndicator());
+                  } else if (snapshot.hasError) {
+                    return Center(child: Text('Error: ${snapshot.error}'));
+                  }
+
+                  List<Map<String, dynamic>> items = [];
+                  List<Map<String, dynamic>> allItems = snapshot.data ?? [];
+
+                  if (searchQuery.isEmpty) {
+                    items = allItems;
+                  } else {
+                    for (var item in allItems) {
+                      try {
+                        Map<String, dynamic> dat = jsonDecode(item["data"]);
+
+                        String accountName = dat['Accountname'].toString();
+
+                        if (accountName.toLowerCase().contains(
+                          searchQuery.toLowerCase(),
+                        )) {
+                          items.add(item);
+                        }
+                      } catch (e) {}
+                    }
+                  }
+                  return ListView.builder(
+                    itemCount: items.length,
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      Map<String, dynamic> dat = jsonDecode(item["data"]);
+                      String accountName = dat['Accountname'].toString();
+
+                      return ListTile(
+                        title: Text(accountName),
+                        onTap: () {
+                          widget.onAccountSelected(accountName);
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );

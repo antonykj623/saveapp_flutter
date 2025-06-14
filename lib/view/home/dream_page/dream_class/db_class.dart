@@ -126,12 +126,10 @@ class TargetCategoryService {
     }
   }
 
-  /// Reset all categories (useful for testing or app reset)
   static Future<void> resetTargetCategories() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setInt('targetcategoriesadded', 0);
 
-    // Optionally clear existing categories from database
     final DatabaseHelper _databaseHelper = DatabaseHelper();
     final categories = await getAllTargetCategories();
     for (var category in categories) {
@@ -140,7 +138,6 @@ class TargetCategoryService {
       }
     }
 
-    // Re-add default categories
     await addDefaultTargetCategories();
   }
 }

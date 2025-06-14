@@ -506,36 +506,26 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceEvenly,
                                 children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    children: [
-                                      category.isCustom
-                                          ? IconButton(
-                                            icon: const Icon(
-                                              Icons.edit,
-                                              size: 18,
-                                            ),
-                                            color:
-                                                isUsed
-                                                    ? Colors.grey
-                                                    : Colors.teal,
-                                            tooltip:
-                                                isUsed
-                                                    ? 'Cannot edit: Category in use'
-                                                    : 'Edit category',
-                                            onPressed:
-                                                isUsed
-                                                    ? null
-                                                    : () {
-                                                      Navigator.pop(context);
-                                                      _showAddNewCategoryDialog(
-                                                        category: category,
-                                                      );
-                                                    },
-                                          )
-                                          : const SizedBox.shrink(),
-                                    ],
-                                  ),
+                                   category.isCustom
+                                      ? IconButton(
+                                        icon: const Icon(Icons.edit, size: 18),
+                                        color:
+                                            isUsed ? Colors.grey : Colors.teal,
+                                        tooltip:
+                                            isUsed
+                                                ? 'Cannot edit: Category in use'
+                                                : 'Edit category',
+                                        onPressed:
+                                            isUsed
+                                                ? null
+                                                : () {
+                                                  Navigator.pop(context);
+                                                  _showAddNewCategoryDialog(
+                                                    category: category,
+                                                  );
+                                                },
+                                      )
+                                      : const SizedBox.shrink(),
                                   Expanded(
                                     child: Center(
                                       child: _buildCategoryIcon(
