@@ -4,6 +4,7 @@ import 'dart:convert';
 
 import 'package:new_project_2025/view/home/widget/payment_page/payment_class/payment_class.dart';
 import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
+import 'package:new_project_2025/view_model/AccountSet_up/Add_Acount.dart';
 
 class AddPaymentVoucherPage extends StatefulWidget {
   final Payment? payment;
@@ -23,29 +24,69 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
   String? selectedCashOption;
   final TextEditingController _remarksController = TextEditingController();
 
-  final List<String> cashOptions = [
-    'Cash',
-    'Bank - HDFC',
-    'Bank - SBI',
-    'Bank - ICICI',
-  ];
+  List<String> cashOptions = ['Cash'];
+  List<String> bankOptions = [];
+  List<String> allBankCashOptions = [];
 
   @override
   void initState() {
     super.initState();
+    _loadBankCashOptions();
+
     if (widget.payment != null) {
       selectedDate = DateFormat('yyyy-MM-dd').parse(widget.payment!.date);
       selectedAccount = widget.payment!.accountName;
       _amountController.text = widget.payment!.amount.toString();
       paymentMode = widget.payment!.paymentMode;
-      selectedCashOption =
-          widget.payment!.paymentMode == 'Bank'
-              ? cashOptions[1]
-              : cashOptions[0];
+      selectedCashOption = widget.payment!.paymentMode;
       _remarksController.text = widget.payment!.remarks ?? '';
     } else {
       selectedDate = DateTime.now();
-      selectedCashOption = cashOptions[0];
+      selectedCashOption = 'Cash';
+    }
+  }
+
+  Future<void> _loadBankCashOptions() async {
+    try {
+      List<Map<String, dynamic>> accounts = await DatabaseHelper().getAllData(
+        "TABLE_ACCOUNTSETTINGS",
+      );
+
+      List<String> banks = [];
+      List<String> cashAccounts = [];
+
+      for (var account in accounts) {
+        try {
+          Map<String, dynamic> accountData = jsonDecode(account["data"]);
+          String accountType =
+              accountData['Accounttype'].toString().toLowerCase();
+          String accountName = accountData['Accountname'].toString();
+
+          if (accountType == 'bank') {
+            banks.add('Bank - $accountName');
+          } else if (accountType == 'cash') {
+            cashAccounts.add('Cash - $accountName');
+          }
+        } catch (e) {
+          print('Error parsing account data: $e');
+        }
+      }
+
+      setState(() {
+        // Always include default Cash option
+        cashOptions = ['Cash', ...cashAccounts];
+        bankOptions = banks;
+        allBankCashOptions = [...cashOptions, ...bankOptions];
+
+        // Set default if not already set or if current selection is no longer valid
+        if (selectedCashOption == null ||
+            !allBankCashOptions.contains(selectedCashOption)) {
+          selectedCashOption =
+              allBankCashOptions.isNotEmpty ? allBankCashOptions.first : 'Cash';
+        }
+      });
+    } catch (e) {
+      print('Error loading bank/cash options: $e');
     }
   }
 
@@ -80,23 +121,48 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
 
   void _savePayment() async {
     if (_formKey.currentState!.validate()) {
+      if (selectedAccount == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select an account')),
+        );
+        return;
+      }
+
       final payment = Payment(
         id: widget.payment?.id,
         date: DateFormat('yyyy-MM-dd').format(selectedDate),
         accountName: selectedAccount!,
         amount: double.parse(_amountController.text),
-        paymentMode: paymentMode,
+        paymentMode: selectedCashOption ?? paymentMode,
         remarks: _remarksController.text,
       );
 
-      // if (widget.payment == null) {
-      //   await DatabaseHelper.instance.insertPayment(payment);
-      // } else {
-      //   await DatabaseHelper.instance.updatePayment(payment);
-      // }
+      try {
+        if (widget.payment == null) {
+          await DatabaseHelper().insertPayment(payment);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Payment saved successfully')),
+            );
+          }
+        } else {
+          await DatabaseHelper().updatePayment(payment);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Payment updated successfully')),
+            );
+          }
+        }
 
-      if (context.mounted) {
-        Navigator.pop(context);
+        if (context.mounted) {
+          Navigator.pop(context, true);
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error saving payment: $e')));
+        }
       }
     }
   }
@@ -181,12 +247,26 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
                     mini: true,
                     backgroundColor: Theme.of(context).colorScheme.secondary,
                     child: const Icon(Icons.add, color: Colors.white),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Feature to add new account'),
+                    onPressed: () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => Addaccountsdet(),
                         ),
                       );
+                      if (result == true) {
+                        // Reload bank/cash options after adding new account
+                        await _loadBankCashOptions();
+
+                        // Optional: Show success message
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Account added successfully'),
+                            ),
+                          );
+                        }
+                      }
                     },
                   ),
                 ],
@@ -249,7 +329,9 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
                     onChanged: (String? value) {
                       setState(() {
                         paymentMode = value!;
-                        selectedCashOption = cashOptions[1];
+                        if (bankOptions.isNotEmpty) {
+                          selectedCashOption = bankOptions.first;
+                        }
                       });
                     },
                   ),
@@ -262,7 +344,7 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
                     onChanged: (String? value) {
                       setState(() {
                         paymentMode = value!;
-                        selectedCashOption = cashOptions[0];
+                        selectedCashOption = 'Cash';
                       });
                     },
                   ),
@@ -291,16 +373,14 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
                               selectedCashOption = newValue;
                               if (newValue == 'Cash') {
                                 paymentMode = 'Cash';
-                              } else {
+                              } else if (newValue?.startsWith('Bank') == true) {
                                 paymentMode = 'Bank';
                               }
                             });
                           },
                           items:
                               paymentMode == 'Cash'
-                                  ? [
-                                    cashOptions[0],
-                                  ].map<DropdownMenuItem<String>>((
+                                  ? cashOptions.map<DropdownMenuItem<String>>((
                                     String value,
                                   ) {
                                     return DropdownMenuItem<String>(
@@ -308,17 +388,14 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
                                       child: Text(value),
                                     );
                                   }).toList()
-                                  : cashOptions
-                                      .sublist(1)
-                                      .map<DropdownMenuItem<String>>((
-                                        String value,
-                                      ) {
-                                        return DropdownMenuItem<String>(
-                                          value: value,
-                                          child: Text(value),
-                                        );
-                                      })
-                                      .toList(),
+                                  : bankOptions.map<DropdownMenuItem<String>>((
+                                    String value,
+                                  ) {
+                                    return DropdownMenuItem<String>(
+                                      value: value,
+                                      child: Text(value),
+                                    );
+                                  }).toList(),
                         ),
                       ),
                     ),
@@ -328,12 +405,17 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
                     mini: true,
                     backgroundColor: Theme.of(context).colorScheme.secondary,
                     child: const Icon(Icons.add, color: Colors.white),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Feature to add new bank account'),
+                    onPressed: () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => Addaccountsdet(),
                         ),
                       );
+                      if (result == true) {
+                        // Reload bank/cash options after adding new account
+                        _loadBankCashOptions();
+                      }
                     },
                   ),
                 ],
@@ -434,9 +516,7 @@ class _SearchableAccountDialogState extends State<SearchableAccountDialog> {
             SizedBox(height: 16),
             Expanded(
               child: FutureBuilder<List<Map<String, dynamic>>>(
-                future: new DatabaseHelper().getAllData(
-                  "TABLE_ACCOUNTSETTINGS",
-                ),
+                future: DatabaseHelper().getAllData("TABLE_ACCOUNTSETTINGS"),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return Center(child: CircularProgressIndicator());
@@ -453,7 +533,6 @@ class _SearchableAccountDialogState extends State<SearchableAccountDialog> {
                     for (var item in allItems) {
                       try {
                         Map<String, dynamic> dat = jsonDecode(item["data"]);
-
                         String accountName = dat['Accountname'].toString();
 
                         if (accountName.toLowerCase().contains(

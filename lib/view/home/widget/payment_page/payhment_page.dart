@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:new_project_2025/view/home/widget/payment_page/Month_date/Moth_datepage.dart';
+import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 import 'add_payment/add_paymet.dart';
-import 'databasehelper/data_base_helper.dart';
+
 import 'payment_class/payment_class.dart';
 
 class PaymentsPage extends StatefulWidget {
@@ -33,13 +34,21 @@ class _PaymentsPageState extends State<PaymentsPage> {
   }
 
   void _loadPayments() async {
-    final paymentsList = await DatabaseHelper.instance.getPaymentsByMonth(
-      selectedYearMonth,
-    );
-    setState(() {
-      payments = paymentsList;
-      total = payments.fold(0, (sum, payment) => sum + payment.amount);
-    });
+    try {
+      final paymentsList = await new DatabaseHelper().getPaymentsByMonth(
+        selectedYearMonth,
+      );
+      setState(() {
+        payments = paymentsList;
+        total = payments.fold(0, (sum, payment) => sum + payment.amount);
+      });
+    } catch (e) {
+      print('Error loading payments: $e');
+      setState(() {
+        payments = [];
+        total = 0;
+      });
+    }
   }
 
   void _showMonthYearPicker() {
@@ -224,17 +233,17 @@ class _PaymentsPageState extends State<PaymentsPage> {
                                                               'Delete',
                                                             ),
                                                             onTap: () async {
-                                                              await DatabaseHelper
-                                                                  .instance
-                                                                  .deletePayment(
-                                                                    payment.id!,
-                                                                  );
-                                                              _loadPayments();
-                                                              if (context
-                                                                  .mounted)
-                                                                Navigator.pop(
-                                                                  context,
-                                                                );
+                                                              // await DatabaseHelper
+
+                                                              //     .deletePayment(
+                                                              //       payment.id!,
+                                                              //     );
+                                                              // _loadPayments();
+                                                              // if (context
+                                                              //     .mounted)
+                                                              //   Navigator.pop(
+                                                              //     context,
+                                                              //   );
                                                             },
                                                           ),
                                                         ],

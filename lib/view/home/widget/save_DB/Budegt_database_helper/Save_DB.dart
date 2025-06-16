@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:new_project_2025/view/home/dream_page/model_dream_page/model_dream.dart';
+import 'package:new_project_2025/view/home/widget/payment_page/payment_class/payment_class.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
@@ -433,7 +434,85 @@ class DatabaseHelper {
       return false;
     }
   }
+  Future<int> insertPayment(Payment payment) async {
+  final db = await database;
+  
+  Map<String, dynamic> paymentData = {
+    "date": payment.date,
+    "accountName": payment.accountName,
+    "amount": payment.amount,
+    "paymentMode": payment.paymentMode,
+    "remarks": payment.remarks,
+  };
+  
+  return await db.insert(
+    'TABLE_PAYMENTVOUCHER', 
+    {'voucherdata': jsonEncode(paymentData)}
+  );
 }
+
+// Update Payment method
+Future<int> updatePayment(Payment payment) async {
+  final db = await database;
+  
+  Map<String, dynamic> paymentData = {
+    "date": payment.date,
+    "accountName": payment.accountName,
+    "amount": payment.amount,
+    "paymentMode": payment.paymentMode,
+    "remarks": payment.remarks,
+  };
+  
+  return await db.update(
+    'TABLE_PAYMENTVOUCHER',
+    {'voucherdata': jsonEncode(paymentData)},
+    where: 'keyid = ?',
+    whereArgs: [payment.id],
+  );
+}
+
+// Get payments by month
+Future<List<Payment>> getPaymentsByMonth(String yearMonth) async {
+  final db = await database;
+  final List<Map<String, dynamic>> maps = await db.query('TABLE_PAYMENTVOUCHER');
+  
+  List<Payment> payments = [];
+  
+  for (var map in maps) {
+    try {
+      Map<String, dynamic> paymentData = jsonDecode(map['voucherdata']);
+      String paymentDate = paymentData['date'];
+      
+      // Check if payment belongs to selected month
+      if (paymentDate.startsWith(yearMonth)) {
+        payments.add(Payment(
+          id: map['keyid'],
+          date: paymentData['date'],
+          accountName: paymentData['accountName'],
+          amount: double.parse(paymentData['amount'].toString()),
+          paymentMode: paymentData['paymentMode'],
+          remarks: paymentData['remarks'],
+        ));
+      }
+    } catch (e) {
+      print('Error parsing payment data: $e');
+    }
+  }
+  
+  return payments;
+}
+
+// Delete payment method
+Future<int> deletePayment(int id) async {
+  final db = await database;
+  return await db.delete(
+    'TABLE_PAYMENTVOUCHER',
+    where: 'keyid = ?',
+    whereArgs: [id],
+  );
+}
+}
+
 
 class TargetCategory {
   final int? id;
