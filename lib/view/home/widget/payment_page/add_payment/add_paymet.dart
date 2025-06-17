@@ -6,6 +6,22 @@ import 'package:new_project_2025/view/home/widget/payment_page/payment_class/pay
 import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 import 'package:new_project_2025/view_model/AccountSet_up/Add_Acount.dart';
 
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'dart:convert';
+
+import 'package:new_project_2025/view/home/widget/payment_page/payment_class/payment_class.dart';
+import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
+import 'package:new_project_2025/view_model/AccountSet_up/Add_Acount.dart';
+
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'dart:convert';
+
+import 'package:new_project_2025/view/home/widget/payment_page/payment_class/payment_class.dart';
+import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
+import 'package:new_project_2025/view_model/AccountSet_up/Add_Acount.dart';
+
 class AddPaymentVoucherPage extends StatefulWidget {
   final Payment? payment;
 
@@ -42,7 +58,6 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
       _remarksController.text = widget.payment!.remarks ?? '';
     } else {
       selectedDate = DateTime.now();
-      selectedCashOption = 'Cash';
     }
   }
 
@@ -64,8 +79,9 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
 
           if (accountType == 'bank') {
             banks.add('Bank - $accountName');
-          } else if (accountType == 'cash') {
-            cashAccounts.add('Cash - $accountName');
+          } else if (accountType == 'cash' &&
+              accountName.toLowerCase() != 'cash') {
+            cashAccounts.add(accountName);
           }
         } catch (e) {
           print('Error parsing account data: $e');
@@ -73,12 +89,10 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
       }
 
       setState(() {
-        // Always include default Cash option
         cashOptions = ['Cash', ...cashAccounts];
         bankOptions = banks;
         allBankCashOptions = [...cashOptions, ...bankOptions];
 
-        // Set default if not already set or if current selection is no longer valid
         if (selectedCashOption == null ||
             !allBankCashOptions.contains(selectedCashOption)) {
           selectedCashOption =
@@ -87,6 +101,11 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
       });
     } catch (e) {
       print('Error loading bank/cash options: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading bank/cash options: $e')),
+        );
+      }
     }
   }
 
@@ -255,10 +274,7 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
                         ),
                       );
                       if (result == true) {
-                        // Reload bank/cash options after adding new account
                         await _loadBankCashOptions();
-
-                        // Optional: Show success message
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
@@ -413,7 +429,6 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
                         ),
                       );
                       if (result == true) {
-                        // Reload bank/cash options after adding new account
                         _loadBankCashOptions();
                       }
                     },

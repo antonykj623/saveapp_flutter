@@ -16,18 +16,12 @@ class Addaccountsdet extends StatefulWidget {
 }
 
 class MenuItem {
-  // final int id;
   final String label;
-  // final IconData icon;
-
   MenuItem(this.label);
 }
 
 class MenuItem1 {
-  // final int id;
   final String label1;
-  // final IconData icon;
-
   MenuItem1(this.label1);
 }
 
@@ -45,11 +39,6 @@ var items1 = [
 ];
 var items2 = ['Debit', 'Credit'];
 var items3 = ['2025', '2026', '2027', '2028', '2029', '2030'];
-List<MenuItem> menuItems1 = [MenuItem('Debit'), MenuItem('Credit')];
-
-// List<MenuItem> menuItems = [
-//    MenuItem('Credit'),
-//   MenuItem('Debit'),
 
 final _formKey = GlobalKey<FormState>();
 final TextEditingController accountname = TextEditingController();
@@ -58,65 +47,203 @@ final TextEditingController openingbalance = TextEditingController();
 var dropdownvalu = '2025';
 var dropdownvalu1 = 'Asset Account';
 var dropdownvalu2 = 'Debit';
-var id = [
-  "How to Use",
-  "Help on Whatsapp",
-  "Mail Us",
-  "About Us",
-  "Privasy Policy",
-  "Terms and Conditions For Use",
-  "FeedBack",
-  "Share",
-];
-
-// var dropdownvalu1 = 'Debit';
-final TextEditingController menuController = TextEditingController();
-MenuItem? selectedMenu;
-final TextEditingController menuController1 = TextEditingController();
-MenuItem1? selectedMenu1;
-final TextEditingController type = TextEditingController();
 
 class _SlidebleListState1 extends State<Addaccountsdet> {
-  // get dbhelper1 => null;
+  // Function to generate entry ID
+  String generateEntryId() {
+    return DateTime.now().millisecondsSinceEpoch.toString();
+  }
 
-  //
-  // void queryall() async {
-  //   var allrows = await dbhelper.queryallacc();
-  //   allrows.forEach((row){
-  //     print("rowdatas are:$row");
-  //
-  //   }
-  //   );
-  //
-  //
-  // }
+  // Function to get next available setup ID
+  Future<String> getNextSetupId() async {
+    try {
+      final db = await DatabaseHelper().database;
+      final result = await db.rawQuery(
+        'SELECT MAX(CAST(ACCOUNTS_setupid AS INTEGER)) as max_id FROM TABLE_ACCOUNTS',
+      );
+
+      int maxId = 0;
+      if (result.isNotEmpty && result.first['max_id'] != null) {
+        maxId = result.first['max_id'] as int;
+      }
+
+      return (maxId + 1).toString();
+    } catch (e) {
+      // If error, start from 1
+      return '1';
+    }
+  }
+
+  // Function to get account type number
+  int getAccountTypeNumber(String type) {
+    return type.toLowerCase() == 'debit' ? 1 : 2;
+  }
+
+  // Function to get opening balance contra account setup ID
+  String getOpeningBalanceContraSetupId(String accountType) {
+    // For opening balance entries, we typically use:
+    // - Setup ID 1 for the main account being created
+    // - Setup ID 2 for the contra account (usually Opening Balance or Capital)
+    switch (accountType.toLowerCase()) {
+      case 'bank':
+      case 'cash':
+        return '2'; // Bank/Cash contra is typically Capital or Opening Balance
+      case 'asset account':
+      case 'investment':
+        return '2'; // Asset contra is typically Capital or Opening Balance
+      case 'liability account':
+      case 'credit card':
+        return '2'; // Liability contra is typically Capital or Opening Balance
+      case 'expense account':
+        return '2'; // Expense contra is typically Cash/Bank
+      case 'income account':
+        return '2'; // Income contra is typically Cash/Bank
+      default:
+        return '2';
+    }
+  }
+
+  // Function to save double entry accounts
+  Future<void> saveDoubleEntryAccounts() async {
+    final accname = accountname.text;
+    final accountType = dropdownvalu1;
+    final openbalance = openingbalance.text;
+    final type = dropdownvalu2;
+    final currentDate = DateTime.now();
+    final dateString =
+        "${currentDate.day}/${currentDate.month}/${currentDate.year}";
+    final monthString = _getMonthName(currentDate.month);
+    final yearString = currentDate.year.toString();
+    final entryId = generateEntryId();
+
+    try {
+      final db = await DatabaseHelper().database;
+
+      // Get the next setup ID for this account
+      final setupId = await getNextSetupId();
+      final contraSetupId = getOpeningBalanceContraSetupId(accountType);
+
+      // First, save the account settings
+      Map<String, dynamic> accountsetupData = {
+        "Accountname": accname,
+        "Accounttype": accountType,
+        "OpeningBalance": openbalance,
+        "Type": type,
+      };
+
+      await DatabaseHelper().addData(
+        "TABLE_ACCOUNTSETTINGS",
+        jsonEncode(accountsetupData),
+      );
+
+      // Create the main account entry (based on selected debit/credit)
+      Map<String, dynamic> mainAccountEntry = {
+        'ACCOUNTS_VoucherType': 1, // payment voucher
+        'ACCOUNTS_entryid': entryId,
+        'ACCOUNTS_date': dateString,
+        'ACCOUNTS_setupid': setupId, // Use the new setup ID for this account
+        'ACCOUNTS_amount': openbalance,
+        'ACCOUNTS_type': type.toLowerCase(), // Use selected type (debit/credit)
+        'ACCOUNTS_remarks': 'Opening Balance for $accname',
+        'ACCOUNTS_year': yearString,
+        'ACCOUNTS_month': monthString,
+        'ACCOUNTS_cashbanktype': getAccountTypeNumber(type).toString(),
+        'ACCOUNTS_billId': '',
+        'ACCOUNTS_billVoucherNumber': '',
+      };
+
+      // Create the contra entry (opposite side for double entry)
+      Map<String, dynamic> contraEntry = {
+        'ACCOUNTS_VoucherType': 1, // payment voucher
+        'ACCOUNTS_entryid': entryId, // Same entry ID to link both entries
+        'ACCOUNTS_date': dateString,
+        'ACCOUNTS_setupid': contraSetupId, // Contra account setup ID
+        'ACCOUNTS_amount': openbalance,
+        'ACCOUNTS_type':
+            type.toLowerCase() == 'debit' ? 'credit' : 'debit', // Opposite type
+        'ACCOUNTS_remarks': 'Opening Balance contra for $accname',
+        'ACCOUNTS_year': yearString,
+        'ACCOUNTS_month': monthString,
+        'ACCOUNTS_cashbanktype':
+            type.toLowerCase() == 'debit' ? '2' : '1', // Opposite type number
+        'ACCOUNTS_billId': '',
+        'ACCOUNTS_billVoucherNumber': '',
+      };
+
+      // Insert both entries to maintain double entry
+      await db.insert('TABLE_ACCOUNTS', mainAccountEntry);
+      await db.insert('TABLE_ACCOUNTS', contraEntry);
+
+      print(
+        'Main Account Entry - Setup ID: $setupId, Type: ${type.toLowerCase()}, Entry ID: $entryId',
+      );
+      print(
+        'Contra Entry - Setup ID: $contraSetupId, Type: ${type.toLowerCase() == 'debit' ? 'credit' : 'debit'}, Entry ID: $entryId',
+      );
+
+      // Show success message
+      ScaffoldMessenger.of(context as BuildContext).showSnackBar(
+        SnackBar(
+          content: Text('Account saved with double entry successfully!'),
+        ),
+      );
+
+      // Clear form
+      accountname.clear();
+      openingbalance.clear();
+      setState(() {
+        dropdownvalu1 = 'Asset Account';
+        dropdownvalu2 = 'Debit';
+      });
+
+      // Return to previous screen with success result
+      Navigator.pop(context as BuildContext, true);
+    } catch (e) {
+      print('Error saving account: $e');
+      ScaffoldMessenger.of(
+        context as BuildContext,
+      ).showSnackBar(SnackBar(content: Text('Error saving account: $e')));
+    }
+  }
+
+  // Helper function to get month name
+  String _getMonthName(int month) {
+    const months = [
+      'jan',
+      'feb',
+      'mar',
+      'apr',
+      'may',
+      'jun',
+      'jul',
+      'aug',
+      'sep',
+      'oct',
+      'nov',
+      'dec',
+    ];
+    return months[month - 1];
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // appBar: AppBar(title: const Text('Add Account Setup')),
       appBar: AppBar(
         backgroundColor: Colors.teal,
-
         leading: IconButton(
           onPressed: () {
             Navigator.pop(context);
           },
           icon: Icon(Icons.arrow_back, color: Colors.white),
         ),
-
         title: Text('Add Account Setup', style: TextStyle(color: Colors.white)),
       ),
-
       body: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Form(
           key: _formKey,
           child: Container(
             height: 500,
-            // height: MediaQuery.of(context).size.height,
-            //   width: MediaQuery.of(context).size.width,
-            // color: const Color.fromARGB(255, 255, 255, 255),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -127,35 +254,21 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
                     enabledBorder: OutlineInputBorder(
                       borderSide: BorderSide(color: Colors.black, width: 1.5),
                     ),
-                    // focusedBorder: OutlineInputBorder(
-                    //   borderSide: BorderSide(
-                    //       color: const Color.fromARGB(255, 254, 255, 255), width: .5),
-                    // ),
-                    hintText: "Accountname",
-
-                    // hintText: 'MObile',
+                    hintText: "Account name",
                     hintStyle: TextStyle(
                       color: const Color.fromARGB(255, 0, 0, 0),
                     ),
-
                     fillColor: const Color.fromARGB(0, 170, 30, 30),
                     filled: true,
-                    // prefixIcon: const Icon(Icons.person,color:Colors.white)),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter some text';
+                      return 'Please enter account name';
                     }
                     return null;
-                    // validator:(value) {
-                    //   if (value == "") {
-                    //     return 'Account name';
-                    //   }
-                    //   return null;
                   },
                 ),
                 const SizedBox(height: 20),
-
                 Container(
                   decoration: ShapeDecoration(
                     shape: BeveledRectangleBorder(
@@ -163,16 +276,10 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
                       borderRadius: BorderRadius.all(Radius.circular(0)),
                     ),
                   ),
-
                   child: DropdownButton(
                     isExpanded: true,
-                    // Initial Value
                     value: dropdownvalu1,
-
-                    // Down Arrow Icon
                     icon: const Icon(Icons.keyboard_arrow_down),
-
-                    // Array list of items
                     items:
                         items1.map((String items) {
                           return DropdownMenuItem(
@@ -180,55 +287,42 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
                             child: Text(items),
                           );
                         }).toList(),
-                    // After selecting the desired option,it will
-                    // change button value to selected value
                     onChanged: (String? newValue2) {
                       setState(() {
                         dropdownvalu1 = newValue2!;
-                        print("Value is..:$dropdownvalu1");
+                        print("Account type selected: $dropdownvalu1");
                       });
                     },
                   ),
                 ),
-
                 SizedBox(height: 20),
-
                 TextFormField(
                   textAlign: TextAlign.end,
                   enabled: true,
                   controller: openingbalance,
-
+                  keyboardType: TextInputType.number,
                   decoration: InputDecoration(
                     hintStyle: TextStyle(
                       color: Colors.black,
                       fontWeight: FontWeight.bold,
                     ),
-
-                    //   hintStyle: (TextStyle(color: Colors.white)),
                     enabledBorder: OutlineInputBorder(
                       borderSide: BorderSide(color: Colors.black),
                     ),
-                    // focusedBorder: OutlineInputBorder(
-                    //   borderSide: BorderSide(
-                    //       color: const Color.fromARGB(255, 254, 255, 255), width: .5),
-                    //
-                    // ),
-                    hintText: "enter Opening Balance",
-
+                    hintText: "Enter Opening Balance",
                     fillColor: Colors.transparent,
                     filled: true,
-
-                    //  prefixIcon: const Icon(Icons.password,color:Colors.white)
                   ),
                   validator: (value) {
-                    if (value == "") {
-                      return 'please add Opening Balance';
+                    if (value == null || value.isEmpty) {
+                      return 'Please add Opening Balance';
+                    }
+                    if (double.tryParse(value) == null) {
+                      return 'Please enter a valid number';
                     }
                     return null;
                   },
-                  //    obscureText: true,
                 ),
-
                 const SizedBox(height: 20),
                 InputDecorator(
                   decoration: InputDecoration(
@@ -236,20 +330,14 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
                       horizontal: 20.0,
                       vertical: 5.0,
                     ),
-
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(3.0),
                     ),
                   ),
                   child: DropdownButton(
                     isExpanded: true,
-                    // Initial Value
                     value: dropdownvalu2,
-
-                    // Down Arrow Icon
                     icon: const Icon(Icons.keyboard_arrow_down),
-
-                    // Array list of items
                     items:
                         items2.map((String items) {
                           return DropdownMenuItem(
@@ -257,57 +345,25 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
                             child: Text(items),
                           );
                         }).toList(),
-                    // After selecting the desired option,it will
-                    // change button value to selected value
                     onChanged: (String? newValue1) {
                       setState(() {
                         dropdownvalu2 = newValue1!;
-                        print("Value is..:$dropdownvalu2");
+                        print("Account side selected: $dropdownvalu2");
                       });
                     },
                   ),
                 ),
-
                 const SizedBox(height: 90),
                 Column(
                   children: [
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            Colors.teal, // background (button) color
-                        foregroundColor:
-                            Colors.white, // foreground (text) color
+                        backgroundColor: Colors.teal,
+                        foregroundColor: Colors.white,
                       ),
-
                       onPressed: () {
                         if (_formKey.currentState!.validate()) {
-                          // If the form is valid, proceed
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Processing Data')),
-                          );
-
-                          final accname = accountname.text;
-
-                          final catogory = dropdownvalu1;
-                          final openbalance = openingbalance.text;
-
-                          final type = dropdownvalu2;
-
-                          Map<String, dynamic> accountsetupData = {
-                            "Accountname": accname,
-                            "Accounttype": dropdownvalu1,
-                            "OpeningBalance": openbalance,
-                            "Type": type,
-                          };
-                          final _databaseHelper = DatabaseHelper().addData(
-                            "TABLE_ACCOUNTSETTINGS",
-                            jsonEncode(accountsetupData),
-                          );
-
-                          print('account name is ...$accname');
-                          //    dbhelper.createacc(Accounts(accountname: accname, catogory: catogory, openingbalance: openbalance, accounttype: type1, accyear: year));
-
-                          print("Value inserted ");
+                          saveDoubleEntryAccounts();
                         }
                       },
                       child: Text(
@@ -316,51 +372,7 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
                           color: const Color.fromARGB(255, 255, 255, 255),
                         ),
                       ),
-                      //   color: const Color(0xFF1BC0C5),
                     ),
-
-                    //                       Padding(
-                    //                         padding: const EdgeInsets.all(8.0),
-                    //                         child: ElevatedButton(onPressed: () async {
-                    //
-                    //
-                    //                           var data =  await dbhelper.queryallacc();
-                    //
-                    //                           print("Datas are...$data");
-                    //
-                    //
-                    //
-                    //                           //  dbhelper1.accountqueryall1();
-                    //                           // dbhelper1;
-                    // //                               QuickAlert.show(
-                    // //  context: context,
-                    // //  type: QuickAlertType.success,
-                    // //   title: 'registration Completed Please login',
-                    //
-                    // // );
-                    //
-                    //
-                    //                         }, child: Text('showdata'),),
-                    //                       ),
-                    //
-                    //
-
-                    // ElevatedButton(
-                    //   onPressed: () async{
-                    //     var alterTable = await dbhelper.alterTable('accountstable','catogory');
-                    //     // alterTable();
-                    //     //   alterTable();
-                    //
-                    //     print("Value Altered : $alterTable()");
-                    //     //  clearText();
-                    //   },
-                    //
-                    //   child: Text(
-                    //     'Alter',
-                    //     style: TextStyle(color: Colors.blue, fontSize: 25),
-                    //   ),
-                    //
-                    // ),
                   ],
                 ),
               ],

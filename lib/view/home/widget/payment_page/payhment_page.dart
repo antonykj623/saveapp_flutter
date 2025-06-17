@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 import 'package:new_project_2025/view/home/widget/payment_page/Month_date/Moth_datepage.dart';
 import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 import 'add_payment/add_paymet.dart';
-
 import 'payment_class/payment_class.dart';
 
 class PaymentsPage extends StatefulWidget {
@@ -35,7 +34,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
 
   void _loadPayments() async {
     try {
-      final paymentsList = await new DatabaseHelper().getPaymentsByMonth(
+      final paymentsList = await DatabaseHelper().getPaymentsByMonth(
         selectedYearMonth,
       );
       setState(() {
@@ -44,6 +43,9 @@ class _PaymentsPageState extends State<PaymentsPage> {
       });
     } catch (e) {
       print('Error loading payments: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error loading payments: $e')));
       setState(() {
         payments = [];
         total = 0;
@@ -83,11 +85,28 @@ class _PaymentsPageState extends State<PaymentsPage> {
     return '$monthName/$year';
   }
 
+  void _deletePayment(int id) async {
+    try {
+      await DatabaseHelper().deletePayment(id);
+      _loadPayments();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Payment deleted successfully')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error deleting payment: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        actions: [],
         title: const Text('Payments'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -144,126 +163,123 @@ class _PaymentsPageState extends State<PaymentsPage> {
                       ],
                     ),
                   ),
-
                   Expanded(
                     child:
                         payments.isEmpty
                             ? const Center(
                               child: Text('No payments for this month'),
                             )
-                            : ListView.builder(
+                            : Scrollbar(
                               controller: _verticalScrollController,
-                              itemCount: payments.length,
-                              itemBuilder: (context, index) {
-                                final payment = payments[index];
-                                return Container(
-                                  decoration: BoxDecoration(
-                                    border: Border(
-                                      bottom: BorderSide(
-                                        color: Colors.grey.shade300,
+                              child: ListView.builder(
+                                controller: _verticalScrollController,
+                                itemCount: payments.length,
+                                itemBuilder: (context, index) {
+                                  final payment = payments[index];
+                                  return Container(
+                                    decoration: BoxDecoration(
+                                      border: Border(
+                                        bottom: BorderSide(
+                                          color: Colors.grey.shade300,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      _buildDataCell(
-                                        DateFormat('dd/MM/yyyy').format(
-                                          DateFormat(
-                                            'yyyy-MM-dd',
-                                          ).parse(payment.date),
-                                        ),
-                                        flex: 1,
-                                      ),
-                                      _buildDataCell(
-                                        payment.accountName,
-                                        flex: 2,
-                                      ),
-                                      _buildDataCell(
-                                        payment.amount.toString(),
-                                        flex: 1,
-                                      ),
-                                      _buildDataCell(
-                                        payment.paymentMode,
-                                        flex: 1,
-                                      ),
-                                      Expanded(
-                                        flex: 1,
-                                        child: Container(
-                                          alignment: Alignment.center,
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 8,
+                                    child: Row(
+                                      children: [
+                                        _buildDataCell(
+                                          DateFormat('dd/MM/yyyy').format(
+                                            DateFormat(
+                                              'yyyy-MM-dd',
+                                            ).parse(payment.date),
                                           ),
-                                          child: TextButton(
-                                            onPressed: () {
-                                              showDialog(
-                                                context: context,
-                                                builder:
-                                                    (context) => AlertDialog(
-                                                      content: Column(
-                                                        mainAxisSize:
-                                                            MainAxisSize.min,
-                                                        children: [
-                                                          ListTile(
-                                                            title: const Text(
-                                                              'Edit',
+                                          flex: 1,
+                                        ),
+                                        _buildDataCell(
+                                          payment.accountName,
+                                          flex: 2,
+                                        ),
+                                        _buildDataCell(
+                                          payment.amount.toStringAsFixed(2),
+                                          flex: 1,
+                                        ),
+                                        _buildDataCell(
+                                          payment.paymentMode,
+                                          flex: 1,
+                                        ),
+                                        Expanded(
+                                          flex: 1,
+                                          child: Container(
+                                            alignment: Alignment.center,
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 8,
+                                            ),
+                                            child: TextButton(
+                                              onPressed: () {
+                                                showDialog(
+                                                  context: context,
+                                                  builder:
+                                                      (context) => AlertDialog(
+                                                        content: Column(
+                                                          mainAxisSize:
+                                                              MainAxisSize.min,
+                                                          children: [
+                                                            ListTile(
+                                                              title: const Text(
+                                                                'Edit',
+                                                              ),
+                                                              onTap: () {
+                                                                Navigator.pop(
+                                                                  context,
+                                                                );
+                                                                Navigator.push(
+                                                                  context,
+                                                                  MaterialPageRoute(
+                                                                    builder:
+                                                                        (
+                                                                          context,
+                                                                        ) => AddPaymentVoucherPage(
+                                                                          payment:
+                                                                              payment,
+                                                                        ),
+                                                                  ),
+                                                                ).then(
+                                                                  (_) =>
+                                                                      _loadPayments(),
+                                                                );
+                                                              },
                                                             ),
-                                                            onTap: () {
-                                                              Navigator.pop(
-                                                                context,
-                                                              );
-                                                              Navigator.push(
-                                                                context,
-                                                                MaterialPageRoute(
-                                                                  builder:
-                                                                      (
-                                                                        context,
-                                                                      ) => AddPaymentVoucherPage(
-                                                                        payment:
-                                                                            payment,
-                                                                      ),
-                                                                ),
-                                                              ).then(
-                                                                (_) =>
-                                                                    _loadPayments(),
-                                                              );
-                                                            },
-                                                          ),
-                                                          ListTile(
-                                                            title: const Text(
-                                                              'Delete',
+                                                            ListTile(
+                                                              title: const Text(
+                                                                'Delete',
+                                                              ),
+                                                              onTap: () {
+                                                                Navigator.pop(
+                                                                  context,
+                                                                );
+                                                                _deletePayment(
+                                                                  payment.id!,
+                                                                );
+                                                              },
                                                             ),
-                                                            onTap: () async {
-                                                              // await DatabaseHelper
-
-                                                              //     .deletePayment(
-                                                              //       payment.id!,
-                                                              //     );
-                                                              // _loadPayments();
-                                                              // if (context
-                                                              //     .mounted)
-                                                              //   Navigator.pop(
-                                                              //     context,
-                                                              //   );
-                                                            },
-                                                          ),
-                                                        ],
+                                                          ],
+                                                        ),
                                                       ),
-                                                    ),
-                                              );
-                                            },
-                                            child: const Text(
-                                              'Edit/Delete',
-                                              style: TextStyle(
-                                                color: Colors.red,
+                                                );
+                                              },
+                                              child: const Text(
+                                                'Edit/Delete',
+                                                style: TextStyle(
+                                                  color: Colors.red,
+                                                ),
                                               ),
                                             ),
                                           ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
                             ),
                   ),
                 ],
@@ -273,7 +289,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Text(
-              'Total: ${total.toStringAsFixed(1)}',
+              'Total: ${total.toStringAsFixed(2)}',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
