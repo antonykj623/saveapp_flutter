@@ -49,12 +49,10 @@ var dropdownvalu1 = 'Asset Account';
 var dropdownvalu2 = 'Debit';
 
 class _SlidebleListState1 extends State<Addaccountsdet> {
-  // Function to generate entry ID
   String generateEntryId() {
     return DateTime.now().millisecondsSinceEpoch.toString();
   }
 
-  // Function to get next available setup ID
   Future<String> getNextSetupId() async {
     try {
       final db = await DatabaseHelper().database;
@@ -69,46 +67,49 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
 
       return (maxId + 1).toString();
     } catch (e) {
-      // If error, start from 1
       return '1';
     }
   }
 
-  // Function to get account type number
   int getAccountTypeNumber(String type) {
     return type.toLowerCase() == 'debit' ? 1 : 2;
   }
 
-  // Function to get opening balance contra account setup ID
   String getOpeningBalanceContraSetupId(String accountType) {
-    // For opening balance entries, we typically use:
-    // - Setup ID 1 for the main account being created
-    // - Setup ID 2 for the contra account (usually Opening Balance or Capital)
     switch (accountType.toLowerCase()) {
       case 'bank':
       case 'cash':
-        return '2'; // Bank/Cash contra is typically Capital or Opening Balance
+        return '2';
       case 'asset account':
       case 'investment':
-        return '2'; // Asset contra is typically Capital or Opening Balance
+        return '2';
       case 'liability account':
       case 'credit card':
-        return '2'; // Liability contra is typically Capital or Opening Balance
+        return '2';
       case 'expense account':
-        return '2'; // Expense contra is typically Cash/Bank
+        return '2';
       case 'income account':
-        return '2'; // Income contra is typically Cash/Bank
+        return '2';
       default:
         return '2';
     }
   }
 
-  // Function to save double entry accounts
   Future<void> saveDoubleEntryAccounts() async {
-    final accname = accountname.text;
+    final accname = accountname.text.trim();
     final accountType = dropdownvalu1;
     final openbalance = openingbalance.text;
     final type = dropdownvalu2;
+
+    if (accname.toLowerCase() == 'cash') {
+      ScaffoldMessenger.of(context as BuildContext).showSnackBar(
+        const SnackBar(
+          content: Text('Account name "Cash" is reserved. Please choose a different name.'),
+        ),
+      );
+      return;
+    }
+
     final currentDate = DateTime.now();
     final dateString =
         "${currentDate.day}/${currentDate.month}/${currentDate.year}";
@@ -118,12 +119,9 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
 
     try {
       final db = await DatabaseHelper().database;
-
-      // Get the next setup ID for this account
       final setupId = await getNextSetupId();
       final contraSetupId = getOpeningBalanceContraSetupId(accountType);
 
-      // First, save the account settings
       Map<String, dynamic> accountsetupData = {
         "Accountname": accname,
         "Accounttype": accountType,
@@ -136,14 +134,13 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
         jsonEncode(accountsetupData),
       );
 
-      // Create the main account entry (based on selected debit/credit)
       Map<String, dynamic> mainAccountEntry = {
-        'ACCOUNTS_VoucherType': 1, // payment voucher
-        'ACCOUNTS_entryid': entryId,
+        'ACCOUNTS_VoucherType': 1,
+        'ACCOUNTS_entryid': "0",
         'ACCOUNTS_date': dateString,
-        'ACCOUNTS_setupid': setupId, // Use the new setup ID for this account
+        'ACCOUNTS_setupid': setupId,
         'ACCOUNTS_amount': openbalance,
-        'ACCOUNTS_type': type.toLowerCase(), // Use selected type (debit/credit)
+        'ACCOUNTS_type': type.toLowerCase(),  
         'ACCOUNTS_remarks': 'Opening Balance for $accname',
         'ACCOUNTS_year': yearString,
         'ACCOUNTS_month': monthString,
@@ -152,26 +149,31 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
         'ACCOUNTS_billVoucherNumber': '',
       };
 
-      // Create the contra entry (opposite side for double entry)
+
+//add to db
+
+   var id=   await db.insert('TABLE_ACCOUNTS', mainAccountEntry);
+
+
+
+
       Map<String, dynamic> contraEntry = {
-        'ACCOUNTS_VoucherType': 1, // payment voucher
-        'ACCOUNTS_entryid': entryId, // Same entry ID to link both entries
+        'ACCOUNTS_VoucherType': 1,
+        'ACCOUNTS_entryid': id.toString(),
         'ACCOUNTS_date': dateString,
-        'ACCOUNTS_setupid': contraSetupId, // Contra account setup ID
+        'ACCOUNTS_setupid': contraSetupId,
         'ACCOUNTS_amount': openbalance,
         'ACCOUNTS_type':
-            type.toLowerCase() == 'debit' ? 'credit' : 'debit', // Opposite type
+            type.toLowerCase() == 'debit' ? 'credit' : 'debit',
         'ACCOUNTS_remarks': 'Opening Balance contra for $accname',
         'ACCOUNTS_year': yearString,
         'ACCOUNTS_month': monthString,
         'ACCOUNTS_cashbanktype':
-            type.toLowerCase() == 'debit' ? '2' : '1', // Opposite type number
+            type.toLowerCase() == 'debit' ? '2' : '1',
         'ACCOUNTS_billId': '',
         'ACCOUNTS_billVoucherNumber': '',
       };
 
-      // Insert both entries to maintain double entry
-      await db.insert('TABLE_ACCOUNTS', mainAccountEntry);
       await db.insert('TABLE_ACCOUNTS', contraEntry);
 
       print(
@@ -181,14 +183,12 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
         'Contra Entry - Setup ID: $contraSetupId, Type: ${type.toLowerCase() == 'debit' ? 'credit' : 'debit'}, Entry ID: $entryId',
       );
 
-      // Show success message
       ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('Account saved with double entry successfully!'),
         ),
       );
 
-      // Clear form
       accountname.clear();
       openingbalance.clear();
       setState(() {
@@ -196,17 +196,15 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
         dropdownvalu2 = 'Debit';
       });
 
-      // Return to previous screen with success result
       Navigator.pop(context as BuildContext, true);
     } catch (e) {
       print('Error saving account: $e');
-      ScaffoldMessenger.of(
-        context as BuildContext,
-      ).showSnackBar(SnackBar(content: Text('Error saving account: $e')));
+      ScaffoldMessenger.of(context as BuildContext).showSnackBar(
+        SnackBar(content: Text('Error saving account: $e')),
+      );
     }
   }
 
-  // Helper function to get month name
   String _getMonthName(int month) {
     const months = [
       'jan',
@@ -234,9 +232,9 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
           onPressed: () {
             Navigator.pop(context);
           },
-          icon: Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
         ),
-        title: Text('Add Account Setup', style: TextStyle(color: Colors.white)),
+        title: const Text('Add Account Setup', style: TextStyle(color: Colors.white)),
       ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
@@ -258,7 +256,7 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
                     hintStyle: TextStyle(
                       color: const Color.fromARGB(255, 0, 0, 0),
                     ),
-                    fillColor: const Color.fromARGB(0, 170, 30, 30),
+                    fillColor: const Color.fromARGB(0, 170, 30, 255),
                     filled: true,
                   ),
                   validator: (value) {
@@ -280,13 +278,12 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
                     isExpanded: true,
                     value: dropdownvalu1,
                     icon: const Icon(Icons.keyboard_arrow_down),
-                    items:
-                        items1.map((String items) {
-                          return DropdownMenuItem(
-                            value: items,
-                            child: Text(items),
-                          );
-                        }).toList(),
+                    items: items1.map((String items) {
+                      return DropdownMenuItem(
+                        value: items,
+                        child: Text(items),
+                      );
+                    }).toList(),
                     onChanged: (String? newValue2) {
                       setState(() {
                         dropdownvalu1 = newValue2!;
@@ -295,7 +292,7 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
                     },
                   ),
                 ),
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
                 TextFormField(
                   textAlign: TextAlign.end,
                   enabled: true,
@@ -338,13 +335,12 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
                     isExpanded: true,
                     value: dropdownvalu2,
                     icon: const Icon(Icons.keyboard_arrow_down),
-                    items:
-                        items2.map((String items) {
-                          return DropdownMenuItem(
-                            value: items,
-                            child: Text(items),
-                          );
-                        }).toList(),
+                    items: items2.map((String items) {
+                      return DropdownMenuItem(
+                        value: items,
+                        child: Text(items),
+                      );
+                    }).toList(),
                     onChanged: (String? newValue1) {
                       setState(() {
                         dropdownvalu2 = newValue1!;
@@ -366,10 +362,10 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
                           saveDoubleEntryAccounts();
                         }
                       },
-                      child: Text(
+                      child: const Text(
                         "Save",
                         style: TextStyle(
-                          color: const Color.fromARGB(255, 255, 255, 255),
+                          color: Color.fromARGB(255, 255, 255, 255),
                         ),
                       ),
                     ),

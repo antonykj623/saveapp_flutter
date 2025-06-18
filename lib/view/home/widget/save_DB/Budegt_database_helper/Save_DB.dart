@@ -434,140 +434,148 @@ class DatabaseHelper {
       return false;
     }
   }
+
   Future<int> insertPayment(Payment payment) async {
-  final db = await database;
-  
-  Map<String, dynamic> paymentData = {
-    "date": payment.date,
-    "accountName": payment.accountName,
-    "amount": payment.amount,
-    "paymentMode": payment.paymentMode,
-    "remarks": payment.remarks,
-  };
-  
-  return await db.insert(
-    'TABLE_PAYMENTVOUCHER', 
-    {'voucherdata': jsonEncode(paymentData)}
-  );
-}
+    final db = await database;
 
-Future<int> updatePayment(Payment payment) async {
-  final db = await database;
-  
-  Map<String, dynamic> paymentData = {
-    "date": payment.date,
-    "accountName": payment.accountName,
-    "amount": payment.amount,
-    "paymentMode": payment.paymentMode,
-    "remarks": payment.remarks,
-  };
-  
-  return await db.update(
-    'TABLE_PAYMENTVOUCHER',
-    {'voucherdata': jsonEncode(paymentData)},
-    where: 'keyid = ?',
-    whereArgs: [payment.id],
-  );
-}
+    Map<String, dynamic> paymentData = {
+      "date": payment.date,
+      "accountName": payment.accountName,
+      "amount": payment.amount,
+      "paymentMode": payment.paymentMode,
+      "remarks": payment.remarks,
+    };
 
-Future<List<Payment>> getPaymentsByMonth(String yearMonth) async {
-  final db = await database;
-  final List<Map<String, dynamic>> maps = await db.query('TABLE_PAYMENTVOUCHER');
-  
-  List<Payment> payments = [];
-  
-  for (var map in maps) {
-    try {
-      Map<String, dynamic> paymentData = jsonDecode(map['voucherdata']);
-      String paymentDate = paymentData['date'];
-      
-      if (paymentDate.startsWith(yearMonth)) {
-        payments.add(Payment(
-          id: map['keyid'],
-          date: paymentData['date'],
-          accountName: paymentData['accountName'],
-          amount: double.parse(paymentData['amount'].toString()),
-          paymentMode: paymentData['paymentMode'],
-          remarks: paymentData['remarks'],
-        ));
-      }
-    } catch (e) {
-      print('Error parsing payment data: $e');
-    }
+    return await db.insert('TABLE_PAYMENTVOUCHER', {
+      'voucherdata': jsonEncode(paymentData),
+    });
   }
-  
-  return payments;
-}
 
-// Delete payment method
-Future<int> deletePayment(int id) async {
-  final db = await database;
-  return await db.delete(
-    'TABLE_PAYMENTVOUCHER',
-    where: 'keyid = ?',
-    whereArgs: [id],
-  );
-}
-// Add these methods to your DatabaseHelper class
+  Future<int> updatePayment(Payment payment) async {
+    final db = await database;
 
-// Method to insert account entry with all required fields
-Future<int> insertAccountEntry(Map<String, dynamic> accountData) async {
-  final db = await database;
-  return await db.insert('TABLE_ACCOUNTS', accountData);
-}
+    Map<String, dynamic> paymentData = {
+      "date": payment.date,
+      "accountName": payment.accountName,
+      "amount": payment.amount,
+      "paymentMode": payment.paymentMode,
+      "remarks": payment.remarks,
+    };
 
-// Method to get all account entries
-Future<List<Map<String, dynamic>>> getAllAccountEntries() async {
-  final db = await database;
-  return await db.query('TABLE_ACCOUNTS', orderBy: 'ACCOUNTS_id DESC');
-}
+    return await db.update(
+      'TABLE_PAYMENTVOUCHER',
+      {'voucherdata': jsonEncode(paymentData)},
+      where: 'keyid = ?',
+      whereArgs: [payment.id],
+    );
+  }
 
-// Method to get account entries by entry ID (for finding related debit/credit pairs)
-Future<List<Map<String, dynamic>>> getAccountEntriesByEntryId(String entryId) async {
-  final db = await database;
-  return await db.query(
-    'TABLE_ACCOUNTS',
-    where: 'ACCOUNTS_entryid = ?',
-    whereArgs: [entryId],
-  );
-}
+  Future<List<Payment>> getPaymentsByMonth(String yearMonth) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'TABLE_PAYMENTVOUCHER',
+    );
 
-// Method to get account entries by month and year
-Future<List<Map<String, dynamic>>> getAccountEntriesByMonth(String month, String year) async {
-  final db = await database;
-  return await db.query(
-    'TABLE_ACCOUNTS',
-    where: 'ACCOUNTS_month = ? AND ACCOUNTS_year = ?',
-    whereArgs: [month, year],
-    orderBy: 'ACCOUNTS_id DESC',
-  );
-}
+    List<Payment> payments = [];
 
-Future<double> getTotalDebitAmount() async {
-  final db = await database;
-  final result = await db.rawQuery(
-    'SELECT SUM(CAST(ACCOUNTS_amount AS REAL)) as total FROM TABLE_ACCOUNTS WHERE ACCOUNTS_type = ?',
-    ['debit']
-  );
-  return result.first['total'] as double? ?? 0.0;
-}
+    for (var map in maps) {
+      try {
+        Map<String, dynamic> paymentData = jsonDecode(map['voucherdata']);
+        String paymentDate = paymentData['date'];
 
-Future<double> getTotalCreditAmount() async {
-  final db = await database;
-  final result = await db.rawQuery(
-    'SELECT SUM(CAST(ACCOUNTS_amount AS REAL)) as total FROM TABLE_ACCOUNTS WHERE ACCOUNTS_type = ?',
-    ['credit']
-  );
-  return result.first['total'] as double? ?? 0.0;
-}
+        if (paymentDate.startsWith(yearMonth)) {
+          payments.add(
+            Payment(
+              id: map['keyid'],
+              date: paymentData['date'],
+              accountName: paymentData['accountName'],
+              amount: double.parse(paymentData['amount'].toString()),
+              paymentMode: paymentData['paymentMode'],
+              remarks: paymentData['remarks'],
+            ),
+          );
+        }
+      } catch (e) {
+        print('Error parsing payment data: $e');
+      }
+    }
 
-Future<bool> validateDoubleEntry() async {
-  final debitTotal = await getTotalDebitAmount();
-  final creditTotal = await getTotalCreditAmount();
-  return debitTotal == creditTotal;
-}
-}
+    return payments;
+  }
 
+  // Delete payment method
+  Future<int> deletePayment(int id) async {
+    final db = await database;
+    return await db.delete(
+      'TABLE_PAYMENTVOUCHER',
+      where: 'keyid = ?',
+      whereArgs: [id],
+    );
+  }
+  // Add these methods to your DatabaseHelper class
+
+  // Method to insert account entry with all required fields
+  Future<int> insertAccountEntry(Map<String, dynamic> accountData) async {
+    final db = await database;
+    return await db.insert('TABLE_ACCOUNTS', accountData);
+  }
+
+  // Method to get all account entries
+  Future<List<Map<String, dynamic>>> getAllAccountEntries() async {
+    final db = await database;
+    return await db.query('TABLE_ACCOUNTS', orderBy: 'ACCOUNTS_id DESC');
+  }
+
+  // Method to get account entries by entry ID (for finding related debit/credit pairs)
+  Future<List<Map<String, dynamic>>> getAccountEntriesByEntryId(
+    String entryId,
+  ) async {
+    final db = await database;
+    return await db.query(
+      'TABLE_ACCOUNTS',
+      where: 'ACCOUNTS_entryid = ?',
+      whereArgs: [entryId],
+    );
+  }
+
+  // Method to get account entries by month and year
+  Future<List<Map<String, dynamic>>> getAccountEntriesByMonth(
+    String month,
+    String year,
+  ) async {
+    final db = await database;
+    return await db.query(
+      'TABLE_ACCOUNTS',
+      where: 'ACCOUNTS_month = ? AND ACCOUNTS_year = ?',
+      whereArgs: [month, year],
+      orderBy: 'ACCOUNTS_id DESC',
+    );
+  }
+
+  Future<double> getTotalDebitAmount() async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT SUM(CAST(ACCOUNTS_amount AS REAL)) as total FROM TABLE_ACCOUNTS WHERE ACCOUNTS_type = ?',
+      ['debit'],
+    );
+    return result.first['total'] as double? ?? 0.0;
+  }
+
+  Future<double> getTotalCreditAmount() async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT SUM(CAST(ACCOUNTS_amount AS REAL)) as total FROM TABLE_ACCOUNTS WHERE ACCOUNTS_type = ?',
+      ['credit'],
+    );
+    return result.first['total'] as double? ?? 0.0;
+  }
+
+  Future<bool> validateDoubleEntry() async {
+    final debitTotal = await getTotalDebitAmount();
+    final creditTotal = await getTotalCreditAmount();
+    return debitTotal == creditTotal;
+  }
+}
 
 class TargetCategory {
   final int? id;
@@ -583,5 +591,4 @@ class TargetCategory {
     this.iconData,
     this.isCustom = false,
   });
-  
 }
