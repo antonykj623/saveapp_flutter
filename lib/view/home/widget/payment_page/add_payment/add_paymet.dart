@@ -83,6 +83,12 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
               allBankCashOptions.isNotEmpty ? allBankCashOptions.first : 'Cash';
         }
       });
+
+      print('===== LOADED BANK/CASH OPTIONS =====');
+      print('Cash Options: $cashOptions');
+      print('Bank Options: $bankOptions');
+      print('All Options: $allBankCashOptions');
+      print('====================================');
     } catch (e) {
       print('Error loading bank/cash options: $e');
       if (context.mounted) {
@@ -116,6 +122,9 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
             setState(() {
               selectedAccount = accountName;
             });
+            print('===== ACCOUNT SELECTED =====');
+            print('Selected Account: $accountName');
+            print('============================');
           },
         );
       },
@@ -131,35 +140,17 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
         return;
       }
 
-      final payment = Payment(
-        id: widget.payment?.id,
-        date: DateFormat('yyyy-MM-dd').format(selectedDate),
-        accountName: selectedAccount!,
-        amount: double.parse(_amountController.text),
-        paymentMode: selectedCashOption ?? paymentMode,
-        remarks: _remarksController.text,
-      );
+      print('===== SAVING PAYMENT DETAILS =====');
+      print('Date: ${DateFormat('yyyy-MM-dd').format(selectedDate)}');
+      print('Account: $selectedAccount');
+      print('Amount: ${_amountController.text}');
+      print('Payment Mode: $paymentMode');
+      print('Selected Cash/Bank Option: $selectedCashOption');
+      print('Remarks: ${_remarksController.text}');
+      print('==================================');
 
       try {
-        if (widget.payment == null) {
-          await DatabaseHelper().insertPayment(payment);
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Payment saved successfully')),
-            );
-          }
-        } else {
-          await DatabaseHelper().updatePayment(payment);
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Payment updated successfully')),
-            );
-          }
-        }
-
-        if (context.mounted) {
-          Navigator.pop(context, true);
-        }
+        saveDoubleEntryAccounts();
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(
@@ -333,6 +324,13 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
                           selectedCashOption = bankOptions.first;
                         }
                       });
+
+                      print('===== RADIO SELECTION =====');
+                      print('User selected: BANK');
+                      print('Payment Mode changed to: $paymentMode');
+                      print('Available Bank Options: $bankOptions');
+                      print('Selected Bank Option: $selectedCashOption');
+                      print('===========================');
                     },
                   ),
                   const Text('Bank'),
@@ -346,6 +344,13 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
                         paymentMode = value!;
                         selectedCashOption = 'Cash';
                       });
+
+                      print('===== RADIO SELECTION =====');
+                      print('User selected: CASH');
+                      print('Payment Mode changed to: $paymentMode');
+                      print('Available Cash Options: $cashOptions');
+                      print('Selected Cash Option: $selectedCashOption');
+                      print('===========================');
                     },
                   ),
                   const Text('Cash'),
@@ -371,12 +376,16 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
                           onChanged: (String? newValue) {
                             setState(() {
                               selectedCashOption = newValue;
+
+                              print(selectedCashOption);
                               if (newValue == 'Cash') {
                                 paymentMode = 'Cash';
                               } else if (newValue?.startsWith('Bank') == true) {
                                 paymentMode = 'Bank';
                               }
                             });
+
+                            print('===============================');
                           },
                           items:
                               paymentMode == 'Cash'
@@ -467,6 +476,138 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
         ),
       ),
     );
+  }
+
+  Future<String> getNextSetupId(String name) async {
+    try {
+      String maxId = "0";
+      List<Map<String, dynamic>> allrows = await DatabaseHelper().queryallacc();
+
+      allrows.forEach((row) {
+        Map<String, dynamic> dat = jsonDecode(row["data"]);
+        if (dat['Accountname'].toString().compareTo(name) == 0) {
+          maxId = row['keyid'].toString();
+        }
+      });
+
+      return maxId;
+    } catch (e) {
+      return '0';
+    }
+  }
+
+  int getAccountTypeNumber(String type) {
+    return type.toLowerCase() == 'debit' ? 1 : 2;
+  }
+
+  Future<void> saveDoubleEntryAccounts() async {
+    final accname = accountname.text.trim();
+    final accountType = dropdownvalu1;
+
+    final type = dropdownvalu2;
+
+    if (accname.toLowerCase() == 'cash') {
+      ScaffoldMessenger.of(context as BuildContext).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Account name "Cash" is reserved. Please choose a different name.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final currentDate = DateTime.now();
+    final dateString =
+        "${currentDate.day}/${currentDate.month}/${currentDate.year}";
+    final monthString = _getMonthName(currentDate.month);
+    final yearString = currentDate.year.toString();
+    final entryId = 0;
+
+    try {
+      final db = await DatabaseHelper().database;
+      final setupId = await getNextSetupId(selectedAccount.toString());
+      final contraSetupId = await getNextSetupId(accountType);
+
+      Map<String, dynamic> mainAccountEntry = {
+        'ACCOUNTS_VoucherType': 1,
+        'ACCOUNTS_entryid': "0",
+        'ACCOUNTS_date': dateString,
+        'ACCOUNTS_setupid': setupId,
+        'ACCOUNTS_amount': _amountController.text.toString(),
+        'ACCOUNTS_type': type.toLowerCase(),
+        'ACCOUNTS_remarks': 'Opening Balance for $accname',
+        'ACCOUNTS_year': yearString,
+        'ACCOUNTS_month': monthString,
+        'ACCOUNTS_cashbanktype': getAccountTypeNumber(type).toString(),
+        'ACCOUNTS_billId': '',
+        'ACCOUNTS_billVoucherNumber': '',
+      };
+
+      var id = await db.insert('TABLE_ACCOUNTS', mainAccountEntry);
+
+      Map<String, dynamic> contraEntry = {
+        'ACCOUNTS_VoucherType': 1,
+        'ACCOUNTS_entryid': id.toString(),
+        'ACCOUNTS_date': dateString,
+        'ACCOUNTS_setupid': contraSetupId,
+        'ACCOUNTS_amount': _amountController.text.toString(),
+        'ACCOUNTS_type': type.toLowerCase() == 'debit' ? 'credit' : 'debit',
+        'ACCOUNTS_remarks': 'Opening Balance contra for $accname',
+        'ACCOUNTS_year': yearString,
+        'ACCOUNTS_month': monthString,
+        'ACCOUNTS_cashbanktype': type.toLowerCase() == 'debit' ? '2' : '1',
+        'ACCOUNTS_billId': '',
+        'ACCOUNTS_billVoucherNumber': '',
+      };
+
+      await db.insert('TABLE_ACCOUNTS', contraEntry);
+
+      print(
+        'Main Account Entry - Setup ID: $setupId, Type: ${type.toLowerCase()}, Entry ID: $entryId',
+      );
+      print(
+        'Contra Entry - Setup ID: $contraSetupId, Type: ${type.toLowerCase() == 'debit' ? 'credit' : 'debit'}, Entry ID: $entryId',
+      );
+
+      ScaffoldMessenger.of(context as BuildContext).showSnackBar(
+        const SnackBar(
+          content: Text('Account saved with double entry successfully!'),
+        ),
+      );
+
+      accountname.clear();
+      openingbalance.clear();
+      setState(() {
+        dropdownvalu1 = 'Asset Account';
+        dropdownvalu2 = 'Debit';
+      });
+
+      Navigator.pop(context as BuildContext, true);
+    } catch (e) {
+      print('Error saving account: $e');
+      ScaffoldMessenger.of(
+        context as BuildContext,
+      ).showSnackBar(SnackBar(content: Text('Error saving account: $e')));
+    }
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'jan',
+      'feb',
+      'mar',
+      'apr',
+      'may',
+      'jun',
+      'jul',
+      'aug',
+      'sep',
+      'oct',
+      'nov',
+      'dec',
+    ];
+    return months[month - 1];
   }
 }
 

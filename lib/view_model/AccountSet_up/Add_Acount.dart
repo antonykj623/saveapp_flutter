@@ -53,27 +53,6 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
     return DateTime.now().millisecondsSinceEpoch.toString();
   }
 
-  Future<String> getNextSetupId() async {
-    try {
-      final db = await DatabaseHelper().database;
-      final result = await db.rawQuery(
-        'SELECT MAX(CAST(ACCOUNTS_setupid AS INTEGER)) as max_id FROM TABLE_ACCOUNTS',
-      );
-
-      int maxId = 0;
-      if (result.isNotEmpty && result.first['max_id'] != null) {
-        maxId = result.first['max_id'] as int;
-      }
-
-      return (maxId + 1).toString();
-    } catch (e) {
-      return '1';
-    }
-  }
-
-  int getAccountTypeNumber(String type) {
-    return type.toLowerCase() == 'debit' ? 1 : 2;
-  }
 
   String getOpeningBalanceContraSetupId(String accountType) {
     switch (accountType.toLowerCase()) {
@@ -95,134 +74,7 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
     }
   }
 
-  Future<void> saveDoubleEntryAccounts() async {
-    final accname = accountname.text.trim();
-    final accountType = dropdownvalu1;
-    final openbalance = openingbalance.text;
-    final type = dropdownvalu2;
-
-    if (accname.toLowerCase() == 'cash') {
-      ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-        const SnackBar(
-          content: Text('Account name "Cash" is reserved. Please choose a different name.'),
-        ),
-      );
-      return;
-    }
-
-    final currentDate = DateTime.now();
-    final dateString =
-        "${currentDate.day}/${currentDate.month}/${currentDate.year}";
-    final monthString = _getMonthName(currentDate.month);
-    final yearString = currentDate.year.toString();
-    final entryId = generateEntryId();
-
-    try {
-      final db = await DatabaseHelper().database;
-      final setupId = await getNextSetupId();
-      final contraSetupId = getOpeningBalanceContraSetupId(accountType);
-
-      Map<String, dynamic> accountsetupData = {
-        "Accountname": accname,
-        "Accounttype": accountType,
-        "OpeningBalance": openbalance,
-        "Type": type,
-      };
-
-      await DatabaseHelper().addData(
-        "TABLE_ACCOUNTSETTINGS",
-        jsonEncode(accountsetupData),
-      );
-
-      Map<String, dynamic> mainAccountEntry = {
-        'ACCOUNTS_VoucherType': 1,
-        'ACCOUNTS_entryid': "0",
-        'ACCOUNTS_date': dateString,
-        'ACCOUNTS_setupid': setupId,
-        'ACCOUNTS_amount': openbalance,
-        'ACCOUNTS_type': type.toLowerCase(),  
-        'ACCOUNTS_remarks': 'Opening Balance for $accname',
-        'ACCOUNTS_year': yearString,
-        'ACCOUNTS_month': monthString,
-        'ACCOUNTS_cashbanktype': getAccountTypeNumber(type).toString(),
-        'ACCOUNTS_billId': '',
-        'ACCOUNTS_billVoucherNumber': '',
-      };
-
-
-//add to db
-
-   var id=   await db.insert('TABLE_ACCOUNTS', mainAccountEntry);
-
-
-
-
-      Map<String, dynamic> contraEntry = {
-        'ACCOUNTS_VoucherType': 1,
-        'ACCOUNTS_entryid': id.toString(),
-        'ACCOUNTS_date': dateString,
-        'ACCOUNTS_setupid': contraSetupId,
-        'ACCOUNTS_amount': openbalance,
-        'ACCOUNTS_type':
-            type.toLowerCase() == 'debit' ? 'credit' : 'debit',
-        'ACCOUNTS_remarks': 'Opening Balance contra for $accname',
-        'ACCOUNTS_year': yearString,
-        'ACCOUNTS_month': monthString,
-        'ACCOUNTS_cashbanktype':
-            type.toLowerCase() == 'debit' ? '2' : '1',
-        'ACCOUNTS_billId': '',
-        'ACCOUNTS_billVoucherNumber': '',
-      };
-
-      await db.insert('TABLE_ACCOUNTS', contraEntry);
-
-      print(
-        'Main Account Entry - Setup ID: $setupId, Type: ${type.toLowerCase()}, Entry ID: $entryId',
-      );
-      print(
-        'Contra Entry - Setup ID: $contraSetupId, Type: ${type.toLowerCase() == 'debit' ? 'credit' : 'debit'}, Entry ID: $entryId',
-      );
-
-      ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-        const SnackBar(
-          content: Text('Account saved with double entry successfully!'),
-        ),
-      );
-
-      accountname.clear();
-      openingbalance.clear();
-      setState(() {
-        dropdownvalu1 = 'Asset Account';
-        dropdownvalu2 = 'Debit';
-      });
-
-      Navigator.pop(context as BuildContext, true);
-    } catch (e) {
-      print('Error saving account: $e');
-      ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-        SnackBar(content: Text('Error saving account: $e')),
-      );
-    }
-  }
-
-  String _getMonthName(int month) {
-    const months = [
-      'jan',
-      'feb',
-      'mar',
-      'apr',
-      'may',
-      'jun',
-      'jul',
-      'aug',
-      'sep',
-      'oct',
-      'nov',
-      'dec',
-    ];
-    return months[month - 1];
-  }
-
+ 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -234,7 +86,10 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
           },
           icon: const Icon(Icons.arrow_back, color: Colors.white),
         ),
-        title: const Text('Add Account Setup', style: TextStyle(color: Colors.white)),
+        title: const Text(
+          'Add Account Setup',
+          style: TextStyle(color: Colors.white),
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
@@ -278,12 +133,13 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
                     isExpanded: true,
                     value: dropdownvalu1,
                     icon: const Icon(Icons.keyboard_arrow_down),
-                    items: items1.map((String items) {
-                      return DropdownMenuItem(
-                        value: items,
-                        child: Text(items),
-                      );
-                    }).toList(),
+                    items:
+                        items1.map((String items) {
+                          return DropdownMenuItem(
+                            value: items,
+                            child: Text(items),
+                          );
+                        }).toList(),
                     onChanged: (String? newValue2) {
                       setState(() {
                         dropdownvalu1 = newValue2!;
@@ -335,12 +191,13 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
                     isExpanded: true,
                     value: dropdownvalu2,
                     icon: const Icon(Icons.keyboard_arrow_down),
-                    items: items2.map((String items) {
-                      return DropdownMenuItem(
-                        value: items,
-                        child: Text(items),
-                      );
-                    }).toList(),
+                    items:
+                        items2.map((String items) {
+                          return DropdownMenuItem(
+                            value: items,
+                            child: Text(items),
+                          );
+                        }).toList(),
                     onChanged: (String? newValue1) {
                       setState(() {
                         dropdownvalu2 = newValue1!;
@@ -359,7 +216,34 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
                       ),
                       onPressed: () {
                         if (_formKey.currentState!.validate()) {
-                          saveDoubleEntryAccounts();
+
+                                ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Processing Data')),
+                            );
+
+                            final accname = accountname.text;
+
+                            final catogory = dropdownvalu1;
+                            final openbalance = openingbalance.text;
+
+                            final type = dropdownvalu2;
+
+                            Map<String, dynamic> accountsetupData = {
+                              "Accountname": accname,
+                              "Accounttype": dropdownvalu1,
+                              "OpeningBalance": openbalance,
+                              "Type": type,
+
+                            };
+                            final _databaseHelper = DatabaseHelper().addData(
+                                "TABLE_ACCOUNTSETTINGS", jsonEncode(
+                                accountsetupData));
+
+                            print('account name is ...$accname');
+                            //    dbhelper.createacc(Accounts(accountname: accname, catogory: catogory, openingbalance: openbalance, accounttype: type1, accyear: year));
+
+
+               
                         }
                       },
                       child: const Text(
