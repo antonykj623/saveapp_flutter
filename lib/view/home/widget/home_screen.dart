@@ -30,7 +30,7 @@ import 'package:new_project_2025/view_model/investment11/investment.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import '../../../view_model/AccountSet_up/accountsetup.dart';
 import '../../../view_model/Accountfiles/InvestmentAccount.dart';
-import '../../../view_model/DocumentManager/documentManager.dart';
+import '../../../view_model/DocumentManager/documentManager.dart';    
 import '../../../view_model/My Diary/diary.dart';
 import '../../../view_model/VisitingCard/test.dart';
 import '../../../view_model/Task/task.dart';

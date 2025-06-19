@@ -463,12 +463,33 @@ class DatabaseHelper {
     };
 
     return await db.update(
-      'TABLE_PAYMENTVOUCHER',
+      'TABLE_PAYMENTVOUCHER', // Fixed: was 'TABLE_ACCOUNTS', should be 'TABLE_PAYMENTVOUCHER'
       {'voucherdata': jsonEncode(paymentData)},
       where: 'keyid = ?',
       whereArgs: [payment.id],
     );
   }
+  // Future<int> updatePayment(
+  //   Payment payment,
+  //   Map<String, Object> paymentData,
+  // ) async {
+  //   final db = await database;
+
+  //   Map<String, dynamic> paymentData = {
+  //     "date": payment.date,
+  //     "accountName": payment.accountName,
+  //     "amount": payment.amount,
+  //     "paymentMode": payment.paymentMode,
+  //     "remarks": payment.remarks,
+  //   };
+
+  //   return await db.update(
+  //     'TABLE_PAYMENTVOUCHER',
+  //     {'voucherdata': jsonEncode(paymentData)},
+  //     where: 'keyid = ?',
+  //     whereArgs: [payment.id],
+  //   );
+  // }
 
   Future<List<Payment>> getPaymentsByMonth(String yearMonth) async {
     final db = await database;
@@ -537,6 +558,25 @@ class DatabaseHelper {
       whereArgs: [entryId],
     );
   }
+
+  // Future<int> updatePayment(Payment payment) async {
+  //   final db = await database;
+
+  //   Map<String, dynamic> paymentData = {
+  //     "date": payment.date,
+  //     "accountName": payment.accountName,
+  //     "amount": payment.amount,
+  //     "paymentMode": payment.paymentMode,
+  //     "remarks": payment.remarks,
+  //   };
+
+  //   return await db.update(
+  //     'TABLE_ACCOUNTS',
+  //     {'voucherdata': jsonEncode(paymentData)},
+  //     where: 'keyid = ?',
+  //     whereArgs: [payment.id],
+  //   );
+  // }
 
   // Method to get account entries by month and year
   Future<List<Map<String, dynamic>>> getAccountEntriesByMonth(

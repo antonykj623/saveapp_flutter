@@ -53,7 +53,6 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
     return DateTime.now().millisecondsSinceEpoch.toString();
   }
 
-
   String getOpeningBalanceContraSetupId(String accountType) {
     switch (accountType.toLowerCase()) {
       case 'bank':
@@ -74,7 +73,6 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
     }
   }
 
- 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -214,18 +212,17 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
                         backgroundColor: Colors.teal,
                         foregroundColor: Colors.white,
                       ),
-                      onPressed: () {
+                      onPressed: () async {
                         if (_formKey.currentState!.validate()) {
-
-                                ScaffoldMessenger.of(context).showSnackBar(
+                          try {
+                            // Show processing message
+                            ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(content: Text('Processing Data')),
                             );
 
                             final accname = accountname.text;
-
                             final catogory = dropdownvalu1;
                             final openbalance = openingbalance.text;
-
                             final type = dropdownvalu2;
 
                             Map<String, dynamic> accountsetupData = {
@@ -233,17 +230,49 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
                               "Accounttype": dropdownvalu1,
                               "OpeningBalance": openbalance,
                               "Type": type,
-
                             };
-                            final _databaseHelper = DatabaseHelper().addData(
-                                "TABLE_ACCOUNTSETTINGS", jsonEncode(
-                                accountsetupData));
+
+                            // Save to database
+                            await DatabaseHelper().addData(
+                              "TABLE_ACCOUNTSETTINGS",
+                              jsonEncode(accountsetupData),
+                            );
 
                             print('account name is ...$accname');
-                            //    dbhelper.createacc(Accounts(accountname: accname, catogory: catogory, openingbalance: openbalance, accounttype: type1, accyear: year));
 
+                            // Show success message
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Account "$accname" added successfully!',
+                                  ),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
 
-               
+                              // Clear form fields
+                              accountname.clear();
+                              openingbalance.clear();
+                              setState(() {
+                                dropdownvalu1 = 'Asset Account';
+                                dropdownvalu2 = 'Debit';
+                              });
+
+                              // Return true to indicate success and pop the page
+                              Navigator.pop(context, true);
+                            }
+                          } catch (e) {
+                            print('Error saving account: $e');
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Error saving account: $e'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
                         }
                       },
                       child: const Text(

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
-
 import 'package:new_project_2025/view/home/widget/payment_page/payment_class/payment_class.dart';
 import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 import 'package:new_project_2025/view_model/AccountSet_up/Add_Acount.dart';
@@ -44,60 +43,105 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
       selectedDate = DateTime.now();
     }
   }
+Future<void> _loadBankCashOptions() async {
+  try {
+    List<Map<String, dynamic>> accounts = await DatabaseHelper().getAllData(
+      "TABLE_ACCOUNTSETTINGS",
+    );
 
-  Future<void> _loadBankCashOptions() async {
-    try {
-      List<Map<String, dynamic>> accounts = await DatabaseHelper().getAllData(
-        "TABLE_ACCOUNTSETTINGS",
-      );
+    List<String> banks = [];
+    List<String> cashAccounts = [];
 
-      List<String> banks = [];
-      List<String> cashAccounts = [];
+    for (var account in accounts) {
+      try {
+        Map<String, dynamic> accountData = jsonDecode(account["data"]);
+        String accountType =
+            accountData['Accounttype'].toString().toLowerCase();
+        String accountName = accountData['Accountname'].toString();
 
-      for (var account in accounts) {
-        try {
-          Map<String, dynamic> accountData = jsonDecode(account["data"]);
-          String accountType =
-              accountData['Accounttype'].toString().toLowerCase();
-          String accountName = accountData['Accountname'].toString();
-
-          if (accountType == 'bank') {
-            banks.add('Bank - $accountName');
-          } else if (accountType == 'cash' &&
-              accountName.toLowerCase() != 'cash') {
-            cashAccounts.add(accountName);
-          }
-        } catch (e) {
-          print('Error parsing account data: $e');
+        if (accountType == 'bank') {
+          banks.add(accountName);
+        } else if (accountType == 'cash' &&
+            accountName.toLowerCase() != 'cash') {
+          cashAccounts.add(accountName);
         }
-      }
-
-      setState(() {
-        cashOptions = ['Cash', ...cashAccounts];
-        bankOptions = banks;
-        allBankCashOptions = [...cashOptions, ...bankOptions];
-
-        if (selectedCashOption == null ||
-            !allBankCashOptions.contains(selectedCashOption)) {
-          selectedCashOption =
-              allBankCashOptions.isNotEmpty ? allBankCashOptions.first : 'Cash';
-        }
-      });
-
-      print('===== LOADED BANK/CASH OPTIONS =====');
-      print('Cash Options: $cashOptions');
-      print('Bank Options: $bankOptions');
-      print('All Options: $allBankCashOptions');
-      print('====================================');
-    } catch (e) {
-      print('Error loading bank/cash options: $e');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading bank/cash options: $e')),
-        );
+      } catch (e) {
+        print('Error parsing account data: $e');
       }
     }
+
+    setState(() {
+      cashOptions = ['Cash', ...cashAccounts];
+      bankOptions = banks;
+      allBankCashOptions = [...cashOptions, ...bankOptions];
+
+      // Fix: Ensure selectedCashOption is valid for current payment mode
+      if (paymentMode == 'Cash') {
+        if (selectedCashOption == null || !cashOptions.contains(selectedCashOption)) {
+          selectedCashOption = cashOptions.isNotEmpty ? cashOptions.first : 'Cash';
+        }
+      } else { // Bank mode
+        if (selectedCashOption == null || !bankOptions.contains(selectedCashOption)) {
+          selectedCashOption = bankOptions.isNotEmpty ? bankOptions.first : null;
+        }
+      }
+    });
+  } catch (e) {
+    print('Error loading bank/cash options: $e');
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading bank/cash options: $e')),
+      );
+    }
   }
+}
+  // Future<void> _loadBankCashOptions() async {
+  //   try {
+  //     List<Map<String, dynamic>> accounts = await DatabaseHelper().getAllData(
+  //       "TABLE_ACCOUNTSETTINGS",
+  //     );
+
+  //     List<String> banks = [];
+  //     List<String> cashAccounts = [];
+
+  //     for (var account in accounts) {
+  //       try {
+  //         Map<String, dynamic> accountData = jsonDecode(account["data"]);
+  //         String accountType =
+  //             accountData['Accounttype'].toString().toLowerCase();
+  //         String accountName = accountData['Accountname'].toString();
+
+  //         if (accountType == 'bank') {
+  //           banks.add(accountName);
+  //         } else if (accountType == 'cash' &&
+  //             accountName.toLowerCase() != 'cash') {
+  //           cashAccounts.add(accountName);
+  //         }
+  //       } catch (e) {
+  //         print('Error parsing account data: $e');
+  //       }
+  //     }
+
+  //     setState(() {
+  //       cashOptions = ['Cash', ...cashAccounts];
+  //       bankOptions = banks;
+  //       allBankCashOptions = [...cashOptions, ...bankOptions];
+
+  //       if (selectedCashOption == null ||
+  //           !allBankCashOptions.contains(selectedCashOption)) {
+  //         selectedCashOption =
+  //             allBankCashOptions.isNotEmpty ? allBankCashOptions.first : 'Cash';
+  //       }
+  //     });
+  //   } catch (e) {
+  //     print('Error loading bank/cash options: $e');
+  //     if (context.mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(content: Text('Error loading bank/cash options: $e')),
+  //       );
+  //     }
+  //   }
+  // }
 
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
@@ -122,13 +166,48 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
             setState(() {
               selectedAccount = accountName;
             });
-            print('===== ACCOUNT SELECTED =====');
-            print('Selected Account: $accountName');
-            print('============================');
           },
         );
       },
     );
+  }
+
+  Future<String> getNextSetupId(String name) async {
+    try {
+      final db = await DatabaseHelper().database;
+      final List<Map<String, dynamic>> allRows = await db.query(
+        'TABLE_ACCOUNTSETTINGS',
+      );
+
+      for (var row in allRows) {
+        Map<String, dynamic> dat = jsonDecode(row["data"]);
+        if (dat['Accountname'].toString().toLowerCase() == name.toLowerCase()) {
+          return row['keyid'].toString();
+        }
+      }
+      return name.toLowerCase() == 'cash' ? '1' : '0';
+    } catch (e) {
+      print('Error getting setup ID: $e');
+      return '0';
+    }
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'jan',
+      'feb',
+      'mar',
+      'apr',
+      'may',
+      'jun',
+      'jul',
+      'aug',
+      'sep',
+      'oct',
+      'nov',
+      'dec',
+    ];
+    return months[month - 1];
   }
 
   void _savePayment() async {
@@ -140,24 +219,92 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
         return;
       }
 
-      print('===== SAVING PAYMENT DETAILS =====');
-      print('Date: ${DateFormat('yyyy-MM-dd').format(selectedDate)}');
-      print('Account: $selectedAccount');
-      print('Amount: ${_amountController.text}');
-      print('Payment Mode: $paymentMode');
-      print('Selected Cash/Bank Option: $selectedCashOption');
-      print('Remarks: ${_remarksController.text}');
-      print('==================================');
-
       try {
-        saveDoubleEntryAccounts();
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Error saving payment: $e')));
+        final dbHelper = DatabaseHelper();
+        final payment = Payment(
+          id: widget.payment?.id,
+          date: DateFormat('yyyy-MM-dd').format(selectedDate),
+          accountName: selectedAccount!,
+          amount: double.parse(_amountController.text),
+          paymentMode: selectedCashOption!,
+          remarks: _remarksController.text,
+        );
+
+        int paymentId;
+        if (widget.payment == null) {
+          paymentId = await dbHelper.insertPayment(payment);
+        } else {
+          paymentId = widget.payment!.id!;
+          await dbHelper.updatePayment(payment);
         }
+
+        await _saveDoubleEntryAccounts(paymentId, payment);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Payment saved successfully')),
+        );
+
+        Navigator.pop(context, true);
+      } catch (e) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error saving payment: $e')));
       }
+    }
+  }
+
+  Future<void> _saveDoubleEntryAccounts(int paymentId, Payment payment) async {
+    final db = await DatabaseHelper().database;
+    final currentDate = DateTime.now();
+    final dateString =
+        "${currentDate.day}/${currentDate.month}/${currentDate.year}";
+    final monthString = _getMonthName(currentDate.month);
+    final yearString = currentDate.year.toString();
+
+    final setupId = await getNextSetupId(payment.accountName);
+
+    final contraAccount =
+        payment.paymentMode == 'Cash' ? 'Cash' : payment.paymentMode;
+    final contraSetupId = await getNextSetupId(contraAccount);
+
+    Map<String, dynamic> mainAccountEntry = {
+      'ACCOUNTS_VoucherType': 1,
+      'ACCOUNTS_entryid': paymentId.toString(),
+      'ACCOUNTS_date': dateString,
+      'ACCOUNTS_setupid': setupId,
+      'ACCOUNTS_amount': payment.amount.toString(),
+      'ACCOUNTS_type': 'debit',
+      'ACCOUNTS_remarks': 'Payment to ${payment.accountName}',
+      'ACCOUNTS_year': yearString,
+      'ACCOUNTS_month': monthString,
+      'ACCOUNTS_cashbanktype': payment.paymentMode == 'Cash' ? '1' : '2',
+      'ACCOUNTS_billId': '',
+      'ACCOUNTS_billVoucherNumber': '',
+    };
+
+    Map<String, dynamic> contraEntry = {
+      'ACCOUNTS_VoucherType': 1,
+      'ACCOUNTS_entryid': paymentId.toString(),
+      'ACCOUNTS_date': dateString,
+      'ACCOUNTS_setupid': contraSetupId,
+      'ACCOUNTS_amount': payment.amount.toString(),
+      'ACCOUNTS_type': 'credit',
+      'ACCOUNTS_remarks': 'Payment from $contraAccount',
+      'ACCOUNTS_year': yearString,
+      'ACCOUNTS_month': monthString,
+      'ACCOUNTS_cashbanktype': payment.paymentMode == 'Cash' ? '1' : '2',
+      'ACCOUNTS_billId': '',
+      'ACCOUNTS_billVoucherNumber': '',
+    };
+
+    await db.transaction((txn) async {
+      await txn.insert('TABLE_ACCOUNTS', mainAccountEntry);
+      await txn.insert('TABLE_ACCOUNTS', contraEntry);
+    });
+
+    final isBalanced = await DatabaseHelper().validateDoubleEntry();
+    if (!isBalanced) {
+      throw Exception('Double-entry accounting is unbalanced');
     }
   }
 
@@ -324,13 +471,6 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
                           selectedCashOption = bankOptions.first;
                         }
                       });
-
-                      print('===== RADIO SELECTION =====');
-                      print('User selected: BANK');
-                      print('Payment Mode changed to: $paymentMode');
-                      print('Available Bank Options: $bankOptions');
-                      print('Selected Bank Option: $selectedCashOption');
-                      print('===========================');
                     },
                   ),
                   const Text('Bank'),
@@ -344,13 +484,6 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
                         paymentMode = value!;
                         selectedCashOption = 'Cash';
                       });
-
-                      print('===== RADIO SELECTION =====');
-                      print('User selected: CASH');
-                      print('Payment Mode changed to: $paymentMode');
-                      print('Available Cash Options: $cashOptions');
-                      print('Selected Cash Option: $selectedCashOption');
-                      print('===========================');
                     },
                   ),
                   const Text('Cash'),
@@ -368,44 +501,67 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButtonFormField<String>(
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                          ),
-                          value: selectedCashOption,
-                          isExpanded: true,
-                          onChanged: (String? newValue) {
-                            setState(() {
-                              selectedCashOption = newValue;
-
-                              print(selectedCashOption);
-                              if (newValue == 'Cash') {
-                                paymentMode = 'Cash';
-                              } else if (newValue?.startsWith('Bank') == true) {
-                                paymentMode = 'Bank';
-                              }
-                            });
-
-                            print('===============================');
-                          },
-                          items:
-                              paymentMode == 'Cash'
-                                  ? cashOptions.map<DropdownMenuItem<String>>((
-                                    String value,
-                                  ) {
-                                    return DropdownMenuItem<String>(
-                                      value: value,
-                                      child: Text(value),
-                                    );
-                                  }).toList()
-                                  : bankOptions.map<DropdownMenuItem<String>>((
-                                    String value,
-                                  ) {
-                                    return DropdownMenuItem<String>(
-                                      value: value,
-                                      child: Text(value),
-                                    );
-                                  }).toList(),
-                        ),
+  decoration: const InputDecoration(
+    border: InputBorder.none,
+  ),
+  value: paymentMode == 'Cash' 
+    ? (cashOptions.contains(selectedCashOption) ? selectedCashOption : cashOptions.first)
+    : (bankOptions.contains(selectedCashOption) ? selectedCashOption : (bankOptions.isNotEmpty ? bankOptions.first : null)),
+  isExpanded: true,
+  onChanged: (String? newValue) {
+    setState(() {
+      selectedCashOption = newValue!;
+      paymentMode = bankOptions.contains(newValue) ? 'Bank' : 'Cash';
+    });
+  },
+  items: paymentMode == 'Cash'
+    ? cashOptions.map<DropdownMenuItem<String>>((String value) {
+        return DropdownMenuItem<String>(
+          value: value,
+          child: Text(value),
+        );
+      }).toList()
+    : bankOptions.map<DropdownMenuItem<String>>((String value) {
+        return DropdownMenuItem<String>(
+          value: value,
+          child: Text(value),
+        );
+      }).toList(),
+),
+                        // DropdownButtonFormField<String>(
+                        //   decoration: const InputDecoration(
+                        //     border: InputBorder.none,
+                        //   ),
+                        //   value: selectedCashOption,
+                        //   isExpanded: true,
+                        //   onChanged: (String? newValue) {
+                        //     setState(() {
+                        //       selectedCashOption = newValue!;
+                        //       paymentMode =
+                        //           bankOptions.contains(newValue)
+                        //               ? 'Bank'
+                        //               : 'Cash';
+                        //     });
+                        //   },
+                        //   items:
+                        //       paymentMode == 'Cash'
+                        //           ? cashOptions.map<DropdownMenuItem<String>>((
+                        //             String value,
+                        //           ) {
+                        //             return DropdownMenuItem<String>(
+                        //               value: value,
+                        //               child: Text(value),
+                        //             );
+                        //           }).toList()
+                        //           : bankOptions.map<DropdownMenuItem<String>>((
+                        //             String value,
+                        //           ) {
+                        //             return DropdownMenuItem<String>(
+                        //               value: value,
+                        //               child: Text(value),
+                        //             );
+                        //           }).toList(),
+                        // ),
                       ),
                     ),
                   ),
@@ -476,138 +632,6 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
         ),
       ),
     );
-  }
-
-  Future<String> getNextSetupId(String name) async {
-    try {
-      String maxId = "0";
-      List<Map<String, dynamic>> allrows = await DatabaseHelper().queryallacc();
-
-      allrows.forEach((row) {
-        Map<String, dynamic> dat = jsonDecode(row["data"]);
-        if (dat['Accountname'].toString().compareTo(name) == 0) {
-          maxId = row['keyid'].toString();
-        }
-      });
-
-      return maxId;
-    } catch (e) {
-      return '0';
-    }
-  }
-
-  int getAccountTypeNumber(String type) {
-    return type.toLowerCase() == 'debit' ? 1 : 2;
-  }
-
-  Future<void> saveDoubleEntryAccounts() async {
-    final accname = accountname.text.trim();
-    final accountType = dropdownvalu1;
-
-    final type = dropdownvalu2;
-
-    if (accname.toLowerCase() == 'cash') {
-      ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Account name "Cash" is reserved. Please choose a different name.',
-          ),
-        ),
-      );
-      return;
-    }
-
-    final currentDate = DateTime.now();
-    final dateString =
-        "${currentDate.day}/${currentDate.month}/${currentDate.year}";
-    final monthString = _getMonthName(currentDate.month);
-    final yearString = currentDate.year.toString();
-    final entryId = 0;
-
-    try {
-      final db = await DatabaseHelper().database;
-      final setupId = await getNextSetupId(selectedAccount.toString());
-      final contraSetupId = await getNextSetupId(accountType);
-
-      Map<String, dynamic> mainAccountEntry = {
-        'ACCOUNTS_VoucherType': 1,
-        'ACCOUNTS_entryid': "0",
-        'ACCOUNTS_date': dateString,
-        'ACCOUNTS_setupid': setupId,
-        'ACCOUNTS_amount': _amountController.text.toString(),
-        'ACCOUNTS_type': type.toLowerCase(),
-        'ACCOUNTS_remarks': 'Opening Balance for $accname',
-        'ACCOUNTS_year': yearString,
-        'ACCOUNTS_month': monthString,
-        'ACCOUNTS_cashbanktype': getAccountTypeNumber(type).toString(),
-        'ACCOUNTS_billId': '',
-        'ACCOUNTS_billVoucherNumber': '',
-      };
-
-      var id = await db.insert('TABLE_ACCOUNTS', mainAccountEntry);
-
-      Map<String, dynamic> contraEntry = {
-        'ACCOUNTS_VoucherType': 1,
-        'ACCOUNTS_entryid': id.toString(),
-        'ACCOUNTS_date': dateString,
-        'ACCOUNTS_setupid': contraSetupId,
-        'ACCOUNTS_amount': _amountController.text.toString(),
-        'ACCOUNTS_type': type.toLowerCase() == 'debit' ? 'credit' : 'debit',
-        'ACCOUNTS_remarks': 'Opening Balance contra for $accname',
-        'ACCOUNTS_year': yearString,
-        'ACCOUNTS_month': monthString,
-        'ACCOUNTS_cashbanktype': type.toLowerCase() == 'debit' ? '2' : '1',
-        'ACCOUNTS_billId': '',
-        'ACCOUNTS_billVoucherNumber': '',
-      };
-
-      await db.insert('TABLE_ACCOUNTS', contraEntry);
-
-      print(
-        'Main Account Entry - Setup ID: $setupId, Type: ${type.toLowerCase()}, Entry ID: $entryId',
-      );
-      print(
-        'Contra Entry - Setup ID: $contraSetupId, Type: ${type.toLowerCase() == 'debit' ? 'credit' : 'debit'}, Entry ID: $entryId',
-      );
-
-      ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-        const SnackBar(
-          content: Text('Account saved with double entry successfully!'),
-        ),
-      );
-
-      accountname.clear();
-      openingbalance.clear();
-      setState(() {
-        dropdownvalu1 = 'Asset Account';
-        dropdownvalu2 = 'Debit';
-      });
-
-      Navigator.pop(context as BuildContext, true);
-    } catch (e) {
-      print('Error saving account: $e');
-      ScaffoldMessenger.of(
-        context as BuildContext,
-      ).showSnackBar(SnackBar(content: Text('Error saving account: $e')));
-    }
-  }
-
-  String _getMonthName(int month) {
-    const months = [
-      'jan',
-      'feb',
-      'mar',
-      'apr',
-      'may',
-      'jun',
-      'jul',
-      'aug',
-      'sep',
-      'oct',
-      'nov',
-      'dec',
-    ];
-    return months[month - 1];
   }
 }
 
