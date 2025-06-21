@@ -1,3 +1,4 @@
+// Add this Receipt class if it doesn't exist or fix the existing one
 class Receipt {
   final int? id;
   final String date;
@@ -28,11 +29,11 @@ class Receipt {
 
   factory Receipt.fromMap(Map<String, dynamic> map) {
     return Receipt(
-      id: map['id'],
-      date: map['date'],
-      accountName: map['accountName'],
-      amount: map['amount'],
-      paymentMode: map['paymentMode'],
+      id: map['id']?.toInt(),
+      date: map['date'] ?? '',
+      accountName: map['accountName'] ?? '',
+      amount: map['amount']?.toDouble() ?? 0.0,
+      paymentMode: map['paymentMode'] ?? '',
       remarks: map['remarks'],
     );
   }

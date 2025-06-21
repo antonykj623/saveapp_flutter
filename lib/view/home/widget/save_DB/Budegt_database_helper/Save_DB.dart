@@ -18,7 +18,8 @@ class DatabaseHelper {
 
   DatabaseHelper._internal();
 
-  factory DatabaseHelper() => _instance;
+  factory 
+  DatabaseHelper() => _instance;
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -331,7 +332,6 @@ class DatabaseHelper {
       where: 'keyid = ?',
       whereArgs: [keyid],
     );
-    // var res = await dbClient.rawUpdate("update TABLE_ACCOUNTSETTINGS SET data = 'jsonEncode(accountData)'   where keyid = $keyid ");
 
     if (res == 1) {
       print("Res is: $res.");
@@ -341,7 +341,6 @@ class DatabaseHelper {
     }
   }
 
-  // Budget operations
 
   Future<List<String>> getAccountNames() async {
     final db = await database;
@@ -406,7 +405,7 @@ class DatabaseHelper {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       'dreams_table',
-    ); // Replace with your actual dreams table name
+    ); 
 
     return List.generate(maps.length, (i) {
       return Dream(
@@ -469,27 +468,7 @@ class DatabaseHelper {
       whereArgs: [payment.id],
     );
   }
-  // Future<int> updatePayment(
-  //   Payment payment,
-  //   Map<String, Object> paymentData,
-  // ) async {
-  //   final db = await database;
 
-  //   Map<String, dynamic> paymentData = {
-  //     "date": payment.date,
-  //     "accountName": payment.accountName,
-  //     "amount": payment.amount,
-  //     "paymentMode": payment.paymentMode,
-  //     "remarks": payment.remarks,
-  //   };
-
-  //   return await db.update(
-  //     'TABLE_PAYMENTVOUCHER',
-  //     {'voucherdata': jsonEncode(paymentData)},
-  //     where: 'keyid = ?',
-  //     whereArgs: [payment.id],
-  //   );
-  // }
 
   Future<List<Payment>> getPaymentsByMonth(String yearMonth) async {
     final db = await database;
@@ -559,24 +538,7 @@ class DatabaseHelper {
     );
   }
 
-  // Future<int> updatePayment(Payment payment) async {
-  //   final db = await database;
 
-  //   Map<String, dynamic> paymentData = {
-  //     "date": payment.date,
-  //     "accountName": payment.accountName,
-  //     "amount": payment.amount,
-  //     "paymentMode": payment.paymentMode,
-  //     "remarks": payment.remarks,
-  //   };
-
-  //   return await db.update(
-  //     'TABLE_ACCOUNTS',
-  //     {'voucherdata': jsonEncode(paymentData)},
-  //     where: 'keyid = ?',
-  //     whereArgs: [payment.id],
-  //   );
-  // }
 
   // Method to get account entries by month and year
   Future<List<Map<String, dynamic>>> getAccountEntriesByMonth(

@@ -75,7 +75,6 @@ Future<void> _loadBankCashOptions() async {
       bankOptions = banks;
       allBankCashOptions = [...cashOptions, ...bankOptions];
 
-      // Fix: Ensure selectedCashOption is valid for current payment mode
       if (paymentMode == 'Cash') {
         if (selectedCashOption == null || !cashOptions.contains(selectedCashOption)) {
           selectedCashOption = cashOptions.isNotEmpty ? cashOptions.first : 'Cash';
@@ -95,53 +94,7 @@ Future<void> _loadBankCashOptions() async {
     }
   }
 }
-  // Future<void> _loadBankCashOptions() async {
-  //   try {
-  //     List<Map<String, dynamic>> accounts = await DatabaseHelper().getAllData(
-  //       "TABLE_ACCOUNTSETTINGS",
-  //     );
 
-  //     List<String> banks = [];
-  //     List<String> cashAccounts = [];
-
-  //     for (var account in accounts) {
-  //       try {
-  //         Map<String, dynamic> accountData = jsonDecode(account["data"]);
-  //         String accountType =
-  //             accountData['Accounttype'].toString().toLowerCase();
-  //         String accountName = accountData['Accountname'].toString();
-
-  //         if (accountType == 'bank') {
-  //           banks.add(accountName);
-  //         } else if (accountType == 'cash' &&
-  //             accountName.toLowerCase() != 'cash') {
-  //           cashAccounts.add(accountName);
-  //         }
-  //       } catch (e) {
-  //         print('Error parsing account data: $e');
-  //       }
-  //     }
-
-  //     setState(() {
-  //       cashOptions = ['Cash', ...cashAccounts];
-  //       bankOptions = banks;
-  //       allBankCashOptions = [...cashOptions, ...bankOptions];
-
-  //       if (selectedCashOption == null ||
-  //           !allBankCashOptions.contains(selectedCashOption)) {
-  //         selectedCashOption =
-  //             allBankCashOptions.isNotEmpty ? allBankCashOptions.first : 'Cash';
-  //       }
-  //     });
-  //   } catch (e) {
-  //     print('Error loading bank/cash options: $e');
-  //     if (context.mounted) {
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         SnackBar(content: Text('Error loading bank/cash options: $e')),
-  //       );
-  //     }
-  //   }
-  // }
 
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
@@ -361,7 +314,7 @@ Future<void> _loadBankCashOptions() async {
                         onTap: () {
                           _showSearchableAccountDialog(context);
                         },
-                        child: Container(
+                        child:  Container(
                           height: 50,
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -370,7 +323,7 @@ Future<void> _loadBankCashOptions() async {
                                 selectedAccount ?? 'Select An Account',
                                 style: TextStyle(
                                   fontSize: 16,
-                                  color:
+                                   color:
                                       selectedAccount != null
                                           ? Colors.black
                                           : Colors.grey[600],
@@ -528,40 +481,7 @@ Future<void> _loadBankCashOptions() async {
         );
       }).toList(),
 ),
-                        // DropdownButtonFormField<String>(
-                        //   decoration: const InputDecoration(
-                        //     border: InputBorder.none,
-                        //   ),
-                        //   value: selectedCashOption,
-                        //   isExpanded: true,
-                        //   onChanged: (String? newValue) {
-                        //     setState(() {
-                        //       selectedCashOption = newValue!;
-                        //       paymentMode =
-                        //           bankOptions.contains(newValue)
-                        //               ? 'Bank'
-                        //               : 'Cash';
-                        //     });
-                        //   },
-                        //   items:
-                        //       paymentMode == 'Cash'
-                        //           ? cashOptions.map<DropdownMenuItem<String>>((
-                        //             String value,
-                        //           ) {
-                        //             return DropdownMenuItem<String>(
-                        //               value: value,
-                        //               child: Text(value),
-                        //             );
-                        //           }).toList()
-                        //           : bankOptions.map<DropdownMenuItem<String>>((
-                        //             String value,
-                        //           ) {
-                        //             return DropdownMenuItem<String>(
-                        //               value: value,
-                        //               child: Text(value),
-                        //             );
-                        //           }).toList(),
-                        // ),
+                   
                       ),
                     ),
                   ),
