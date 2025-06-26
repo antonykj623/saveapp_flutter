@@ -1,33 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:new_project_2025/view/home/widget/Receipt/Receipt_class/receipt_class.dart';
+import 'package:new_project_2025/model/receipt.dart';
 import 'package:new_project_2025/view/home/widget/Receipt/add_receipt_voucher_screen/add_receipt_vocher_screen.dart';
-import 'package:new_project_2025/view/home/widget/Receipt/receipt_database/receipt_database.dart';
 import 'package:new_project_2025/view/home/widget/payment_page/Month_date/Moth_datepage.dart';
-
-void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Receipt Tracker',
-      theme: ThemeData(
-        primarySwatch: Colors.teal,
-        colorScheme: ColorScheme.fromSwatch(
-          primarySwatch: Colors.teal,
-          accentColor: Colors.pink,
-        ),
-      ),
-      home: const ReceiptsPage(),
-    );
-  }
-}
+import '../save_DB/Budegt_database_helper/Save_DB.dart';
 
 class ReceiptsPage extends StatefulWidget {
   const ReceiptsPage({super.key});
@@ -55,13 +31,20 @@ class _ReceiptsPageState extends State<ReceiptsPage> {
   }
 
   void _loadReceipts() async {
-    final receiptsList = await DatabaseHelper1.instance.getReceiptsByMonth(
-      selectedYearMonth,
-    );
-    setState(() {
-      receipts = receiptsList;
-      total = receipts.fold(0, (sum, receipt) => sum + receipt.amount);
-    });
+    try {
+      final receiptsList = await DatabaseHelper().getReceiptsByMonth(
+        selectedYearMonth,
+      );
+      setState(() {
+        receipts = receiptsList;
+        total = receipts.fold(0, (sum, receipt) => sum + receipt.amount);
+      });
+    } catch (e) {
+      print('Error loading receipts: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error loading receipts: $e')));
+    }
   }
 
   void _showMonthYearPicker() {
@@ -244,17 +227,17 @@ class _ReceiptsPageState extends State<ReceiptsPage> {
                                                               'Delete',
                                                             ),
                                                             onTap: () async {
-                                                              await DatabaseHelper1
-                                                                  .instance
+                                                              await DatabaseHelper()
                                                                   .deleteReceipt(
                                                                     receipt.id!,
                                                                   );
                                                               _loadReceipts();
                                                               if (context
-                                                                  .mounted)
+                                                                  .mounted) {
                                                                 Navigator.pop(
                                                                   context,
                                                                 );
+                                                              }
                                                             },
                                                           ),
                                                         ],

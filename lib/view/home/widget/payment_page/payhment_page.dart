@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:new_project_2025/view/home/widget/payment_page/Month_date/Moth_datepage.dart';
@@ -34,18 +36,66 @@ class _PaymentsPageState extends State<PaymentsPage> {
 
   void _loadPayments() async {
     try {
-      final paymentsList = await DatabaseHelper().getPaymentsByMonth(
-        selectedYearMonth,
-      );
+      List<Map<String, dynamic>> paymentsList = await DatabaseHelper()
+          .getAllData("TABLE_ACCOUNTS");
+
+      // Get all account settings to map setup IDs to account names
+      List<Map<String, dynamic>> accountSettings = await DatabaseHelper()
+          .getAllData("TABLE_ACCOUNTSETTINGS");
+
+      // Create a map of setup ID to account name
+      Map<String, String> setupIdToAccountName = {};
+      for (var account in accountSettings) {
+        try {
+          Map<String, dynamic> accountData = jsonDecode(account["data"]);
+          String setupId = account['keyid'].toString();
+          String accountName = accountData['Accountname'].toString();
+          setupIdToAccountName[setupId] = accountName;
+        } catch (e) {
+          print('Error parsing account settings: $e');
+        }
+      }
+
+      // Add default cash account
+      setupIdToAccountName['1'] = 'Cash';
+
       setState(() {
-        payments = paymentsList;
+        payments =
+            paymentsList
+                .where(
+                  (mp) =>
+                      mp['ACCOUNTS_VoucherType'] == 1 &&
+                      mp['ACCOUNTS_type'] == 'debit' &&
+                      DateFormat('yyyy-MM').format(
+                            DateFormat('dd/MM/yyyy').parse(mp['ACCOUNTS_date']),
+                          ) ==
+                          selectedYearMonth,
+                )
+                .map((mp) {
+                  String setupId = mp['ACCOUNTS_setupid'].toString();
+                  String accountName =
+                      setupIdToAccountName[setupId] ?? 'Unknown Account';
+
+                  return Payment(
+                    id: int.parse(mp['ACCOUNTS_entryid']),
+                    date: mp['ACCOUNTS_date'],
+                    accountName: accountName,
+                    amount: double.parse(mp['ACCOUNTS_amount'].toString()),
+                    paymentMode:
+                        mp['ACCOUNTS_cashbanktype'] == '1' ? 'Cash' : 'Bank',
+                    remarks: mp['ACCOUNTS_remarks'] ?? '',
+                  );
+                })
+                .toList();
         total = payments.fold(0, (sum, payment) => sum + payment.amount);
       });
     } catch (e) {
       print('Error loading payments: $e');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error loading payments: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading payments: $e')));
+      }
       setState(() {
         payments = [];
         total = 0;
@@ -85,21 +135,98 @@ class _PaymentsPageState extends State<PaymentsPage> {
     return '$monthName/$year';
   }
 
+  void _updatePayment(Payment updatedPayment) async {
+    try {
+      final db = await DatabaseHelper().database;
+
+      await db.update(
+        "TABLE_ACCOUNTS",
+        {
+          "ACCOUNTS_date": updatedPayment.date,
+          "ACCOUNTS_Particulars": updatedPayment.accountName,
+          "ACCOUNTS_amount": updatedPayment.amount,
+          "ACCOUNTS_cashbanktype":
+              updatedPayment.paymentMode == 'Cash' ? '1' : '2',
+          "ACCOUNTS_remarks": updatedPayment.remarks,
+        },
+        where:
+            "ACCOUNTS_VoucherType = ? AND ACCOUNTS_entryid = ? AND ACCOUNTS_type = ?",
+        whereArgs: [1, updatedPayment.id.toString(), 'debit'],
+      );
+
+      final isBalanced = await DatabaseHelper().validateDoubleEntry();
+      if (!isBalanced) {
+        throw Exception('Double-entry accounting is unbalanced after update');
+      }
+
+      _loadPayments();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Payment updated successfully')),
+        );
+      }
+    } catch (e) {
+      print('Error updating payment: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error updating payment: $e')));
+      }
+    }
+  }
+
   void _deletePayment(int id) async {
     try {
-      await DatabaseHelper().deletePayment(id);
+      final db = await DatabaseHelper().database;
+
+      await db.delete(
+        "TABLE_ACCOUNTS",
+        where: "ACCOUNTS_VoucherType = ? AND ACCOUNTS_entryid = ?",
+        whereArgs: [1, id.toString()],
+      );
+
+      final isBalanced = await DatabaseHelper().validateDoubleEntry();
+      if (!isBalanced) {
+        throw Exception('Double-entry accounting is unbalanced after deletion');
+      }
+
       _loadPayments();
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Payment deleted successfully')),
         );
       }
     } catch (e) {
-      if (context.mounted) {
+      print('Error deleting payment: $e');
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error deleting payment: $e')));
       }
+    }
+  }
+
+  void _navigateToEditPayment(Payment payment) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddPaymentVoucherPage(payment: payment),
+      ),
+    );
+
+    if (result == true) {
+      _loadPayments();
+    }
+  }
+
+  void _navigateToAddPayment() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const AddPaymentVoucherPage()),
+    );
+
+    if (result == true) {
+      _loadPayments();
     }
   }
 
@@ -189,7 +316,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
                                         _buildDataCell(
                                           DateFormat('dd/MM/yyyy').format(
                                             DateFormat(
-                                              'yyyy-MM-dd',
+                                              'dd/MM/yyyy',
                                             ).parse(payment.date),
                                           ),
                                           flex: 1,
@@ -219,11 +346,18 @@ class _PaymentsPageState extends State<PaymentsPage> {
                                                   context: context,
                                                   builder:
                                                       (context) => AlertDialog(
+                                                        title: const Text(
+                                                          'Choose Action',
+                                                        ),
                                                         content: Column(
                                                           mainAxisSize:
                                                               MainAxisSize.min,
                                                           children: [
                                                             ListTile(
+                                                              leading:
+                                                                  const Icon(
+                                                                    Icons.edit,
+                                                                  ),
                                                               title: const Text(
                                                                 'Edit',
                                                               ),
@@ -231,33 +365,76 @@ class _PaymentsPageState extends State<PaymentsPage> {
                                                                 Navigator.pop(
                                                                   context,
                                                                 );
-                                                                Navigator.push(
-                                                                  context,
-                                                                  MaterialPageRoute(
-                                                                    builder:
-                                                                        (
-                                                                          context,
-                                                                        ) => AddPaymentVoucherPage(
-                                                                          payment:
-                                                                              payment,
-                                                                        ),
-                                                                  ),
-                                                                ).then(
-                                                                  (_) =>
-                                                                      _loadPayments(),
+                                                                _navigateToEditPayment(
+                                                                  payment,
                                                                 );
                                                               },
                                                             ),
                                                             ListTile(
+                                                              leading:
+                                                                  const Icon(
+                                                                    Icons
+                                                                        .delete,
+                                                                    color:
+                                                                        Colors
+                                                                            .red,
+                                                                  ),
                                                               title: const Text(
                                                                 'Delete',
+                                                                style: TextStyle(
+                                                                  color:
+                                                                      Colors
+                                                                          .red,
+                                                                ),
                                                               ),
                                                               onTap: () {
                                                                 Navigator.pop(
                                                                   context,
                                                                 );
-                                                                _deletePayment(
-                                                                  payment.id!,
+                                                                showDialog(
+                                                                  context:
+                                                                      context,
+                                                                  builder:
+                                                                      (
+                                                                        context,
+                                                                      ) => AlertDialog(
+                                                                        title: const Text(
+                                                                          'Confirm Delete',
+                                                                        ),
+                                                                        content:
+                                                                            const Text(
+                                                                              'Are you sure you want to delete this payment?',
+                                                                            ),
+                                                                        actions: [
+                                                                          TextButton(
+                                                                            onPressed: () {
+                                                                              Navigator.pop(
+                                                                                context,
+                                                                              );
+                                                                            },
+                                                                            child: const Text(
+                                                                              'Cancel',
+                                                                            ),
+                                                                          ),
+                                                                          TextButton(
+                                                                            onPressed: () {
+                                                                              Navigator.pop(
+                                                                                context,
+                                                                              );
+                                                                              _deletePayment(
+                                                                                payment.id!,
+                                                                              );
+                                                                            },
+                                                                            style: TextButton.styleFrom(
+                                                                              foregroundColor:
+                                                                                  Colors.red,
+                                                                            ),
+                                                                            child: const Text(
+                                                                              'Delete',
+                                                                            ),
+                                                                          ),
+                                                                        ],
+                                                                      ),
                                                                 );
                                                               },
                                                             ),
@@ -269,7 +446,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
                                               child: const Text(
                                                 'Edit/Delete',
                                                 style: TextStyle(
-                                                  color: Colors.red,
+                                                  color: Colors.blue,
                                                 ),
                                               ),
                                             ),
@@ -297,15 +474,8 @@ class _PaymentsPageState extends State<PaymentsPage> {
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: Theme.of(context).colorScheme.secondary,
+        onPressed: _navigateToAddPayment,
         child: const Icon(Icons.add, color: Colors.white),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const AddPaymentVoucherPage(),
-            ),
-          ).then((_) => _loadPayments());
-        },
       ),
     );
   }

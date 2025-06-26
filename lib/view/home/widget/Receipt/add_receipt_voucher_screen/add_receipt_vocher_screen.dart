@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
-import 'package:new_project_2025/view/home/widget/Receipt/Receipt_class/receipt_class.dart';
-import 'package:new_project_2025/view/home/widget/Receipt/receipt_database/receipt_database.dart';
-import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
+import 'package:new_project_2025/model/receipt.dart';
 import 'package:new_project_2025/view_model/AccountSet_up/Add_Acount.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -11,6 +9,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
 import 'dart:io';
 import 'package:permission_handler/permission_handler.dart';
+
+import '../../save_DB/Budegt_database_helper/Save_DB.dart';
 
 class AddReceiptVoucherPage extends StatefulWidget {
   final Receipt? receipt;
@@ -184,7 +184,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
 
       try {
         final receipt = Receipt(
-          id: widget.receipt?.id,
+          id: widget.receipt?.id, // Use existing ID or null for new receipts
           date: DateFormat('yyyy-MM-dd').format(selectedDate),
           accountName: selectedAccount!,
           amount: double.parse(_amountController.text),
@@ -194,10 +194,10 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
 
         int receiptId;
         if (widget.receipt == null) {
-          receiptId = await DatabaseHelper1.instance.insertReceipt(receipt);
+          receiptId = await DatabaseHelper().insertReceipt(receipt);
         } else {
           receiptId = widget.receipt!.id!;
-          await DatabaseHelper1.instance.updateReceipt(receipt);
+          await DatabaseHelper().updateReceipt(receipt);
         }
 
         await _saveDoubleEntryAccounts(receiptId, receipt);
@@ -209,7 +209,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Receipt saved successfully')),
         );
-        _showDownloadPdfDialog(receipt);
+        _showDownloadPDFDialog(receipt);
       } catch (e) {
         ScaffoldMessenger.of(
           context,
@@ -220,51 +220,85 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
 
   Future<void> _saveDoubleEntryAccounts(int receiptId, Receipt receipt) async {
     final db = await DatabaseHelper().database;
-    final currentDate = DateTime.now();
     final dateString =
-        "${currentDate.day}/${currentDate.month}/${currentDate.year}";
-    final monthString = _getMonthName(currentDate.month);
-    final yearString = currentDate.year.toString();
+        "${selectedDate.day}/${selectedDate.month}/${selectedDate.year}";
+    final monthString = _getMonthName(selectedDate.month);
+    final yearString = selectedDate.year.toString();
 
     final setupId = await getNextSetupId(receipt.accountName);
     final contraAccount =
         receipt.paymentMode == 'Cash' ? 'Cash' : receipt.paymentMode;
     final contraSetupId = await getNextSetupId(contraAccount);
 
-    Map<String, dynamic> cashBankEntry = {
-      'ACCOUNTS_VoucherType': 2,
-      'ACCOUNTS_entryid': receiptId.toString(),
-      'ACCOUNTS_date': dateString,
-      'ACCOUNTS_setupid': contraSetupId,
-      'ACCOUNTS_amount': receipt.amount.toString(),
-      'ACCOUNTS_type': 'debit',
-      'ACCOUNTS_remarks': 'Receipt from ${receipt.accountName}',
-      'ACCOUNTS_year': yearString,
-      'ACCOUNTS_month': monthString,
-      'ACCOUNTS_cashbanktype': receipt.paymentMode == 'Cash' ? '1' : '2',
-      'ACCOUNTS_billId': '',
-      'ACCOUNTS_billVoucherNumber': '',
-    };
+    // Check for existing entries to update
+    final existingEntries = await db.query(
+      'TABLE_ACCOUNTS',
+      where: 'ACCOUNTS_VoucherType = ? AND ACCOUNTS_entryid = ?',
+      whereArgs: [2, receiptId.toString()],
+    );
 
-    Map<String, dynamic> accountEntry = {
-      'ACCOUNTS_VoucherType': 2, // Receipt voucher
-      'ACCOUNTS_entryid': receiptId.toString(),
-      'ACCOUNTS_date': dateString,
-      'ACCOUNTS_setupid': setupId,
-      'ACCOUNTS_amount': receipt.amount.toString(),
-      'ACCOUNTS_type': 'credit', // Customer/Income credited
-      'ACCOUNTS_remarks': 'Receipt to $contraAccount',
-      'ACCOUNTS_year': yearString,
-      'ACCOUNTS_month': monthString,
-      'ACCOUNTS_cashbanktype': receipt.paymentMode == 'Cash' ? '1' : '2',
-      'ACCOUNTS_billId': '',
-      'ACCOUNTS_billVoucherNumber': '',
-    };
+    if (existingEntries.isNotEmpty) {
+      // Update existing entries
+      for (var entry in existingEntries) {
+        Map<String, dynamic> updatedEntry = {
+          'ACCOUNTS_date': dateString,
+          'ACCOUNTS_setupid':
+              entry['ACCOUNTS_type'] == 'credit' ? contraSetupId : setupId,
+          'ACCOUNTS_amount': receipt.amount.toString(),
+          'ACCOUNTS_remarks':
+              entry['ACCOUNTS_type'] == 'credit'
+                  ? 'Receipt from ${receipt.accountName}'
+                  : 'Receipt to $contraAccount',
+          'ACCOUNTS_year': yearString,
+          'ACCOUNTS_month': monthString,
+          'ACCOUNTS_cashbanktype': receipt.paymentMode == 'Cash' ? '1' : '2',
+        };
 
-    await db.transaction((txn) async {
-      await txn.insert('TABLE_ACCOUNTS', cashBankEntry);
-      await txn.insert('TABLE_ACCOUNTS', accountEntry);
-    });
+        await db.update(
+          'TABLE_ACCOUNTS',
+          updatedEntry,
+          where: 'ACCOUNTS_id = ?',
+          whereArgs: [entry['ACCOUNTS_id']],
+        );
+      }
+    } else {
+      // Insert new entries
+      // First entry: Cash/Bank account (Credit)
+      Map<String, dynamic> cashBankEntry = {
+        'ACCOUNTS_VoucherType': 2,
+        'ACCOUNTS_entryid': receiptId.toString(),
+        'ACCOUNTS_date': dateString,
+        'ACCOUNTS_setupid': contraSetupId,
+        'ACCOUNTS_amount': receipt.amount.toString(),
+        'ACCOUNTS_type': 'credit',
+        'ACCOUNTS_remarks': 'Receipt from ${receipt.accountName}',
+        'ACCOUNTS_year': yearString,
+        'ACCOUNTS_month': monthString,
+        'ACCOUNTS_cashbanktype': receipt.paymentMode == 'Cash' ? '1' : '2',
+        'ACCOUNTS_billId': '',
+        'ACCOUNTS_billVoucherNumber': '',
+      };
+
+      await db.insert('TABLE_ACCOUNTS', cashBankEntry);
+
+      // Second entry: Account entry (Debit)
+      Map<String, dynamic> accountEntry = {
+        'ACCOUNTS_VoucherType': 2,
+        'ACCOUNTS_entryid': receiptId.toString(),
+        'ACCOUNTS_date': dateString,
+        'ACCOUNTS_setupid': setupId,
+        'ACCOUNTS_amount': receipt.amount.toString(),
+        'ACCOUNTS_type': 'debit',
+        'ACCOUNTS_remarks': 'Receipt to $contraAccount',
+        'ACCOUNTS_year': yearString,
+        'ACCOUNTS_month': monthString,
+        'ACCOUNTS_cashbanktype': receipt.paymentMode == 'Cash' ? '1' : '2',
+        'ACCOUNTS_billId': '',
+        'ACCOUNTS_billVoucherNumber': '',
+      };
+
+      await db.insert('TABLE_ACCOUNTS', accountEntry);
+    }
 
     final isBalanced = await DatabaseHelper().validateDoubleEntry();
     if (!isBalanced) {
@@ -272,7 +306,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
     }
   }
 
-  void _showDownloadPdfDialog(Receipt receipt) {
+  void _showDownloadPDFDialog(Receipt receipt) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -609,7 +643,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                                           : Colors.grey[600],
                                 ),
                               ),
-                              Icon(Icons.arrow_drop_down),
+                              const Icon(Icons.arrow_drop_down),
                             ],
                           ),
                         ),
@@ -659,10 +693,12 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                     prefixText: '₹ ',
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty)
+                    if (value == null || value.isEmpty) {
                       return 'Please enter an amount';
-                    if (double.tryParse(value) == null)
+                    }
+                    if (double.tryParse(value) == null) {
                       return 'Please enter a valid number';
+                    }
                     return null;
                   },
                 ),
@@ -677,8 +713,9 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                     onChanged: (String? value) {
                       setState(() {
                         paymentMode = value!;
-                        if (bankOptions.isNotEmpty)
+                        if (bankOptions.isNotEmpty) {
                           selectedCashOption = bankOptions.first;
+                        }
                       });
                     },
                   ),
@@ -695,7 +732,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                       });
                     },
                   ),
-                  const Text("cash"),
+                  const Text('Cash'),
                 ],
               ),
               const SizedBox(height: 16),
@@ -735,24 +772,22 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                           },
                           items:
                               paymentMode == 'Cash'
-                                  ? cashOptions
-                                      .map<DropdownMenuItem<String>>(
-                                        (String value) =>
-                                            DropdownMenuItem<String>(
-                                              value: value,
-                                              child: Text(value),
-                                            ),
-                                      )
-                                      .toList()
-                                  : bankOptions
-                                      .map<DropdownMenuItem<String>>(
-                                        (String value) =>
-                                            DropdownMenuItem<String>(
-                                              value: value,
-                                              child: Text(value),
-                                            ),
-                                      )
-                                      .toList(),
+                                  ? cashOptions.map<DropdownMenuItem<String>>((
+                                    String value,
+                                  ) {
+                                    return DropdownMenuItem<String>(
+                                      value: value,
+                                      child: Text(value),
+                                    );
+                                  }).toList()
+                                  : bankOptions.map<DropdownMenuItem<String>>((
+                                    String value,
+                                  ) {
+                                    return DropdownMenuItem<String>(
+                                      value: value,
+                                      child: Text(value),
+                                    );
+                                  }).toList(),
                         ),
                       ),
                     ),
@@ -769,7 +804,9 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                           builder: (context) => Addaccountsdet(),
                         ),
                       );
-                      if (result == true) _loadBankCashOptions();
+                      if (result == true) {
+                        _loadBankCashOptions();
+                      }
                     },
                   ),
                 ],
@@ -844,34 +881,39 @@ class _SearchableAccountDialogState extends State<SearchableAccountDialog> {
     return Dialog(
       child: Container(
         height: 400,
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Text(
+            const Text(
               'Select Account',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                prefixIcon: Icon(Icons.search),
+                prefixIcon: const Icon(Icons.search),
                 hintText: 'Search by Account Name',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8.0),
                 ),
               ),
-              onChanged: (value) => setState(() => searchQuery = value),
+              onChanged: (value) {
+                setState(() {
+                  searchQuery = value;
+                });
+              },
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Expanded(
               child: FutureBuilder<List<Map<String, dynamic>>>(
                 future: DatabaseHelper().getAllData("TABLE_ACCOUNTSETTINGS"),
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting)
-                    return Center(child: CircularProgressIndicator());
-                  if (snapshot.hasError)
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  } else if (snapshot.hasError) {
                     return Center(child: Text('Error: ${snapshot.error}'));
+                  }
 
                   List<Map<String, dynamic>> items = [];
                   List<Map<String, dynamic>> allItems = snapshot.data ?? [];
@@ -883,10 +925,12 @@ class _SearchableAccountDialogState extends State<SearchableAccountDialog> {
                       try {
                         Map<String, dynamic> dat = jsonDecode(item["data"]);
                         String accountName = dat['Accountname'].toString();
+
                         if (accountName.toLowerCase().contains(
                           searchQuery.toLowerCase(),
-                        ))
+                        )) {
                           items.add(item);
+                        }
                       } catch (e) {}
                     }
                   }
@@ -896,6 +940,7 @@ class _SearchableAccountDialogState extends State<SearchableAccountDialog> {
                       final item = items[index];
                       Map<String, dynamic> dat = jsonDecode(item["data"]);
                       String accountName = dat['Accountname'].toString();
+
                       return ListTile(
                         title: Text(accountName),
                         onTap: () {

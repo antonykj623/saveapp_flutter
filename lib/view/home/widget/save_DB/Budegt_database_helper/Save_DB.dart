@@ -1,5 +1,5 @@
 import 'dart:convert';
-
+import 'package:new_project_2025/model/receipt.dart';
 import 'package:new_project_2025/view/home/dream_page/model_dream_page/model_dream.dart';
 import 'package:new_project_2025/view/home/widget/payment_page/payment_class/payment_class.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,9 +7,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:path/path.dart';
 import 'dart:async';
-import 'package:sqflite/sqflite.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
@@ -18,8 +16,7 @@ class DatabaseHelper {
 
   DatabaseHelper._internal();
 
-  factory 
-  DatabaseHelper() => _instance;
+  factory DatabaseHelper() => _instance;
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -29,7 +26,6 @@ class DatabaseHelper {
 
   Future<Database> _initDatabase() async {
     String path = join(await getDatabasesPath(), 'save.db');
-
     return await openDatabase(path, version: 1, onCreate: _onCreate);
   }
 
@@ -43,263 +39,254 @@ class DatabaseHelper {
       )
     ''');
 
-    // ... (other tables as in your previous code)
+    await db.execute('''
+      CREATE TABLE TABLE_PAYMENTVOUCHER (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        voucherdata TEXT
+      )
+    ''');
 
-    // Payment voucher table
-    String CREATE_PAYMENTVOUCHER_TABLE =
-        "CREATE TABLE TABLE_PAYMENTVOUCHER ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "voucherdata TEXT)";
-    await db.execute(CREATE_PAYMENTVOUCHER_TABLE);
+    await db.execute('''
+      CREATE TABLE INSURANCE_NO (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        insuranceNO TEXT
+      )
+    ''');
 
-    // Insurance number table
-    String CREATE_INSURANCE_NO =
-        "CREATE TABLE INSURANCE_NO ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "insuranceNO TEXT)";
-    await db.execute(CREATE_INSURANCE_NO);
+    await db.execute('''
+      CREATE TABLE INVESTNAMES_TABLE (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        investname TEXT
+      )
+    ''');
 
-    // Investment names table
-    String CREATE_INVESTNAMES =
-        "CREATE TABLE INVESTNAMES_TABLE ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "investname TEXT)";
-    await db.execute(CREATE_INVESTNAMES);
+    await db.execute('''
+      CREATE TABLE CASHBALANCE_table (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        cashbalancedata TEXT
+      )
+    ''');
 
-    // Cash balance table
-    String CREATE_CASHBALANCE =
-        "CREATE TABLE CASHBALANCE_table ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "cashbalancedata TEXT)";
-    await db.execute(CREATE_CASHBALANCE);
+    await db.execute('''
+      CREATE TABLE LOAN_table (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        loan_data TEXT
+      )
+    ''');
 
-    // Loan table
-    String CREATE_LOAN =
-        "CREATE TABLE LOAN_table ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "loan_data TEXT)";
-    await db.execute(CREATE_LOAN);
+    await db.execute('''
+      CREATE TABLE RECEIPT_table (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        receipt_data TEXT
+      )
+    ''');
 
-    // Receipt table
-    String CREATE_RECEIPT =
-        "CREATE TABLE RECEIPT_table ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "receipt_data TEXT)";
-    await db.execute(CREATE_RECEIPT);
+    await db.execute('''
+      CREATE TABLE TABLE_DOCUMENT (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        data TEXT
+      )
+    ''');
 
-    // Document table
-    String CREATE_DOCUMENT =
-        "CREATE TABLE TABLE_DOCUMENT ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "data TEXT)";
-    await db.execute(CREATE_DOCUMENT);
+    await db.execute('''
+      CREATE TABLE TABLE_WALLET (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        data TEXT
+      )
+    ''');
 
-    // Wallet table
-    String CREATE_WALLET =
-        "CREATE TABLE TABLE_WALLET ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "data TEXT)";
-    await db.execute(CREATE_WALLET);
+    await db.execute('''
+      CREATE TABLE TABLE_PASSWORD (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        data TEXT
+      )
+    ''');
 
-    // Password table
-    String CREATE_PASSWORD =
-        "CREATE TABLE TABLE_PASSWORD ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "data TEXT)";
-    await db.execute(CREATE_PASSWORD);
+    await db.execute('''
+      CREATE TABLE TABLE_VISITCARD_IMAGE (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        data BLOB
+      )
+    ''');
 
-    // Visit card image table
-    String CREATE_VISIT_CARD_IMAGE =
-        "CREATE TABLE TABLE_VISITCARD_IMAGE ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "data BLOB)";
-    await db.execute(CREATE_VISIT_CARD_IMAGE);
+    await db.execute('''
+      CREATE TABLE TABLE_APP_PIN (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        data TEXT
+      )
+    ''');
 
-    // Target category table
+    await db.execute('''
+      CREATE TABLE TABLE_MILESTONE (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        data TEXT
+      )
+    ''');
 
-    // App PIN table
-    String CREATE_APP_PIN =
-        "CREATE TABLE TABLE_APP_PIN ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "data TEXT)";
-    await db.execute(CREATE_APP_PIN);
+    await db.execute('''
+      CREATE TABLE TABLE_ACCOUNTS (
+        ACCOUNTS_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ACCOUNTS_VoucherType INTEGER,
+        ACCOUNTS_entryid TEXT,
+        ACCOUNTS_date TEXT,
+        ACCOUNTS_setupid TEXT,
+        ACCOUNTS_amount TEXT,
+        ACCOUNTS_type TEXT,
+        ACCOUNTS_remarks TEXT,
+        ACCOUNTS_year TEXT,
+        ACCOUNTS_month TEXT,
+        ACCOUNTS_cashbanktype TEXT,
+        ACCOUNTS_billId TEXT,
+        ACCOUNTS_billVoucherNumber TEXT
+      )
+    ''');
 
-    // Milestone table
-    String CREATE_MILESTONE =
-        "CREATE TABLE TABLE_MILESTONE ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "data TEXT)";
-    await db.execute(CREATE_MILESTONE);
+    await db.execute('''
+      CREATE TABLE TABLE_ACCOUNTS_RECEIPT (
+        ACCOUNTS_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ACCOUNTS_entryid TEXT,
+        ACCOUNTS_date TEXT,
+        ACCOUNTS_setupid TEXT,
+        ACCOUNTS_amount TEXT,
+        ACCOUNTS_type TEXT,
+        ACCOUNTS_remarks TEXT,
+        ACCOUNTS_year TEXT,
+        ACCOUNTS_month TEXT,
+        ACCOUNTS_cashbanktype TEXT
+      )
+    ''');
 
-    // Accounts table
-    String CREATE_TABLE_ACCOUNTS =
-        "CREATE TABLE TABLE_ACCOUNTS ("
-        "ACCOUNTS_id INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "ACCOUNTS_VoucherType INTEGER, "
-        "ACCOUNTS_entryid TEXT, "
-        "ACCOUNTS_date TEXT, "
-        "ACCOUNTS_setupid TEXT, "
-        "ACCOUNTS_amount TEXT, "
-        "ACCOUNTS_type TEXT, "
-        "ACCOUNTS_remarks TEXT, "
-        "ACCOUNTS_year TEXT, "
-        "ACCOUNTS_month TEXT, "
-        "ACCOUNTS_cashbanktype TEXT, "
-        "ACCOUNTS_billId TEXT, "
-        "ACCOUNTS_billVoucherNumber TEXT)";
-    await db.execute(CREATE_TABLE_ACCOUNTS);
+    await db.execute('''
+      CREATE TABLE TABLE_ASSET (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        data TEXT
+      )
+    ''');
 
-    // Accounts receipt table
-    String CREATE_TABLE_ACCOUNTS_RECEIPT =
-        "CREATE TABLE TABLE_ACCOUNTS_RECEIPT ("
-        "ACCOUNTS_id INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "ACCOUNTS_entryid TEXT, "
-        "ACCOUNTS_date TEXT, "
-        "ACCOUNTS_setupid TEXT, "
-        "ACCOUNTS_amount TEXT, "
-        "ACCOUNTS_type TEXT, "
-        "ACCOUNTS_remarks TEXT, "
-        "ACCOUNTS_year TEXT, "
-        "ACCOUNTS_month TEXT, "
-        "ACCOUNTS_cashbanktype TEXT)";
-    await db.execute(CREATE_TABLE_ACCOUNTS_RECEIPT);
+    await db.execute('''
+      CREATE TABLE TABLE_LIABILITY (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        data TEXT
+      )
+    ''');
 
-    // Asset table
-    String CREATE_ASSET =
-        "CREATE TABLE TABLE_ASSET ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "data TEXT)";
-    await db.execute(CREATE_ASSET);
+    await db.execute('''
+      CREATE TABLE TABLE_INSURANCE (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        data TEXT
+      )
+    ''');
 
-    // Liability table
-    String CREATE_LIABILITY =
-        "CREATE TABLE TABLE_LIABILITY ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "data TEXT)";
-    await db.execute(CREATE_LIABILITY);
+    await db.execute('''
+      CREATE TABLE TABLE_ACCOUNTSETTINGS (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        data TEXT
+      )
+    ''');
 
-    // Insurance table
-    String CREATE_INSURANCE =
-        "CREATE TABLE TABLE_INSURANCE ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "data TEXT)";
-    await db.execute(CREATE_INSURANCE);
+    await db.execute('''
+      CREATE TABLE DIARYSUBJECT_table (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        data TEXT
+      )
+    ''');
 
-    // Account settings table
-    String CREATE_ACCOUNTSETTINGS =
-        "CREATE TABLE TABLE_ACCOUNTSETTINGS ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "data TEXT)";
-    await db.execute(CREATE_ACCOUNTSETTINGS);
+    await db.execute('''
+      CREATE TABLE TABLE_BUDGET (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        data TEXT
+      )
+    ''');
 
-    // Diary subject table
-    String CREATE_DIARYSUBJECT =
-        "CREATE TABLE DIARYSUBJECT_table ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "data TEXT)";
-    await db.execute(CREATE_DIARYSUBJECT);
+    await db.execute('''
+      CREATE TABLE DIARY_table (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        data TEXT
+      )
+    ''');
 
-    // Budget table
-    String CREATE_BUDGET =
-        "CREATE TABLE TABLE_BUDGET ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "data TEXT)";
-    await db.execute(CREATE_BUDGET);
+    await db.execute('''
+      CREATE TABLE INVESTMENT_table (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        data TEXT
+      )
+    ''');
 
-    // Diary table
-    String CREATE_DIARY =
-        "CREATE TABLE DIARY_table ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "data TEXT)";
-    await db.execute(CREATE_DIARY);
+    await db.execute('''
+      CREATE TABLE TABLE_TASK (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        data TEXT
+      )
+    ''');
 
-    // Investment table
-    String CREATE_INVESTMENT =
-        "CREATE TABLE INVESTMENT_table ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "data TEXT)";
-    await db.execute(CREATE_INVESTMENT);
+    await db.execute('''
+      CREATE TABLE TABLE_VISITCARD (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        data TEXT,
+        logoimage BLOB,
+        cardimg BLOB
+      )
+    ''');
 
-    // Task table
-    String CREATE_TASK =
-        "CREATE TABLE TABLE_TASK ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "data TEXT)";
-    await db.execute(CREATE_TASK);
+    await db.execute('''
+      CREATE TABLE TABLE_TARGET (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        data TEXT
+      )
+    ''');
 
-    // Visit card table
-    String CREATE_VISITCARD =
-        "CREATE TABLE TABLE_VISITCARD ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "data TEXT, "
-        "logoimage BLOB, "
-        "cardimg BLOB)";
-    await db.execute(CREATE_VISITCARD);
+    await db.execute('''
+      CREATE TABLE TABLE_ADDEDAMOUNT_MILESTONE (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        data TEXT
+      )
+    ''');
 
-    // Target table
-    String CREATE_TARGET =
-        "CREATE TABLE TABLE_TARGET ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "data TEXT)";
-    await db.execute(CREATE_TARGET);
+    await db.execute('''
+      CREATE TABLE TABLE_BACKUP (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        data TEXT
+      )
+    ''');
 
-    // Added amount milestone table
-    String CREATE_ADDEDAMOUNT_MILESTONE =
-        "CREATE TABLE TABLE_ADDEDAMOUNT_MILESTONE ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "data TEXT)";
-    await db.execute(CREATE_ADDEDAMOUNT_MILESTONE);
+    await db.execute('''
+      CREATE TABLE TABLE_RENEWALMSG (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        data TEXT
+      )
+    ''');
 
-    // Backup table
-    String CREATE_BACKUP =
-        "CREATE TABLE TABLE_BACKUP ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "data TEXT)";
-    await db.execute(CREATE_BACKUP);
+    await db.execute('''
+      CREATE TABLE TABLE_WEBLINKS (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        data TEXT
+      )
+    ''');
 
-    // Renewal message table
-    String CREATE_RENEWALMSG =
-        "CREATE TABLE TABLE_RENEWALMSG ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "data TEXT)";
-    await db.execute(CREATE_RENEWALMSG);
+    await db.execute('''
+      CREATE TABLE TABLE_EMERGENCY (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        data TEXT
+      )
+    ''');
 
-    // Web links table
-    String CREATE_WEBLINKS =
-        "CREATE TABLE TABLE_WEBLINKS ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "data TEXT)";
-    await db.execute(CREATE_WEBLINKS);
-
-    // Emergency table
-    String CREATE_EMERGENCY =
-        "CREATE TABLE TABLE_EMERGENCY ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "data TEXT)";
-    await db.execute(CREATE_EMERGENCY);
-
-    // Bill details table
-    String CREATE_BILLDETAILS =
-        "CREATE TABLE TABLE_BILLDETAILS ("
-        "keyid INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "data TEXT)";
-    await db.execute(CREATE_BILLDETAILS);
+    await db.execute('''
+      CREATE TABLE TABLE_BILLDETAILS (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        data TEXT
+      )
+    ''');
   }
 
   Future<int> addData(String table, String data) async {
     int insertedId = 0;
     try {
       final db = await database;
-
       Map<String, dynamic> values = {'data': data};
       insertedId = await db.insert(table, values);
-
-      // Optional condition as in your Java code
     } catch (e) {
-      // Handle error gracefully
       print("Database insert error: $e");
     }
-
     return insertedId;
   }
 
@@ -340,7 +327,6 @@ class DatabaseHelper {
       print("not updated");
     }
   }
-
 
   Future<List<String>> getAccountNames() async {
     final db = await database;
@@ -403,9 +389,7 @@ class DatabaseHelper {
 
   Future<List<Dream>> getAllDreams() async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'dreams_table',
-    ); 
+    final List<Map<String, dynamic>> maps = await db.query('dreams_table');
 
     return List.generate(maps.length, (i) {
       return Dream(
@@ -422,11 +406,8 @@ class DatabaseHelper {
 
   Future<bool> _isCategoryUsed(String categoryName) async {
     try {
-      // Check if this category has been marked as "added" in SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       bool isTargetAdded = prefs.getBool('target_$categoryName') ?? false;
-
-      // If it's marked as added, it means it's being used
       return isTargetAdded;
     } catch (e) {
       print('Error checking if category is used: $e');
@@ -462,13 +443,88 @@ class DatabaseHelper {
     };
 
     return await db.update(
-      'TABLE_PAYMENTVOUCHER', // Fixed: was 'TABLE_ACCOUNTS', should be 'TABLE_PAYMENTVOUCHER'
+      'TABLE_PAYMENTVOUCHER',
       {'voucherdata': jsonEncode(paymentData)},
       where: 'keyid = ?',
       whereArgs: [payment.id],
     );
   }
 
+  Future<int> insertReceipt(Receipt receipt) async {
+    final db = await database;
+    Map<String, dynamic> receiptData = {
+      "date": receipt.date,
+      "accountName": receipt.accountName,
+      "amount": receipt.amount.toString(),
+      "paymentMode": receipt.paymentMode,
+      "remarks": receipt.remarks ?? '',
+    };
+    return await db.insert('RECEIPT_table', {
+      'receipt_data': jsonEncode(receiptData),
+    });
+  }
+
+  Future<int> updateReceipt(Receipt receipt) async {
+    final db = await database;
+    Map<String, dynamic> receiptData = {
+      "date": receipt.date,
+      "accountName": receipt.accountName,
+      "amount": receipt.amount.toString(),
+      "paymentMode": receipt.paymentMode,
+      "remarks": receipt.remarks ?? '',
+    };
+    return await db.update(
+      'RECEIPT_table',
+      {'receipt_data': jsonEncode(receiptData)},
+      where: 'keyid = ?',
+      whereArgs: [receipt.id],
+    );
+  }
+
+  Future<List<Receipt>> getReceiptsByMonth(String yearMonth) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'RECEIPT_table',
+      where: 'receipt_data LIKE ?',
+      whereArgs: ['%$yearMonth%'],
+    );
+
+    List<Receipt> receipts = [];
+    for (var map in maps) {
+      try {
+        Map<String, dynamic> data = jsonDecode(map['receipt_data']);
+        receipts.add(
+          Receipt(
+            id: map['keyid'],
+            date: data['date'],
+            accountName: data['accountName'],
+            amount: double.parse(data['amount']),
+            paymentMode: data['paymentMode'],
+            remarks: data['remarks'] ?? '',
+          ),
+        );
+      } catch (e) {
+        print('Error parsing receipt data: $e');
+      }
+    }
+    return receipts;
+  }
+
+  Future<int> deleteReceipt(int id) async {
+    final db = await database;
+    // Delete associated double-entry records from TABLE_ACCOUNTS
+    await db.delete(
+      'TABLE_ACCOUNTS',
+      where: 'ACCOUNTS_entryid = ? AND ACCOUNTS_VoucherType = ?',
+      whereArgs: [id.toString(), 2],
+    );
+    // Delete the receipt from RECEIPT_table
+    return await db.delete(
+      'RECEIPT_table',
+      where: 'keyid = ?',
+      whereArgs: [id],
+    );
+  }
 
   Future<List<Payment>> getPaymentsByMonth(String yearMonth) async {
     final db = await database;
@@ -477,12 +533,10 @@ class DatabaseHelper {
     );
 
     List<Payment> payments = [];
-
     for (var map in maps) {
       try {
         Map<String, dynamic> paymentData = jsonDecode(map['voucherdata']);
         String paymentDate = paymentData['date'];
-
         if (paymentDate.startsWith(yearMonth)) {
           payments.add(
             Payment(
@@ -499,11 +553,9 @@ class DatabaseHelper {
         print('Error parsing payment data: $e');
       }
     }
-
     return payments;
   }
 
-  // Delete payment method
   Future<int> deletePayment(int id) async {
     final db = await database;
     return await db.delete(
@@ -512,21 +564,17 @@ class DatabaseHelper {
       whereArgs: [id],
     );
   }
-  // Add these methods to your DatabaseHelper class
 
-  // Method to insert account entry with all required fields
   Future<int> insertAccountEntry(Map<String, dynamic> accountData) async {
     final db = await database;
     return await db.insert('TABLE_ACCOUNTS', accountData);
   }
 
-  // Method to get all account entries
   Future<List<Map<String, dynamic>>> getAllAccountEntries() async {
     final db = await database;
     return await db.query('TABLE_ACCOUNTS', orderBy: 'ACCOUNTS_id DESC');
   }
 
-  // Method to get account entries by entry ID (for finding related debit/credit pairs)
   Future<List<Map<String, dynamic>>> getAccountEntriesByEntryId(
     String entryId,
   ) async {
@@ -538,9 +586,6 @@ class DatabaseHelper {
     );
   }
 
-
-
-  // Method to get account entries by month and year
   Future<List<Map<String, dynamic>>> getAccountEntriesByMonth(
     String month,
     String year,
