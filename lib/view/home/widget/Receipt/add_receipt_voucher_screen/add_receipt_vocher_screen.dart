@@ -9,7 +9,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
 import 'dart:io';
 import 'package:permission_handler/permission_handler.dart';
-
 import '../../save_DB/Budegt_database_helper/Save_DB.dart';
 
 class AddReceiptVoucherPage extends StatefulWidget {
@@ -41,7 +40,14 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
     _loadBankCashOptions();
 
     if (widget.receipt != null) {
-      selectedDate = DateFormat('yyyy-MM-dd').parse(widget.receipt!.date);
+      try {
+        selectedDate = DateFormat('yyyy-MM-dd').parse(widget.receipt!.date);
+      } catch (e) {
+        print(
+          'Error parsing date: ${widget.receipt!.date}, using current date',
+        );
+        selectedDate = DateTime.now();
+      }
       selectedAccount = widget.receipt!.accountName;
       _amountController.text = widget.receipt!.amount.toString();
       paymentMode = widget.receipt!.paymentMode;
@@ -50,6 +56,13 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
     } else {
       selectedDate = DateTime.now();
     }
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _remarksController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadBankCashOptions() async {
@@ -99,7 +112,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
       });
     } catch (e) {
       print('Error loading bank/cash options: $e');
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading bank/cash options: $e')),
         );
@@ -173,136 +186,165 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
     return months[month - 1];
   }
 
-  void _saveReceipt() async {
-    if (_formKey.currentState!.validate()) {
-      if (selectedAccount == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select an account')),
+  Future<void> _saveDoubleEntryAccounts(Receipt receipt, int receiptId) async {
+    try {
+      final db = await DatabaseHelper().database;
+      final dateString =
+          "${selectedDate.day}/${selectedDate.month}/${selectedDate.year}";
+      final monthString = _getMonthName(selectedDate.month);
+      final yearString = selectedDate.year.toString();
+
+      final firstSetupId = await getNextSetupId(selectedAccount!);
+      final contraSetupId = await getNextSetupId(selectedCashOption!);
+
+      if (widget.receipt != null) {
+        // Update existing entries
+        await db.update(
+          "TABLE_ACCOUNTS",
+          {
+            "ACCOUNTS_date": dateString,
+            "ACCOUNTS_setupid": contraSetupId,
+            "ACCOUNTS_amount": _amountController.text,
+            "ACCOUNTS_remarks": 'Receipt from $selectedAccount',
+            "ACCOUNTS_year": yearString,
+            "ACCOUNTS_month": monthString,
+            "ACCOUNTS_cashbanktype": paymentMode == 'Cash' ? '1' : '2',
+          },
+          where:
+              "ACCOUNTS_VoucherType = ? AND ACCOUNTS_entryid = ? AND ACCOUNTS_type = ?",
+          whereArgs: [2, widget.receipt!.id.toString(), 'credit'],
         );
-        return;
+
+        await db.update(
+          "TABLE_ACCOUNTS",
+          {
+            "ACCOUNTS_date": dateString,
+            "ACCOUNTS_setupid": firstSetupId,
+            "ACCOUNTS_amount": _amountController.text,
+            "ACCOUNTS_remarks": 'Receipt to $selectedCashOption',
+            "ACCOUNTS_year": yearString,
+            "ACCOUNTS_month": monthString,
+            "ACCOUNTS_cashbanktype": paymentMode == 'Cash' ? '1' : '2',
+          },
+          where:
+              "ACCOUNTS_VoucherType = ? AND ACCOUNTS_entryid = ? AND ACCOUNTS_type = ?",
+          whereArgs: [2, widget.receipt!.id.toString(), 'debit'],
+        );
+      } else {
+        // Insert new entries
+        Map<String, dynamic> cashBankEntry = {
+          'ACCOUNTS_VoucherType': 2,
+          'ACCOUNTS_entryid': receiptId.toString(),
+          'ACCOUNTS_date': dateString,
+          'ACCOUNTS_setupid': contraSetupId,
+          'ACCOUNTS_amount': _amountController.text,
+          'ACCOUNTS_type': 'credit',
+          'ACCOUNTS_remarks': 'Receipt from $selectedAccount',
+          'ACCOUNTS_year': yearString,
+          'ACCOUNTS_month': monthString,
+          'ACCOUNTS_cashbanktype': paymentMode == 'Cash' ? '1' : '2',
+          'ACCOUNTS_billId': '',
+          'ACCOUNTS_billVoucherNumber': '',
+        };
+
+        await db.insert("TABLE_ACCOUNTS", cashBankEntry);
+        
+
+        Map<String, dynamic> accountEntry = {
+          'ACCOUNTS_VoucherType': 2,
+          'ACCOUNTS_entryid': receiptId.toString(),
+          'ACCOUNTS_date': dateString,
+          'ACCOUNTS_setupid': firstSetupId,
+          'ACCOUNTS_amount': _amountController.text,
+          'ACCOUNTS_type': 'debit',
+          'ACCOUNTS_remarks': 'Receipt to $selectedCashOption',
+          'ACCOUNTS_year': yearString,
+          'ACCOUNTS_month': monthString,
+          'ACCOUNTS_cashbanktype': paymentMode == 'Cash' ? '1' : '2',
+          'ACCOUNTS_billId': '',
+          'ACCOUNTS_billVoucherNumber': '',
+        };
+
+        await db.insert("TABLE_ACCOUNTS", accountEntry);
       }
 
-      try {
-        final receipt = Receipt(
-          id: widget.receipt?.id, // Use existing ID or null for new receipts
-          date: DateFormat('yyyy-MM-dd').format(selectedDate),
-          accountName: selectedAccount!,
-          amount: double.parse(_amountController.text),
-          paymentMode: selectedCashOption!,
-          remarks: _remarksController.text,
+      final isBalanced = await DatabaseHelper().validateDoubleEntry();
+      if (!isBalanced) {
+        throw Exception('Double-entry accounting is unbalanced');
+      }
+    } catch (e) {
+      print('Error saving double-entry accounts: $e');
+      throw e;
+    }
+  }
+
+  void _saveReceipt() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (selectedAccount == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please select an account')));
+      return;
+    }
+    if (selectedCashOption == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a cash/bank option')),
+      );
+      return;
+    }
+
+    try {
+      final receipt = Receipt(
+        id: widget.receipt?.id,
+        date: DateFormat('dd/MM/yyyy').format(selectedDate),
+        accountName: selectedAccount!,
+        amount: double.parse(_amountController.text),
+        paymentMode: selectedCashOption!,
+        remarks: _remarksController.text,
+      );
+
+      final db = await DatabaseHelper().database;
+      int receiptId;
+      if (widget.receipt != null) {
+        receiptId = widget.receipt!.id!;
+        await db.update(
+          "TABLE_ACCOUNTS",
+          {
+            "ACCOUNTS_date": receipt.date,
+            "ACCOUNTS_setupid": await getNextSetupId(receipt.accountName),
+            "ACCOUNTS_amount": receipt.amount.toString(),
+            "ACCOUNTS_remarks": receipt.remarks,
+            "ACCOUNTS_year": selectedDate.year.toString(),
+            "ACCOUNTS_month": _getMonthName(selectedDate.month),
+            "ACCOUNTS_cashbanktype": receipt.paymentMode == 'Cash' ? '1' : '2',
+          },
+          where:
+              "ACCOUNTS_VoucherType = ? AND ACCOUNTS_entryid = ? AND ACCOUNTS_type = ?",
+          whereArgs: [2, receiptId.toString(), 'debit'],
         );
+      } else {
+        receiptId = await DatabaseHelper().insertReceipt(receipt);
+      }
 
-        int receiptId;
-        if (widget.receipt == null) {
-          receiptId = await DatabaseHelper().insertReceipt(receipt);
-        } else {
-          receiptId = widget.receipt!.id!;
-          await DatabaseHelper().updateReceipt(receipt);
-        }
+      await _saveDoubleEntryAccounts(receipt, receiptId);
 
-        await _saveDoubleEntryAccounts(receiptId, receipt);
+      setState(() {
+        _isSaved = true;
+      });
 
-        setState(() {
-          _isSaved = true;
-        });
-
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Receipt saved successfully')),
         );
         _showDownloadPDFDialog(receipt);
-      } catch (e) {
+      }
+    } catch (e) {
+      print('Error saving receipt: $e');
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error saving receipt: $e')));
       }
-    }
-  }
-
-  Future<void> _saveDoubleEntryAccounts(int receiptId, Receipt receipt) async {
-    final db = await DatabaseHelper().database;
-    final dateString =
-        "${selectedDate.day}/${selectedDate.month}/${selectedDate.year}";
-    final monthString = _getMonthName(selectedDate.month);
-    final yearString = selectedDate.year.toString();
-
-    final setupId = await getNextSetupId(receipt.accountName);
-    final contraAccount =
-        receipt.paymentMode == 'Cash' ? 'Cash' : receipt.paymentMode;
-    final contraSetupId = await getNextSetupId(contraAccount);
-
-    // Check for existing entries to update
-    final existingEntries = await db.query(
-      'TABLE_ACCOUNTS',
-      where: 'ACCOUNTS_VoucherType = ? AND ACCOUNTS_entryid = ?',
-      whereArgs: [2, receiptId.toString()],
-    );
-
-    if (existingEntries.isNotEmpty) {
-      // Update existing entries
-      for (var entry in existingEntries) {
-        Map<String, dynamic> updatedEntry = {
-          'ACCOUNTS_date': dateString,
-          'ACCOUNTS_setupid':
-              entry['ACCOUNTS_type'] == 'credit' ? contraSetupId : setupId,
-          'ACCOUNTS_amount': receipt.amount.toString(),
-          'ACCOUNTS_remarks':
-              entry['ACCOUNTS_type'] == 'credit'
-                  ? 'Receipt from ${receipt.accountName}'
-                  : 'Receipt to $contraAccount',
-          'ACCOUNTS_year': yearString,
-          'ACCOUNTS_month': monthString,
-          'ACCOUNTS_cashbanktype': receipt.paymentMode == 'Cash' ? '1' : '2',
-        };
-
-        await db.update(
-          'TABLE_ACCOUNTS',
-          updatedEntry,
-          where: 'ACCOUNTS_id = ?',
-          whereArgs: [entry['ACCOUNTS_id']],
-        );
-      }
-    } else {
-      // Insert new entries
-      // First entry: Cash/Bank account (Credit)
-      Map<String, dynamic> cashBankEntry = {
-        'ACCOUNTS_VoucherType': 2,
-        'ACCOUNTS_entryid': receiptId.toString(),
-        'ACCOUNTS_date': dateString,
-        'ACCOUNTS_setupid': contraSetupId,
-        'ACCOUNTS_amount': receipt.amount.toString(),
-        'ACCOUNTS_type': 'credit',
-        'ACCOUNTS_remarks': 'Receipt from ${receipt.accountName}',
-        'ACCOUNTS_year': yearString,
-        'ACCOUNTS_month': monthString,
-        'ACCOUNTS_cashbanktype': receipt.paymentMode == 'Cash' ? '1' : '2',
-        'ACCOUNTS_billId': '',
-        'ACCOUNTS_billVoucherNumber': '',
-      };
-
-      await db.insert('TABLE_ACCOUNTS', cashBankEntry);
-
-      // Second entry: Account entry (Debit)
-      Map<String, dynamic> accountEntry = {
-        'ACCOUNTS_VoucherType': 2,
-        'ACCOUNTS_entryid': receiptId.toString(),
-        'ACCOUNTS_date': dateString,
-        'ACCOUNTS_setupid': setupId,
-        'ACCOUNTS_amount': receipt.amount.toString(),
-        'ACCOUNTS_type': 'debit',
-        'ACCOUNTS_remarks': 'Receipt to $contraAccount',
-        'ACCOUNTS_year': yearString,
-        'ACCOUNTS_month': monthString,
-        'ACCOUNTS_cashbanktype': receipt.paymentMode == 'Cash' ? '1' : '2',
-        'ACCOUNTS_billId': '',
-        'ACCOUNTS_billVoucherNumber': '',
-      };
-
-      await db.insert('TABLE_ACCOUNTS', accountEntry);
-    }
-
-    final isBalanced = await DatabaseHelper().validateDoubleEntry();
-    if (!isBalanced) {
-      throw Exception('Double-entry accounting is unbalanced');
     }
   }
 
@@ -330,7 +372,11 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
           ],
         );
       },
-    );
+    ).then((_) {
+      if (mounted) {
+        Navigator.pop(context, true);
+      }
+    });
   }
 
   Future<void> _generateAndDownloadPDF(Receipt receipt) async {
@@ -338,9 +384,11 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
       if (Platform.isAndroid) {
         var status = await Permission.storage.request();
         if (!status.isGranted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Storage permission required')),
-          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Storage permission required')),
+            );
+          }
           return;
         }
       }
@@ -348,7 +396,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
       final pdf = pw.Document();
       pdf.addPage(
         pw.Page(
-          pageFormat: PdfPageFormat.a4,
+          pageFormat: PdfPageFormat.a4, 
           build: (pw.Context context) {
             return pw.Container(
               padding: const pw.EdgeInsets.all(20),
@@ -367,7 +415,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                         ),
                         pw.SizedBox(height: 5),
                         pw.Text(
-                          'Date: ${DateFormat('dd-MM-yyyy').format(selectedDate)}',
+                          'Date: ${receipt.date}',
                           style: const pw.TextStyle(fontSize: 14),
                         ),
                         pw.SizedBox(height: 10),
@@ -466,7 +514,9 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text(selectedCashOption ?? ''),
+                            child: pw.Text(
+                              selectedCashOption ?? receipt.paymentMode,
+                            ),
                           ),
                         ],
                       ),
@@ -478,7 +528,11 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text(receipt.remarks ?? 'N/A'),
+                            child: pw.Text(
+                              receipt.remarks?.isEmpty ?? true
+                                  ? 'N/A'
+                                  : receipt.remarks!,
+                            ),
                           ),
                         ],
                       ),
@@ -542,20 +596,25 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
       final file = File('${output.path}/$fileName');
       await file.writeAsBytes(await pdf.save());
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('PDF saved at: ${file.path}'),
-          duration: const Duration(seconds: 5),
-          action: SnackBarAction(
-            label: 'Open',
-            onPressed: () => OpenFile.open(file.path),
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('PDF saved at: ${file.path}'),
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'Open',
+              onPressed: () => OpenFile.open(file.path),
+            ),
           ),
-        ),
-      );
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to generate PDF: $e')));
+      print('Error generating PDF: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to generate PDF: $e')));
+      }
     }
   }
 
@@ -563,7 +622,11 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add Receipt Voucher'),
+        title: Text(
+          widget.receipt != null
+              ? 'Edit Receipt Voucher'
+              : 'Add Receipt Voucher',
+        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
@@ -573,17 +636,15 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
             IconButton(
               icon: const Icon(Icons.download),
               onPressed: () {
-                if (_isSaved) {
-                  final receipt = Receipt(
-                    id: widget.receipt?.id,
-                    date: DateFormat('yyyy-MM-dd').format(selectedDate),
-                    accountName: selectedAccount!,
-                    amount: double.parse(_amountController.text),
-                    paymentMode: selectedCashOption!,
-                    remarks: _remarksController.text,
-                  );
-                  _generateAndDownloadPDF(receipt);
-                }
+                final receipt = Receipt(
+                  id: widget.receipt?.id,
+                  date: DateFormat('dd/MM/yyyy').format(selectedDate),
+                  accountName: selectedAccount!,
+                  amount: double.parse(_amountController.text),
+                  paymentMode: selectedCashOption!,
+                  remarks: _remarksController.text,
+                );
+                _generateAndDownloadPDF(receipt);
               },
               tooltip: 'Download PDF',
             ),
@@ -634,7 +695,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                selectedAccount ?? 'Select An Account',
+                                selectedAccount ?? 'Select an Account',
                                 style: TextStyle(
                                   fontSize: 16,
                                   color:
@@ -664,7 +725,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                       );
                       if (result == true) {
                         await _loadBankCashOptions();
-                        if (context.mounted) {
+                        if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Account added successfully'),
@@ -805,7 +866,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                         ),
                       );
                       if (result == true) {
-                        _loadBankCashOptions();
+                        await _loadBankCashOptions();
                       }
                     },
                   ),
@@ -835,8 +896,8 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                     borderRadius: BorderRadius.circular(25),
                     gradient: LinearGradient(
                       colors: [
-                        Theme.of(context).primaryColor,
-                        Theme.of(context).primaryColor.withOpacity(0.8),
+                        Theme.of(context).colorScheme.primary,
+                        Theme.of(context).colorScheme.primary.withOpacity(0.8),
                       ],
                     ),
                   ),
@@ -875,6 +936,12 @@ class SearchableAccountDialog extends StatefulWidget {
 class _SearchableAccountDialogState extends State<SearchableAccountDialog> {
   final TextEditingController _searchController = TextEditingController();
   String searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -925,13 +992,14 @@ class _SearchableAccountDialogState extends State<SearchableAccountDialog> {
                       try {
                         Map<String, dynamic> dat = jsonDecode(item["data"]);
                         String accountName = dat['Accountname'].toString();
-
                         if (accountName.toLowerCase().contains(
                           searchQuery.toLowerCase(),
                         )) {
                           items.add(item);
                         }
-                      } catch (e) {}
+                      } catch (e) {
+                        print('Error parsing account: $e');
+                      }
                     }
                   }
                   return ListView.builder(

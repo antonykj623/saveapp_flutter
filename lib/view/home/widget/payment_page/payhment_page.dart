@@ -56,7 +56,6 @@ class _PaymentsPageState extends State<PaymentsPage> {
         }
       }
 
-      // Add default cash account
       setupIdToAccountName['1'] = 'Cash';
 
       setState(() {
