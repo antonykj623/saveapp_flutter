@@ -22,7 +22,7 @@ class MenuItem {
 
 class MenuItem1 {
   final String label1;
-  MenuItem1(this.label1);
+  MenuItem1(this.label1);  
 }
 
 var items1 = [

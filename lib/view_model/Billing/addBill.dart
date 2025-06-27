@@ -1,7 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:new_project_2025/view/home/widget/payment_page/databasehelper/data_base_helper.dart';
+import 'package:new_project_2025/view_model/billing_accout_setup/bill_account_setup.dart';
+import '../../view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 import 'package:new_project_2025/view/home/widget/payment_page/payment_class/payment_class.dart';
+import 'package:new_project_2025/view_model/AccountSet_up/Add_Acount.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AddBill extends StatefulWidget {
   final Payment? payment;
@@ -13,26 +18,47 @@ class AddBill extends StatefulWidget {
 }
 
 class _AddPaymentVoucherPageState extends State<AddBill> {
+  int _counter = 0;
+
+  Future<void> _incrementCounterAutomatically() async {
+    final prefs = await SharedPreferences.getInstance();
+    int counter = prefs.getInt('counter') ?? 0;
+    counter++;
+    await prefs.setInt('counter', counter);
+
+    setState(() {
+      _counter = counter;
+    });
+  }
+
+  String name = "";
   final _formKey = GlobalKey<FormState>();
-  late DateTime selectedDate;
+  DateTime? selectedDate = DateTime.now();
   String? selectedAccount;
+  String? selectedincomeAccount;
   final TextEditingController _amountController = TextEditingController();
   String paymentMode = 'Cash';
   String? selectedCashOption;
   final TextEditingController _remarksController = TextEditingController();
   var dropdownvalu1 = 'Asset Account';
-  var items1 = [
-    'Asset Account',
-    'Bank',
-    'Cash',
-    'Credit Card',
-    'Customers',
-    'Expense Account',
-    'Income Account',
-    'Insurance',
-    'Investment',
-    'Liability Account',
-  ];
+  List<Map<String, dynamic>> _items = [];
+  List<Map<String, dynamic>> _items1 = [];
+  List<String> accountNames = [];
+  List<String> incomeaccountNames = [];
+  String eid = "";
+
+  // var items1 = [
+  //   'Asset Account',
+  //   'Bank',
+  //   'Cash',
+  //   'Credit Card',
+  //   'Customers',
+  //   'Expense Account',
+  //   'Income Account',
+  //   'Insurance',
+  //   'Investment',
+  //   'Liability Account',
+  // ];
   final List<String> accounts = [
     'Agriculture Expenses',
     'Agriculture Income',
@@ -51,20 +77,48 @@ class _AddPaymentVoucherPageState extends State<AddBill> {
   @override
   void initState() {
     super.initState();
-    if (widget.payment != null) {
-      selectedDate = DateFormat('yyyy-MM-dd').parse(widget.payment!.date);
-      selectedAccount = widget.payment!.accountName;
-      _amountController.text = widget.payment!.amount.toString();
-      paymentMode = widget.payment!.paymentMode;
-      selectedCashOption =
-      widget.payment!.paymentMode == 'Bank'
-          ? cashOptions[1]
-          : cashOptions[0];
-      _remarksController.text = widget.payment!.remarks ?? '';
-    } else {
-      selectedDate = DateTime.now();
-      selectedCashOption = cashOptions[0];
-    }
+    _loadItemsFromDB();
+    _loadaccountFromDB();
+    _incrementCounterAutomatically();
+  }
+
+  Future<void> _loadaccountFromDB() async {
+    final data = await DatabaseHelper().getAllData('TABLE_ACCOUNTSETTINGS');
+    setState(() {
+      _items1 = data;
+      for (var i in _items1) {
+        Map<String, dynamic> dat = jsonDecode(i["data"]);
+        if (dat['Accounttype'].toString().contains("Income Account")) {
+          incomeaccountNames.add(dat['Accountname'].toString());
+        }
+      }
+      // Extract account names from the database
+      // accountNames = _items
+      //     .map((item) => jsonDecode(item['data'])['Accountname'].toString() )
+      //     .toList();
+      // Set default selected account if available
+      selectedincomeAccount =
+          incomeaccountNames.isNotEmpty ? incomeaccountNames[0] : null;
+    });
+  }
+
+  Future<void> _loadItemsFromDB() async {
+    final data = await DatabaseHelper().getAllData('TABLE_ACCOUNTSETTINGS');
+    setState(() {
+      _items = data;
+      for (var i in _items) {
+        Map<String, dynamic> dat = jsonDecode(i["data"]);
+        if (dat['Accounttype'].toString().contains("Customers")) {
+          accountNames.add(dat['Accountname'].toString());
+        }
+      }
+      // Extract account names from the database
+      // accountNames = _items
+      //     .map((item) => jsonDecode(item['data'])['Accountname'].toString() )
+      //     .toList();
+      // Set default selected account if available
+      selectedAccount = accountNames.isNotEmpty ? accountNames[0] : null;
+    });
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -78,29 +132,6 @@ class _AddPaymentVoucherPageState extends State<AddBill> {
       setState(() {
         selectedDate = picked;
       });
-    }
-  }
-
-  void _savePayment() async {
-    if (_formKey.currentState!.validate()) {
-      final payment = Payment(
-        id: widget.payment?.id,
-        date: DateFormat('yyyy-MM-dd').format(selectedDate),
-        accountName: selectedAccount!,
-        amount: double.parse(_amountController.text),
-        paymentMode: paymentMode,
-        remarks: _remarksController.text,
-      );
-
-      if (widget.payment == null) {
-        await DatabaseHelper.instance.insertPayment(payment);
-      } else {
-        await DatabaseHelper.instance.updatePayment(payment);
-      }
-
-      if (context.mounted) {
-        Navigator.pop(context);
-      }
     }
   }
 
@@ -124,6 +155,19 @@ class _AddPaymentVoucherPageState extends State<AddBill> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10.0),
+                child: Row(
+                  children: [
+                    Text('Bill no                                      :'),
+                    Text(
+                      ' Save_Bill_000 $_counter ',
+                      style: TextStyle(fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+
               InkWell(
                 onTap: () => _selectDate(context),
                 child: Container(
@@ -136,7 +180,7 @@ class _AddPaymentVoucherPageState extends State<AddBill> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        DateFormat('dd-MM-yyyy').format(selectedDate),
+                        DateFormat('dd-MM-yyyy').format(selectedDate!),
                         style: const TextStyle(fontSize: 16),
                       ),
                       const Icon(Icons.calendar_today),
@@ -155,60 +199,52 @@ class _AddPaymentVoucherPageState extends State<AddBill> {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: DropdownButtonHideUnderline(
-                        child: DropdownButtonFormField<String>(
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                          ),
-                          hint: const Text('hiii'),
-                          value: selectedAccount,
+                        child: DropdownButton<String>(
                           isExpanded: true,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please select an account';
-                            }
-                            return null;
-                          },
+                          value: selectedAccount,
+                          icon: const Icon(Icons.keyboard_arrow_down),
+                          items:
+                              accountNames.map((String account) {
+                                return DropdownMenuItem<String>(
+                                  value: account,
+                                  child: Text(account),
+                                );
+                              }).toList(),
                           onChanged: (String? newValue) {
                             setState(() {
                               selectedAccount = newValue;
                             });
                           },
-                          items:
-                          accounts.map<DropdownMenuItem<String>>((
-                              String value,
-                              ) {
-                            return DropdownMenuItem<String>(
-                              value: value,
-                              child: Text(value),
-                            );
-                          }).toList(),
+                          hint: const Text('Select Account'),
                         ),
                       ),
                     ),
                   ),
+
                   const SizedBox(width: 16),
 
                   Container(
-
-
-                      child: FloatingActionButton(
-                        backgroundColor: Colors.red,
-                        tooltip: 'Increment',
-                        shape:   const CircleBorder(),
-                        onPressed: (){
-                          Navigator.push(context,MaterialPageRoute(builder:(context)=>AddBill( )));
-
-
-                        },
-                        child: const Icon(Icons.add, color: Colors.white, size: 25),
+                    child: FloatingActionButton(
+                      backgroundColor: Colors.red,
+                      tooltip: 'Increment',
+                      shape: const CircleBorder(),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => Addaccountsdet1(),
+                          ),
+                        );
+                      },
+                      child: const Icon(
+                        Icons.add,
+                        color: Colors.white,
+                        size: 25,
                       ),
-
-
+                    ),
                   ),
                 ],
               ),
-
-
 
               const SizedBox(height: 16),
               Row(
@@ -225,6 +261,7 @@ class _AddPaymentVoucherPageState extends State<AddBill> {
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
                           border: InputBorder.none,
+
                           hintText: 'Amount',
                         ),
                         validator: (value) {
@@ -239,11 +276,8 @@ class _AddPaymentVoucherPageState extends State<AddBill> {
                       ),
                     ),
                   ),
-
-
                 ],
               ),
-
 
               const SizedBox(height: 16),
 
@@ -256,53 +290,54 @@ class _AddPaymentVoucherPageState extends State<AddBill> {
                         border: Border.all(color: Colors.grey),
                         borderRadius: BorderRadius.circular(4),
                       ),
-
-                      child: DropdownButton(
-                        isExpanded: true,
-                        // Initial Value
-                        value: dropdownvalu1,
-
-                        // Down Arrow Icon
-                        icon: const Icon(Icons.keyboard_arrow_down),
-
-                        // Array list of items
-                        items: items1.map((String items) {
-                          return DropdownMenuItem(
-                            value: items,
-                            child: Text(items),
-                          );
-                        }).toList(),
-                        // After selecting the desired option,it will
-                        // change button value to selected value
-                        onChanged: (String? newValue2) {
-                          setState(() {
-                            dropdownvalu1 = newValue2!;
-                            print("Value is..:$dropdownvalu1");
-                          });
-                        },
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          isExpanded: true,
+                          value: selectedincomeAccount,
+                          icon: const Icon(Icons.keyboard_arrow_down),
+                          items:
+                              incomeaccountNames.map((String account) {
+                                return DropdownMenuItem<String>(
+                                  value: account,
+                                  child: Text(account),
+                                );
+                              }).toList(),
+                          onChanged: (String? newValue) {
+                            setState(() {
+                              selectedincomeAccount = newValue;
+                            });
+                          },
+                          hint: const Text('Select Income Account'),
+                        ),
                       ),
                     ),
                   ),
 
-                 Padding(
-                   padding: const EdgeInsets.all(8.0),
-                   child: Container(
-                     child: FloatingActionButton(
-                      backgroundColor: Colors.red,
-                      tooltip: 'Increment',
-                      shape:   const CircleBorder(),
-                      onPressed: (){
-                        Navigator.push(context,MaterialPageRoute(builder:(context)=>AddBill( )));
-
-
-                      },
-                      child: const Icon(Icons.add, color: Colors.white, size: 25),
-                                     ),
-                   ),
-                 ),
-],),
-
-
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Container(
+                      child: FloatingActionButton(
+                        backgroundColor: Colors.red,
+                        tooltip: 'Increment',
+                        shape: const CircleBorder(),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => Addaccountsdet1(),
+                            ),
+                          );
+                        },
+                        child: const Icon(
+                          Icons.add,
+                          color: Colors.white,
+                          size: 25,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
 
               const SizedBox(height: 24),
               Container(
@@ -321,31 +356,133 @@ class _AddPaymentVoucherPageState extends State<AddBill> {
                 ),
               ),
               const SizedBox(height: 32),
-              Center(
-                child: Container(
-                  width: 200,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(25),
-                    gradient: LinearGradient(
-                      colors: [
-                        Theme.of(context).primaryColor,
-                        Theme.of(context).primaryColor.withOpacity(0.8),
-                      ],
-                    ),
-                  ),
-                  child: ElevatedButton(
+              Column(
+                children: [
+                  ElevatedButton(
+                    onPressed: () async {
+                      if (_formKey.currentState!.validate()) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Processing Data')),
+                        );
+
+                        final billno = _counter;
+                        final date = selectedDate;
+                        DateTime date1 = selectedDate!;
+                        int year = date1.year;
+                        int month = date1.month;
+                        final customersdata = selectedAccount;
+                        final amount = _amountController.text;
+                        final income = selectedincomeAccount;
+                        final remarks = _remarksController.text;
+
+                        Future<String> getNextSetupId(name) async {
+                          try {
+                            String maxId = "0";
+                            List<Map<String, dynamic>> allrows =
+                                await DatabaseHelper().queryallacc();
+
+                            allrows.forEach((row) {
+                              Map<String, dynamic> dat = jsonDecode(
+                                row["data"],
+                              );
+                              if (dat['Accountname'].toString().compareTo(
+                                    name,
+                                  ) ==
+                                  0) {
+                                maxId = row['keyid'].toString();
+                              }
+                            });
+
+                            return maxId;
+                          } catch (e) {
+                            return '0';
+                          }
+                        }
+
+                        String setid = await getNextSetupId(
+                          customersdata.toString(),
+                        );
+
+                        // Credit entry
+                        Map<String, dynamic> creditDatas = {
+                          "ACCOUNTS_date": DateFormat(
+                            'yyyy-MM-dd',
+                          ).format(selectedDate!),
+                          // Fixed format
+                          "ACCOUNTS_billVoucherNumber": billno.toString(),
+                          "ACCOUNTS_amount": amount,
+                          "ACCOUNTS_setupid": setid,
+                          "ACCOUNTS_VoucherType": 3,
+                          // Remove quotes for integer
+                          "ACCOUNTS_entryid": "0",
+                          "ACCOUNTS_type": "credit",
+                          "ACCOUNTS_remarks": remarks,
+                          "ACCOUNTS_year": year.toString(),
+                          "ACCOUNTS_month": month.toString(),
+                          "ACCOUNTS_cashbanktype": "0",
+                          "ACCOUNTS_billId": "0",
+                        };
+
+                        final id = await DatabaseHelper().insertData(
+                          "TABLE_ACCOUNTS",
+                          creditDatas,
+                        );
+                        if (id != null) {
+                          print("credit data inserted...$id");
+                        }
+
+                        String setupid = await getNextSetupId(
+                          income.toString(),
+                        );
+
+                        // Debit entry
+                        Map<String, dynamic> debitDatas = {
+                          "ACCOUNTS_date": DateFormat(
+                            'yyyy-MM-dd',
+                          ).format(selectedDate!),
+                          // Fixed format
+                          "ACCOUNTS_billVoucherNumber": billno.toString(),
+                          "ACCOUNTS_amount": amount,
+                          "ACCOUNTS_setupid": setupid,
+                          "ACCOUNTS_VoucherType": 3,
+                          // Remove quotes for integer
+                          "ACCOUNTS_entryid": id.toString(),
+                          "ACCOUNTS_type": "debit",
+                          "ACCOUNTS_remarks": remarks,
+                          "ACCOUNTS_year": year.toString(),
+                          "ACCOUNTS_month": month.toString(),
+                          "ACCOUNTS_cashbanktype": "0",
+                          "ACCOUNTS_billId": "0",
+                        };
+
+                        var debtdata = await DatabaseHelper().insertData(
+                          "TABLE_ACCOUNTS",
+                          debitDatas,
+                        );
+                        if (debtdata != null) {
+                          print("debt data inserted...$debtdata");
+
+                          // Navigate back with success result
+                          Navigator.pop(context, true);
+                        }
+
+                        print("Value inserted");
+                      }
+                    },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: Colors.teal, // background (button) color
+                      foregroundColor: Colors.white, // foreground (text) color
                     ),
-                    onPressed: _savePayment,
-                    child: const Text(
-                      'Save',
-                      style: TextStyle(color: Colors.white, fontSize: 16),
+
+                    child: Text(
+                      "Save",
+                      style: TextStyle(
+                        color: const Color.fromARGB(255, 255, 255, 255),
+                      ),
                     ),
+                    //   color: const Color(0xFF1BC0C5),
                   ),
-                ),
+                ],
               ),
             ],
           ),

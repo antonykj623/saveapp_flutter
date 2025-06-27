@@ -39,27 +39,11 @@ import '../../../view_model/VisitingCard/your businessCard.dart';
 import '../../../view_model/investment11/addinvestment.dart';
 import '../../../view_model/Journal/journal.dart';
 import '../../../view_model/Liabilities/listofLiabilities.dart';
-
 import 'investment/model_class1/model_class.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:new_project_2025/view/home/dream_page/dream_class/db_class.dart';
 
-void main() {
-  runApp(const MyApp());
-}
 
-class MyApp extends StatelessWidget { 
-  const MyApp({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'SAVE Personal App',
-      home: const SaveApp(),
-      debugShowCheckedModeBanner: false,
-    );
-  }
-}
 
 class SaveApp extends StatefulWidget {
   const SaveApp({Key? key}) : super(key: key);

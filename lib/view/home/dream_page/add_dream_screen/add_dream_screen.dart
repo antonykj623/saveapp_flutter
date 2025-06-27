@@ -720,7 +720,7 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ],
-                        ],
+                        ],    
                       ),
                     ),
                     const SizedBox(height: 20),

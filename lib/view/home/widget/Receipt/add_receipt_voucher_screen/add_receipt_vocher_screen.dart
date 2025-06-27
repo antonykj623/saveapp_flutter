@@ -10,6 +10,7 @@ import 'package:open_file/open_file.dart';
 import 'dart:io';
 import 'package:permission_handler/permission_handler.dart';
 import '../../save_DB/Budegt_database_helper/Save_DB.dart';
+import 'package:flutter/services.dart' show rootBundle;
 
 class AddReceiptVoucherPage extends StatefulWidget {
   final Receipt? receipt;
@@ -41,7 +42,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
 
     if (widget.receipt != null) {
       try {
-        selectedDate = DateFormat('yyyy-MM-dd').parse(widget.receipt!.date);
+        selectedDate = DateFormat('dd/MM/yyyy').parse(widget.receipt!.date);
       } catch (e) {
         print(
           'Error parsing date: ${widget.receipt!.date}, using current date',
@@ -189,8 +190,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
   Future<void> _saveDoubleEntryAccounts(Receipt receipt, int receiptId) async {
     try {
       final db = await DatabaseHelper().database;
-      final dateString =
-          "${selectedDate.day}/${selectedDate.month}/${selectedDate.year}";
+      final dateString = receipt.date;
       final monthString = _getMonthName(selectedDate.month);
       final yearString = selectedDate.year.toString();
 
@@ -204,7 +204,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
           {
             "ACCOUNTS_date": dateString,
             "ACCOUNTS_setupid": contraSetupId,
-            "ACCOUNTS_amount": _amountController.text,
+            "ACCOUNTS_amount": receipt.amount.toString(),
             "ACCOUNTS_remarks": 'Receipt from $selectedAccount',
             "ACCOUNTS_year": yearString,
             "ACCOUNTS_month": monthString,
@@ -220,7 +220,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
           {
             "ACCOUNTS_date": dateString,
             "ACCOUNTS_setupid": firstSetupId,
-            "ACCOUNTS_amount": _amountController.text,
+            "ACCOUNTS_amount": receipt.amount.toString(),
             "ACCOUNTS_remarks": 'Receipt to $selectedCashOption',
             "ACCOUNTS_year": yearString,
             "ACCOUNTS_month": monthString,
@@ -237,7 +237,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
           'ACCOUNTS_entryid': receiptId.toString(),
           'ACCOUNTS_date': dateString,
           'ACCOUNTS_setupid': contraSetupId,
-          'ACCOUNTS_amount': _amountController.text,
+          'ACCOUNTS_amount': receipt.amount.toString(),
           'ACCOUNTS_type': 'credit',
           'ACCOUNTS_remarks': 'Receipt from $selectedAccount',
           'ACCOUNTS_year': yearString,
@@ -248,14 +248,13 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
         };
 
         await db.insert("TABLE_ACCOUNTS", cashBankEntry);
-        
 
         Map<String, dynamic> accountEntry = {
           'ACCOUNTS_VoucherType': 2,
           'ACCOUNTS_entryid': receiptId.toString(),
           'ACCOUNTS_date': dateString,
           'ACCOUNTS_setupid': firstSetupId,
-          'ACCOUNTS_amount': _amountController.text,
+          'ACCOUNTS_amount': receipt.amount.toString(),
           'ACCOUNTS_type': 'debit',
           'ACCOUNTS_remarks': 'Receipt to $selectedCashOption',
           'ACCOUNTS_year': yearString,
@@ -374,7 +373,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
       },
     ).then((_) {
       if (mounted) {
-        Navigator.pop(context, true);
+        Navigator.pop(context, true); // Navigate back after dialog is closed
       }
     });
   }
@@ -393,10 +392,14 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
         }
       }
 
+      // Load custom font
+      final fontData = await rootBundle.load('assets/fonts/Roboto-Regular.ttf');
+      final ttf = pw.Font.ttf(fontData);
+
       final pdf = pw.Document();
       pdf.addPage(
         pw.Page(
-          pageFormat: PdfPageFormat.a4, 
+          pageFormat: PdfPageFormat.a4,
           build: (pw.Context context) {
             return pw.Container(
               padding: const pw.EdgeInsets.all(20),
@@ -411,12 +414,13 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                           style: pw.TextStyle(
                             fontSize: 20,
                             fontWeight: pw.FontWeight.bold,
+                            font: ttf,
                           ),
                         ),
                         pw.SizedBox(height: 5),
                         pw.Text(
                           'Date: ${receipt.date}',
-                          style: const pw.TextStyle(fontSize: 14),
+                          style: pw.TextStyle(fontSize: 14, font: ttf),
                         ),
                         pw.SizedBox(height: 10),
                         pw.Divider(thickness: 1),
@@ -440,6 +444,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                               'Field',
                               style: pw.TextStyle(
                                 fontWeight: pw.FontWeight.bold,
+                                font: ttf,
                               ),
                             ),
                           ),
@@ -449,6 +454,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                               'Details',
                               style: pw.TextStyle(
                                 fontWeight: pw.FontWeight.bold,
+                                font: ttf,
                               ),
                             ),
                           ),
@@ -458,12 +464,16 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                         children: [
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text('Receipt ID'),
+                            child: pw.Text(
+                              'Receipt ID',
+                              style: pw.TextStyle(font: ttf),
+                            ),
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(8),
                             child: pw.Text(
                               receipt.id?.toString() ?? 'New Receipt',
+                              style: pw.TextStyle(font: ttf),
                             ),
                           ),
                         ],
@@ -472,11 +482,17 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                         children: [
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text('Account Name'),
+                            child: pw.Text(
+                              'Account Name',
+                              style: pw.TextStyle(font: ttf),
+                            ),
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text(receipt.accountName),
+                            child: pw.Text(
+                              receipt.accountName,
+                              style: pw.TextStyle(font: ttf),
+                            ),
                           ),
                         ],
                       ),
@@ -484,12 +500,16 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                         children: [
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text('Amount'),
+                            child: pw.Text(
+                              'Amount',
+                              style: pw.TextStyle(font: ttf),
+                            ),
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(8),
                             child: pw.Text(
                               '₹ ${receipt.amount.toStringAsFixed(2)}',
+                              style: pw.TextStyle(font: ttf),
                             ),
                           ),
                         ],
@@ -498,11 +518,17 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                         children: [
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text('Payment Mode'),
+                            child: pw.Text(
+                              'Payment Mode',
+                              style: pw.TextStyle(font: ttf),
+                            ),
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text(receipt.paymentMode),
+                            child: pw.Text(
+                              receipt.paymentMode,
+                              style: pw.TextStyle(font: ttf),
+                            ),
                           ),
                         ],
                       ),
@@ -510,12 +536,16 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                         children: [
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text('Account Details'),
+                            child: pw.Text(
+                              'Account Details',
+                              style: pw.TextStyle(font: ttf),
+                            ),
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(8),
                             child: pw.Text(
                               selectedCashOption ?? receipt.paymentMode,
+                              style: pw.TextStyle(font: ttf),
                             ),
                           ),
                         ],
@@ -524,7 +554,10 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                         children: [
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text('Remarks'),
+                            child: pw.Text(
+                              'Remarks',
+                              style: pw.TextStyle(font: ttf),
+                            ),
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(8),
@@ -532,6 +565,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                               receipt.remarks?.isEmpty ?? true
                                   ? 'N/A'
                                   : receipt.remarks!,
+                              style: pw.TextStyle(font: ttf),
                             ),
                           ),
                         ],
@@ -545,7 +579,10 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                       pw.Column(
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
-                          pw.Text('Receiver Signature'),
+                          pw.Text(
+                            'Receiver Signature',
+                            style: pw.TextStyle(font: ttf),
+                          ),
                           pw.SizedBox(height: 20),
                           pw.Container(
                             width: 100,
@@ -558,7 +595,10 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                       pw.Column(
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
-                          pw.Text('Authorizer Signature'),
+                          pw.Text(
+                            'Authorizer Signature',
+                            style: pw.TextStyle(font: ttf),
+                          ),
                           pw.SizedBox(height: 20),
                           pw.Container(
                             width: 100,
@@ -578,7 +618,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                         pw.SizedBox(height: 5),
                         pw.Text(
                           'Generated on: ${DateFormat('dd-MM-yyyy HH:mm').format(DateTime.now())}',
-                          style: const pw.TextStyle(fontSize: 10),
+                          style: pw.TextStyle(fontSize: 10, font: ttf),
                         ),
                       ],
                     ),
@@ -762,6 +802,9 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                     }
                     return null;
                   },
+                  onEditingComplete: () {
+                    FocusScope.of(context).unfocus(); // Dismiss keyboard
+                  },
                 ),
               ),
               const SizedBox(height: 24),
@@ -886,6 +929,9 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                     border: InputBorder.none,
                     hintText: 'Enter Remarks',
                   ),
+                  onEditingComplete: () {
+                    FocusScope.of(context).unfocus(); // Dismiss keyboard
+                  },
                 ),
               ),
               const SizedBox(height: 32),
