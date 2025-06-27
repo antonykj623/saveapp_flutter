@@ -1,6 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'dart:convert';
 import 'package:new_project_2025/view/home/widget/payment_page/payment_class/payment_class.dart';
 import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 import 'package:new_project_2025/view_model/AccountSet_up/Add_Acount.dart';
@@ -33,17 +33,13 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
     _loadBankCashOptions();
 
     if (widget.payment != null) {
-      // Handle different date formats
       try {
-        // Try parsing as dd/MM/yyyy first (stored format)
         selectedDate = DateFormat('dd/MM/yyyy').parse(widget.payment!.date);
       } catch (e) {
         try {
-          // Try parsing as yyyy-MM-dd (ISO format)
           selectedDate = DateFormat('yyyy-MM-dd').parse(widget.payment!.date);
         } catch (e2) {
           try {
-            // Try parsing as dd-MM-yyyy
             selectedDate = DateFormat('dd-MM-yyyy').parse(widget.payment!.date);
           } catch (e3) {
             print(
@@ -86,6 +82,11 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
           String accountType =
               accountData['Accounttype'].toString().toLowerCase();
           String accountName = accountData['Accountname'].toString();
+
+          // Exclude 'Customers' account type
+          if (accountType == 'customers') {
+            continue; // Skip Customers accounts
+          }
 
           if (accountType == 'bank') {
             banks.add(accountName);
@@ -221,7 +222,6 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
       final contraSetupId = await getNextSetupId(selectedCashOption!);
 
       if (widget.payment != null) {
-        // Update existing entries
         await db.update(
           "TABLE_ACCOUNTS",
           {
@@ -246,7 +246,7 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
             "ACCOUNTS_amount": _amountController.text,
             "ACCOUNTS_remarks": _remarksController.text,
             "ACCOUNTS_year": yearString,
-            "ACCOUNTS_month": monthString,
+            "ACOUNTS_month": monthString,
             "ACCOUNTS_cashbanktype": paymentMode == 'Cash' ? '1' : '2',
           },
           where:
@@ -254,10 +254,9 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
           whereArgs: [1, widget.payment!.id.toString(), 'credit'],
         );
       } else {
-        // Insert new entries
         Map<String, dynamic> mainAccountEntry = {
           'ACCOUNTS_VoucherType': 1,
-          'ACCOUNTS_entryid': 0, // Temporary placeholder
+          'ACCOUNTS_entryid': 0,
           'ACCOUNTS_date': dateString,
           'ACCOUNTS_setupid': firstSetupId,
           'ACCOUNTS_amount': _amountController.text,
@@ -689,23 +688,29 @@ class _SearchableAccountDialogState extends State<SearchableAccountDialog> {
                   List<Map<String, dynamic>> items = [];
                   List<Map<String, dynamic>> allItems = snapshot.data ?? [];
 
-                  if (searchQuery.isEmpty) {
-                    items = allItems;
-                  } else {
-                    for (var item in allItems) {
-                      try {
-                        Map<String, dynamic> dat = jsonDecode(item["data"]);
-                        String accountName = dat['Accountname'].toString();
-                        if (accountName.toLowerCase().contains(
-                          searchQuery.toLowerCase(),
-                        )) {
-                          items.add(item);
-                        }
-                      } catch (e) {
-                        print('Error parsing account: $e');
+                  for (var item in allItems) {
+                    try {
+                      Map<String, dynamic> dat = jsonDecode(item["data"]);
+                      String accountType =
+                          dat['Accounttype'].toString().toLowerCase();
+                      String accountName = dat['Accountname'].toString();
+
+                      // Exclude 'Customers' accounts
+                      if (accountType == 'customers') {
+                        continue;
                       }
+
+                      if (searchQuery.isEmpty ||
+                          accountName.toLowerCase().contains(
+                            searchQuery.toLowerCase(),
+                          )) {
+                        items.add(item);
+                      }
+                    } catch (e) {
+                      print('Error parsing account: $e');
                     }
                   }
+
                   return ListView.builder(
                     itemCount: items.length,
                     itemBuilder: (context, index) {

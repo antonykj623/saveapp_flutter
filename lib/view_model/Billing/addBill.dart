@@ -1,11 +1,10 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:new_project_2025/view_model/billing_accout_setup/bill_account_setup.dart';
-import '../../view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 import 'package:new_project_2025/view/home/widget/payment_page/payment_class/payment_class.dart';
+import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 import 'package:new_project_2025/view_model/AccountSet_up/Add_Acount.dart';
+import 'package:new_project_2025/view_model/billing_accout_setup/bill_account_setup.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AddBill extends StatefulWidget {
@@ -14,111 +13,79 @@ class AddBill extends StatefulWidget {
   const AddBill({super.key, this.payment});
 
   @override
-  State<AddBill> createState() => _AddPaymentVoucherPageState();
+  State<AddBill> createState() => _AddBillState();
 }
 
-class _AddPaymentVoucherPageState extends State<AddBill> {
+class _AddBillState extends State<AddBill> {
   int _counter = 0;
+  final _formKey = GlobalKey<FormState>();
+  DateTime? selectedDate = DateTime.now();
+  String? selectedAccount;
+  String? selectedIncomeAccount;
+  final TextEditingController _amountController = TextEditingController();
+  String paymentMode = 'Cash';
+  String? selectedCashOption;
+  final TextEditingController _remarksController = TextEditingController();
+  List<String> accountNames = [];
+  List<String> incomeAccountNames = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _incrementCounterAutomatically();
+    _loadAccountsFromDB();
+  }
 
   Future<void> _incrementCounterAutomatically() async {
     final prefs = await SharedPreferences.getInstance();
-    int counter = prefs.getInt('counter') ?? 0;
+    int counter = prefs.getInt('bill_counter') ?? 0; // Changed to bill_counter for isolation
     counter++;
-    await prefs.setInt('counter', counter);
-
+    await prefs.setInt('bill_counter', counter);
     setState(() {
       _counter = counter;
     });
   }
 
-  String name = "";
-  final _formKey = GlobalKey<FormState>();
-  DateTime? selectedDate = DateTime.now();
-  String? selectedAccount;
-  String? selectedincomeAccount;
-  final TextEditingController _amountController = TextEditingController();
-  String paymentMode = 'Cash';
-  String? selectedCashOption;
-  final TextEditingController _remarksController = TextEditingController();
-  var dropdownvalu1 = 'Asset Account';
-  List<Map<String, dynamic>> _items = [];
-  List<Map<String, dynamic>> _items1 = [];
-  List<String> accountNames = [];
-  List<String> incomeaccountNames = [];
-  String eid = "";
-
-  // var items1 = [
-  //   'Asset Account',
-  //   'Bank',
-  //   'Cash',
-  //   'Credit Card',
-  //   'Customers',
-  //   'Expense Account',
-  //   'Income Account',
-  //   'Insurance',
-  //   'Investment',
-  //   'Liability Account',
-  // ];
-  final List<String> accounts = [
-    'Agriculture Expenses',
-    'Agriculture Income',
-    'Household Expenses',
-    'Salary Income',
-    'Miscellaneous',
-  ];
-
-  final List<String> cashOptions = [
-    'Cash',
-    'Bank - HDFC',
-    'Bank - SBI',
-    'Bank - ICICI',
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadItemsFromDB();
-    _loadaccountFromDB();
-    _incrementCounterAutomatically();
-  }
-
-  Future<void> _loadaccountFromDB() async {
-    final data = await DatabaseHelper().getAllData('TABLE_ACCOUNTSETTINGS');
-    setState(() {
-      _items1 = data;
-      for (var i in _items1) {
-        Map<String, dynamic> dat = jsonDecode(i["data"]);
-        if (dat['Accounttype'].toString().contains("Income Account")) {
-          incomeaccountNames.add(dat['Accountname'].toString());
+  Future<void> _loadAccountsFromDB() async {
+    try {
+      final data = await DatabaseHelper().getAllData('TABLE_ACCOUNTSETTINGS');
+      print("Loading accounts from DB: ${data.length} records found");
+      
+      setState(() {
+        accountNames.clear();
+        incomeAccountNames.clear();
+        
+        for (var item in data) {
+          try {
+            Map<String, dynamic> dat = jsonDecode(item["data"]);
+            String accountType = dat['Accounttype']?.toString() ?? '';
+            String accountName = dat['Accountname']?.toString() ?? '';
+            
+            print("Account: $accountName, Type: $accountType");
+            
+            // More specific filtering for bill page
+            if (accountType.toLowerCase().contains("customers")) {
+              accountNames.add(accountName);
+              print("Added to customer accounts: $accountName");
+            } else if (accountType.toLowerCase().contains("income account")) {
+              incomeAccountNames.add(accountName);
+              print("Added to income accounts: $accountName");
+            }
+          } catch (e) {
+            print("Error parsing account data: $e");
+          }
         }
-      }
-      // Extract account names from the database
-      // accountNames = _items
-      //     .map((item) => jsonDecode(item['data'])['Accountname'].toString() )
-      //     .toList();
-      // Set default selected account if available
-      selectedincomeAccount =
-          incomeaccountNames.isNotEmpty ? incomeaccountNames[0] : null;
-    });
-  }
-
-  Future<void> _loadItemsFromDB() async {
-    final data = await DatabaseHelper().getAllData('TABLE_ACCOUNTSETTINGS');
-    setState(() {
-      _items = data;
-      for (var i in _items) {
-        Map<String, dynamic> dat = jsonDecode(i["data"]);
-        if (dat['Accounttype'].toString().contains("Customers")) {
-          accountNames.add(dat['Accountname'].toString());
-        }
-      }
-      // Extract account names from the database
-      // accountNames = _items
-      //     .map((item) => jsonDecode(item['data'])['Accountname'].toString() )
-      //     .toList();
-      // Set default selected account if available
-      selectedAccount = accountNames.isNotEmpty ? accountNames[0] : null;
-    });
+        
+        // Set default selections
+        selectedAccount = accountNames.isNotEmpty ? accountNames[0] : null;
+        selectedIncomeAccount = incomeAccountNames.isNotEmpty ? incomeAccountNames[0] : null;
+        
+        print("Customer accounts: $accountNames");
+        print("Income accounts: $incomeAccountNames");
+      });
+    } catch (e) {
+      print("Error loading accounts: $e");
+    }
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -132,6 +99,44 @@ class _AddPaymentVoucherPageState extends State<AddBill> {
       setState(() {
         selectedDate = picked;
       });
+    }
+  }
+
+  Future<String> getNextSetupId(String name) async {
+    try {
+      final data = await DatabaseHelper().getAllData('TABLE_ACCOUNTSETTINGS');
+      for (var row in data) {
+        Map<String, dynamic> dat = jsonDecode(row["data"]);
+        if (dat['Accountname'].toString().toLowerCase() == name.toLowerCase()) {
+          return row['keyid'].toString();
+        }
+      }
+      return '0';
+    } catch (e) {
+      print('Error getting setup ID: $e');
+      return '0';
+    }
+  }
+
+  Future<void> _navigateToAddAccount({bool isIncomeAccount = false}) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Addaccountsdet1(),
+      ),
+    );
+    
+    if (result == true) {
+      // Reload accounts after adding new one
+      await _loadAccountsFromDB();
+      if (mounted) {
+        String message = isIncomeAccount 
+            ? 'Income Account added successfully'
+            : 'Customer Account added successfully';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      }
     }
   }
 
@@ -161,13 +166,12 @@ class _AddPaymentVoucherPageState extends State<AddBill> {
                   children: [
                     Text('Bill no                                      :'),
                     Text(
-                      ' Save_Bill_000 $_counter ',
+                      ' Bill_000$_counter ',
                       style: TextStyle(fontSize: 14),
                     ),
                   ],
                 ),
               ),
-
               InkWell(
                 onTap: () => _selectDate(context),
                 child: Container(
@@ -189,6 +193,10 @@ class _AddPaymentVoucherPageState extends State<AddBill> {
                 ),
               ),
               const SizedBox(height: 16),
+              
+              // Customer Account Selection
+              Text('Customer Account:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
@@ -203,84 +211,67 @@ class _AddPaymentVoucherPageState extends State<AddBill> {
                           isExpanded: true,
                           value: selectedAccount,
                           icon: const Icon(Icons.keyboard_arrow_down),
-                          items:
-                              accountNames.map((String account) {
-                                return DropdownMenuItem<String>(
-                                  value: account,
-                                  child: Text(account),
-                                );
-                              }).toList(),
+                          items: accountNames.map((String account) {
+                            return DropdownMenuItem<String>(
+                              value: account,
+                              child: Text(account),
+                            );
+                          }).toList(),
                           onChanged: (String? newValue) {
                             setState(() {
                               selectedAccount = newValue;
                             });
                           },
-                          hint: const Text('Select Account'),
+                          hint: const Text('Select Customer Account'),
                         ),
                       ),
                     ),
                   ),
-
                   const SizedBox(width: 16),
-
-                  Container(
-                    child: FloatingActionButton(
-                      backgroundColor: Colors.red,
-                      tooltip: 'Increment',
-                      shape: const CircleBorder(),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => Addaccountsdet1(),
-                          ),
-                        );
-                      },
-                      child: const Icon(
-                        Icons.add,
-                        color: Colors.white,
-                        size: 25,
-                      ),
-                    ),
+                  FloatingActionButton(
+                    heroTag: "customer_account_btn", // Added unique hero tag
+                    backgroundColor: Colors.red,
+                    tooltip: 'Add Customer Account',
+                    shape: const CircleBorder(),
+                    onPressed: () => _navigateToAddAccount(isIncomeAccount: false),
+                    child: const Icon(Icons.add, color: Colors.white, size: 25),
                   ),
                 ],
               ),
-
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: TextFormField(
-                        controller: _amountController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-
-                          hintText: 'Amount',
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter an amount';
-                          }
-                          if (double.tryParse(value) == null) {
-                            return 'Please enter a valid number';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
+              
+              // Amount Field
+              Text('Amount:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: TextFormField(
+                  controller: _amountController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintText: 'Enter Amount',
                   ),
-                ],
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter an amount';
+                    }
+                    if (double.tryParse(value) == null) {
+                      return 'Please enter a valid number';
+                    }
+                    return null;
+                  },
+                ),
               ),
-
               const SizedBox(height: 16),
-
+              
+              // Income Account Selection
+              Text('Income Account:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
@@ -293,18 +284,17 @@ class _AddPaymentVoucherPageState extends State<AddBill> {
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
                           isExpanded: true,
-                          value: selectedincomeAccount,
+                          value: selectedIncomeAccount,
                           icon: const Icon(Icons.keyboard_arrow_down),
-                          items:
-                              incomeaccountNames.map((String account) {
-                                return DropdownMenuItem<String>(
-                                  value: account,
-                                  child: Text(account),
-                                );
-                              }).toList(),
+                          items: incomeAccountNames.map((String account) {
+                            return DropdownMenuItem<String>(
+                              value: account,
+                              child: Text(account),
+                            );
+                          }).toList(),
                           onChanged: (String? newValue) {
                             setState(() {
-                              selectedincomeAccount = newValue;
+                              selectedIncomeAccount = newValue;
                             });
                           },
                           hint: const Text('Select Income Account'),
@@ -312,34 +302,22 @@ class _AddPaymentVoucherPageState extends State<AddBill> {
                       ),
                     ),
                   ),
-
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Container(
-                      child: FloatingActionButton(
-                        backgroundColor: Colors.red,
-                        tooltip: 'Increment',
-                        shape: const CircleBorder(),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => Addaccountsdet1(),
-                            ),
-                          );
-                        },
-                        child: const Icon(
-                          Icons.add,
-                          color: Colors.white,
-                          size: 25,
-                        ),
-                      ),
-                    ),
+                  const SizedBox(width: 8),
+                  FloatingActionButton(
+                    heroTag: "income_account_btn", // Added unique hero tag
+                    backgroundColor: Colors.red,
+                    tooltip: 'Add Income Account',
+                    shape: const CircleBorder(),
+                    onPressed: () => _navigateToAddAccount(isIncomeAccount: true),
+                    child: const Icon(Icons.add, color: Colors.white, size: 25),
                   ),
                 ],
               ),
-
               const SizedBox(height: 24),
+              
+              // Remarks Field
+              Text('Remarks:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
@@ -356,138 +334,148 @@ class _AddPaymentVoucherPageState extends State<AddBill> {
                 ),
               ),
               const SizedBox(height: 32),
-              Column(
-                children: [
-                  ElevatedButton(
-                    onPressed: () async {
-                      if (_formKey.currentState!.validate()) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Processing Data')),
-                        );
-
-                        final billno = _counter;
-                        final date = selectedDate;
-                        DateTime date1 = selectedDate!;
-                        int year = date1.year;
-                        int month = date1.month;
-                        final customersdata = selectedAccount;
-                        final amount = _amountController.text;
-                        final income = selectedincomeAccount;
-                        final remarks = _remarksController.text;
-
-                        Future<String> getNextSetupId(name) async {
-                          try {
-                            String maxId = "0";
-                            List<Map<String, dynamic>> allrows =
-                                await DatabaseHelper().queryallacc();
-
-                            allrows.forEach((row) {
-                              Map<String, dynamic> dat = jsonDecode(
-                                row["data"],
-                              );
-                              if (dat['Accountname'].toString().compareTo(
-                                    name,
-                                  ) ==
-                                  0) {
-                                maxId = row['keyid'].toString();
-                              }
-                            });
-
-                            return maxId;
-                          } catch (e) {
-                            return '0';
-                          }
-                        }
-
-                        String setid = await getNextSetupId(
-                          customersdata.toString(),
-                        );
-
-                        // Credit entry
-                        Map<String, dynamic> creditDatas = {
-                          "ACCOUNTS_date": DateFormat(
-                            'yyyy-MM-dd',
-                          ).format(selectedDate!),
-                          // Fixed format
-                          "ACCOUNTS_billVoucherNumber": billno.toString(),
-                          "ACCOUNTS_amount": amount,
-                          "ACCOUNTS_setupid": setid,
-                          "ACCOUNTS_VoucherType": 3,
-                          // Remove quotes for integer
-                          "ACCOUNTS_entryid": "0",
-                          "ACCOUNTS_type": "credit",
-                          "ACCOUNTS_remarks": remarks,
-                          "ACCOUNTS_year": year.toString(),
-                          "ACCOUNTS_month": month.toString(),
-                          "ACCOUNTS_cashbanktype": "0",
-                          "ACCOUNTS_billId": "0",
-                        };
-
-                        final id = await DatabaseHelper().insertData(
-                          "TABLE_ACCOUNTS",
-                          creditDatas,
-                        );
-                        if (id != null) {
-                          print("credit data inserted...$id");
-                        }
-
-                        String setupid = await getNextSetupId(
-                          income.toString(),
-                        );
-
-                        // Debit entry
-                        Map<String, dynamic> debitDatas = {
-                          "ACCOUNTS_date": DateFormat(
-                            'yyyy-MM-dd',
-                          ).format(selectedDate!),
-                          // Fixed format
-                          "ACCOUNTS_billVoucherNumber": billno.toString(),
-                          "ACCOUNTS_amount": amount,
-                          "ACCOUNTS_setupid": setupid,
-                          "ACCOUNTS_VoucherType": 3,
-                          // Remove quotes for integer
-                          "ACCOUNTS_entryid": id.toString(),
-                          "ACCOUNTS_type": "debit",
-                          "ACCOUNTS_remarks": remarks,
-                          "ACCOUNTS_year": year.toString(),
-                          "ACCOUNTS_month": month.toString(),
-                          "ACCOUNTS_cashbanktype": "0",
-                          "ACCOUNTS_billId": "0",
-                        };
-
-                        var debtdata = await DatabaseHelper().insertData(
-                          "TABLE_ACCOUNTS",
-                          debitDatas,
-                        );
-                        if (debtdata != null) {
-                          print("debt data inserted...$debtdata");
-
-                          // Navigate back with success result
-                          Navigator.pop(context, true);
-                        }
-
-                        print("Value inserted");
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.teal, // background (button) color
-                      foregroundColor: Colors.white, // foreground (text) color
-                    ),
-
-                    child: Text(
-                      "Save",
-                      style: TextStyle(
-                        color: const Color.fromARGB(255, 255, 255, 255),
-                      ),
-                    ),
-                    //   color: const Color(0xFF1BC0C5),
+              
+              // Validation before save
+              if (accountNames.isEmpty || incomeAccountNames.isEmpty)
+                Container(
+                  padding: EdgeInsets.all(12),
+                  margin: EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade100,
+                    border: Border.all(color: Colors.orange),
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                ],
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning, color: Colors.orange),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Please add at least one Customer Account and one Income Account before saving.',
+                          style: TextStyle(color: Colors.orange.shade800),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              
+              // Save Button
+              Center(
+                child: ElevatedButton(
+                  onPressed: (accountNames.isEmpty || incomeAccountNames.isEmpty || selectedAccount == null || selectedIncomeAccount == null) 
+                      ? null 
+                      : () async {
+                          if (_formKey.currentState!.validate()) {
+                            try {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Processing Bill Data...')),
+                              );
+
+                              final billno = _counter;
+                              final date = selectedDate;
+                              DateTime date1 = selectedDate!;
+                              int year = date1.year;
+                              int month = date1.month;
+                              final customersdata = selectedAccount;
+                              final amount = _amountController.text;
+                              final income = selectedIncomeAccount;
+                              final remarks = _remarksController.text;
+
+                              String setid = await getNextSetupId(customersdata.toString());
+                              String setupid = await getNextSetupId(income.toString());
+
+                              // Credit entry for customer
+                              Map<String, dynamic> creditDatas = {
+                                "ACCOUNTS_date": DateFormat('yyyy-MM-dd').format(selectedDate!),
+                                "ACCOUNTS_billVoucherNumber": billno.toString(),
+                                "ACCOUNTS_amount": amount,
+                                "ACCOUNTS_setupid": setid,
+                                "ACCOUNTS_VoucherType": 3, // Bill voucher type
+                                "ACCOUNTS_entryid": "0",
+                                "ACCOUNTS_type": "credit",
+                                "ACCOUNTS_remarks": remarks,
+                                "ACCOUNTS_year": year.toString(),
+                                "ACCOUNTS_month": month.toString(),
+                                "ACCOUNTS_cashbanktype": "0",
+                                "ACCOUNTS_billId": "0",
+                              };
+
+                              final id = await DatabaseHelper().insertData("TABLE_ACCOUNTS", creditDatas);
+                              
+                              if (id != null) {
+                                print("Credit data inserted...$id");
+
+                                // Debit entry for income
+                                Map<String, dynamic> debitDatas = {
+                                  "ACCOUNTS_date": DateFormat('yyyy-MM-dd').format(selectedDate!),
+                                  "ACCOUNTS_billVoucherNumber": billno.toString(),
+                                  "ACCOUNTS_amount": amount,
+                                  "ACCOUNTS_setupid": setupid,
+                                  "ACCOUNTS_VoucherType": 3, // Bill voucher type
+                                  "ACCOUNTS_entryid": id.toString(),
+                                  "ACCOUNTS_type": "debit",
+                                  "ACCOUNTS_remarks": remarks,
+                                  "ACCOUNTS_year": year.toString(),
+                                  "ACCOUNTS_month": month.toString(),
+                                  "ACCOUNTS_cashbanktype": "0",
+                                  "ACCOUNTS_billId": "0",
+                                };
+
+                                var debtdata = await DatabaseHelper().insertData("TABLE_ACCOUNTS", debitDatas);
+                                
+                                if (debtdata != null) {
+                                  print("Debit data inserted...$debtdata");
+                                  
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Bill saved successfully!'),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                    Navigator.pop(context, true);
+                                  }
+                                } else {
+                                  throw Exception("Failed to insert debit data");
+                                }
+                              } else {
+                                throw Exception("Failed to insert credit data");
+                              }
+                            } catch (e) {
+                              print("Error saving bill: $e");
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Error saving bill: $e'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            }
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.teal,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                  ),
+                  child: const Text(
+                    "Save Bill",
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                ),
               ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _remarksController.dispose();
+    super.dispose();
   }
 }
