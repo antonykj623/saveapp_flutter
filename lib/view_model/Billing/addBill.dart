@@ -194,7 +194,6 @@ class _AddBillState extends State<AddBill> {
               ),
               const SizedBox(height: 16),
               
-              // Customer Account Selection
               Text('Customer Account:', style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               Row(
