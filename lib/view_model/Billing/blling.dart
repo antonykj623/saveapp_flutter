@@ -1,8 +1,7 @@
-
-
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:new_project_2025/view/home/widget/Receipt/Receipt_screen.dart';
 import '../../view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 import 'EditDeleteBill.dart';
 import 'addBill.dart';
@@ -39,40 +38,38 @@ class _BillingPageState extends State<Billing> {
 
       // Filter data based on selected date range
       List<Map<String, dynamic>> filteredData =
-      data.where((item) {
-        String dateStr = item['ACCOUNTS_date'] ?? '';
-        if (dateStr.isEmpty) return false;
+          data.where((item) {
+            String dateStr = item['ACCOUNTS_date'] ?? '';
+            if (dateStr.isEmpty) return false;
 
-        try {
-          DateTime itemDate;
-          // Handle both date formats
-          if (dateStr.contains('-') && dateStr
-              .split('-')
-              .length == 3) {
-            if (dateStr.split('-')[0].length == 4) {
-              // yyyy-MM-dd format
-              itemDate = DateTime.parse(dateStr);
-            } else {
-              // dd-MM-yyyy format
-              List<String> parts = dateStr.split('-');
-              itemDate = DateTime(
-                int.parse(parts[2]),
-                int.parse(parts[1]),
-                int.parse(parts[0]),
-              );
+            try {
+              DateTime itemDate;
+              // Handle both date formats
+              if (dateStr.contains('-') && dateStr.split('-').length == 3) {
+                if (dateStr.split('-')[0].length == 4) {
+                  // yyyy-MM-dd format
+                  itemDate = DateTime.parse(dateStr);
+                } else {
+                  // dd-MM-yyyy format
+                  List<String> parts = dateStr.split('-');
+                  itemDate = DateTime(
+                    int.parse(parts[2]),
+                    int.parse(parts[1]),
+                    int.parse(parts[0]),
+                  );
+                }
+              } else {
+                return false;
+              }
+
+              // Filter by month and year
+              return itemDate.year == selectedStartDate.year &&
+                  itemDate.month == selectedStartDate.month;
+            } catch (e) {
+              print("Date parsing error: $e");
+              return false;
             }
-          } else {
-            return false;
-          }
-
-          // Filter by month and year
-          return itemDate.year == selectedStartDate.year &&
-              itemDate.month == selectedStartDate.month;
-        } catch (e) {
-          print("Date parsing error: $e");
-          return false;
-        }
-      }).toList();
+          }).toList();
 
       // Group credit and debit entries by bill number
       Map<String, Map<String, dynamic>> billGroups = {};
@@ -109,7 +106,6 @@ class _BillingPageState extends State<Billing> {
           bill['debit']?['ACCOUNTS_setupid'] ?? '0',
         );
 
-        
         String displayDate = bill['date'];
         try {
           DateTime dateTime;
@@ -124,9 +120,7 @@ class _BillingPageState extends State<Billing> {
             );
           }
           displayDate = DateFormat('dd-MM-yyyy').format(dateTime);
-        } catch (e) {
-          
-          }
+        } catch (e) {}
 
         processedBills.add({
           'date': displayDate,
@@ -164,7 +158,6 @@ class _BillingPageState extends State<Billing> {
     }
   }
 
-
   //Formats selectedStartDate to "MM/yyyy".
   //
   // Used in the date picker display box.
@@ -196,7 +189,7 @@ class _BillingPageState extends State<Billing> {
           } else {
             selectedEndDate = pickedDate;
           }
-          _loadBillData(); 
+          _loadBillData();
         });
       }
     });
@@ -223,7 +216,6 @@ class _BillingPageState extends State<Billing> {
       ),
       body: Column(
         children: [
-          
           Padding(
             padding: const EdgeInsets.all(10.0),
             child: Row(
@@ -468,6 +460,10 @@ class _BillingPageState extends State<Billing> {
   }
 
   void _handleGetReceipt(int index) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => ReceiptsPage()),
+    );
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Getting receipt for ${billData[index]['partyName']}'),
@@ -476,4 +472,3 @@ class _BillingPageState extends State<Billing> {
     );
   }
 }
-

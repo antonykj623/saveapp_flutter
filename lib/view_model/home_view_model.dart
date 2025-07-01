@@ -1,483 +1,365 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:new_project_2025/view/home/widget/Receipt/Receipt_class/receipt_class.dart';
+import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
+import 'package:new_project_2025/view/home/widget/wallet_page/wallet_transation_class/wallet_transtion_class.dart';
 
-void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MyApp());
-}
+class AddMoneyToWalletPage extends StatefulWidget {
+  final WalletTransaction? transaction;
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const AddMoneyToWalletPage({super.key, this.transaction});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Receipt Tracker',
-      theme: ThemeData(
-        primarySwatch: Colors.teal,
-        colorScheme: ColorScheme.fromSwatch(
-          primarySwatch: Colors.teal,
-          accentColor: Colors.pink,
-        ),
-      ),
-      home: const Billing(),
-    );
-  }
+  State<AddMoneyToWalletPage> createState() => _AddMoneyToWalletPageState();
 }
 
-class Billing extends StatefulWidget {
-  const Billing({super.key});
-
-  @override
-  State<Billing> createState() => _BillingPageState();
-}
-
-class _BillingPageState extends State<Billing> {
-  String selectedYearMonth = DateFormat('yyyy-MM').format(DateTime.now());
-  DateTime selected_startDate = DateTime.now();
-  DateTime selected_endDate = DateTime.now();
-
-  List<Receipt> receipts = [];
-  double total = 0;
-  final ScrollController _verticalScrollController = ScrollController();
-
-  // Sample data for demonstration
-  List<Map<String, dynamic>> sampleData = [
-    {
-      'date': '23/5/2025',
-      'partyName': 'Viii',
-      'amount': '255',
-      'creditAccount': 'Agriculture\nIncome',
-    },
-    {
-      'date': '24/5/2025',
-      'partyName': 'John Doe',
-      'amount': '500',
-      'creditAccount': 'Sales\nRevenue',
-    },
-    {
-      'date': '25/5/2025',
-      'partyName': 'ABC Corp',
-      'amount': '1000',
-      'creditAccount': 'Service\nIncome',
-    },
-  ];
+class _AddMoneyToWalletPageState extends State<AddMoneyToWalletPage> {
+  final TextEditingController _amountController = TextEditingController();
+  DateTime selectedDate = DateTime.now();
+  bool isEditMode = false;
+  final _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
     super.initState();
-    _loadReceipts();
+    if (widget.transaction != null) {
+      isEditMode = true;
+      _amountController.text = widget.transaction!.amount.abs().toString();
+      selectedDate = DateFormat('yyyy-MM-dd').parse(widget.transaction!.date);
+    }
   }
 
   @override
   void dispose() {
-    _verticalScrollController.dispose();
+    _amountController.dispose();
     super.dispose();
   }
 
-  void _loadReceipts() async {
-    // Implement your database loading logic here
-    setState(() {
-      // Update receipts and total as needed
-    });
-  }
-
-  void selectDate(bool isStart) {
-    showDatePicker(
+  Future<void> _selectDate() async {
+    final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: isStart ? selected_startDate : selected_endDate,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    ).then((pickedDate) {
-      if (pickedDate != null) {
-        setState(() {
-          selectedYearMonth = DateFormat('yyyy-MM').format(pickedDate);
-          if (isStart) {
-            selected_startDate = pickedDate;
-          } else {
-            selected_endDate = pickedDate;
-          }
-          _loadReceipts();
-        });
+      initialDate: selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Colors.teal,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null && picked != selectedDate) {
+      setState(() {
+        selectedDate = picked;
+      });
+    }
+  }
+
+  Future<void> _saveTransaction() async {
+    if (_amountController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter an amount'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final double amount = double.tryParse(_amountController.text) ?? 0.0;
+    if (amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid amount'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final transaction = WalletTransaction(
+      id: isEditMode ? widget.transaction!.id : null,
+      date: DateFormat('yyyy-MM-dd').format(selectedDate),
+      amount: amount,
+      description: 'Money Added To Wallet',
+      type: 'debit',
+    );
+
+    try {
+      if (isEditMode) {
+        Map<String, dynamic> transactionData = {
+          "date": transaction.date,
+          "edtAmount": transaction.amount.toString(),
+          "description": transaction.description,
+        };
+        await DatabaseHelper().updateData('TABLE_WALLET', {
+          "data": jsonEncode(transactionData),
+        }, transaction.id!);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Transaction updated successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        Map<String, dynamic> transactionData = {
+          "date": transaction.date,
+          "month_selected": selectedDate.month,
+          "yearselected": selectedDate.year,
+          "edtAmount": transaction.amount.toString(),
+          "description": transaction.description,
+        };
+        await DatabaseHelper().addData(
+          'TABLE_WALLET',
+          jsonEncode(transactionData),
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Money added to wallet successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       }
-    });
+
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
-  String _getDisplayStartDate() {
-    return DateFormat('dd/MM/yyyy').format(selected_startDate);
-  }
+  Future<void> _deleteTransaction() async {
+    if (!isEditMode || widget.transaction?.id == null) return;
 
-  String _getDisplayEndDate() {
-    return DateFormat('dd/MM/yyyy').format(selected_endDate);
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Confirm Delete'),
+            content: const Text(
+              'Are you sure you want to delete this transaction?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await DatabaseHelper().deleteData(
+          'TABLE_WALLET',
+          widget.transaction!.id!,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Transaction deleted successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pop(context);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         backgroundColor: Colors.teal,
-        leading: IconButton(
-          onPressed: () {
-            Navigator.pop(context);
-          },
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-        ),
-        title: const Text('Billing', style: TextStyle(color: Colors.white)),
-      ),
-      body: Column(
-        children: [
-          // Date Picker Section
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: () => selectDate(true),
-                    child: Container(
-                      height: 60,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.black),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Start: ${_getDisplayStartDate()}',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                          const Icon(Icons.calendar_today, color: Colors.teal),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: InkWell(
-                    onTap: () => selectDate(false),
-                    child: Container(
-                      height: 60,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'End: ${_getDisplayEndDate()}',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                          const Icon(Icons.calendar_today, color: Colors.teal),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+        title: Text(
+          isEditMode ? 'Edit Wallet Transaction' : 'Add money to wallet',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
           ),
-
-          // Table Section
-          Expanded(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                children: [
-                  // Table Header
-                  Container(
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: Colors.teal.shade50,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(8),
-                        topRight: Radius.circular(8),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        elevation: 0,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              InkWell(
+                onTap: _selectDate,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: Colors.grey[300]!),
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.1),
+                        spreadRadius: 1,
+                        blurRadius: 3,
+                        offset: const Offset(0, 1),
                       ),
-                      border: Border(
-                        bottom: BorderSide(
-                          color: Colors.grey.shade300,
-                          width: 2,
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        DateFormat('dd-M-yyyy').format(selectedDate),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      Icon(Icons.calendar_today, color: Colors.grey[600]),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      spreadRadius: 1,
+                      blurRadius: 3,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: TextFormField(
+                  controller: _amountController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Amount',
+                    hintStyle: TextStyle(color: Colors.grey[500]),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(
+                        color: Colors.teal,
+                        width: 2,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.all(16),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter amount';
+                    }
+                    return null;
+                  },
+                ),
+              ),
+              const Spacer(),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _saveTransaction,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.teal,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(25),
+                        ),
+                        elevation: 2,
+                      ),
+                      child: Text(
+                        isEditMode ? 'Update' : 'Save',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
-                    child: Row(
-                      children: [
-                        _buildHeaderCell('Date', flex: 2),
-                        _buildHeaderCell('Name of Party', flex: 3),
-                        _buildHeaderCell('Amount', flex: 2),
-                        _buildHeaderCell('Credit Account', flex: 3),
-                        _buildHeaderCell('Actions', flex: 3),
-                      ],
-                    ),
                   ),
-
-                  // Table Body
-                  Expanded(
-                    child: ListView.builder(
-                      controller: _verticalScrollController,
-                      itemCount: sampleData.length,
-                      itemBuilder: (context, index) {
-                        final item = sampleData[index];
-                        return Container(
-                          decoration: BoxDecoration(
-                            border: Border(
-                              bottom: BorderSide(color: Colors.black, width: 1),
-                            ),
+                  if (isEditMode) ...[
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _deleteTransaction,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.teal,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(25),
                           ),
-                          child: Row(
-                            children: [
-                              _buildDataCell(item['date'], flex: 4),
-                              _buildDataCell(item['partyName'], flex: 3),
-                              _buildDataCell(item['amount'], flex: 2),
-                              _buildDataCell(item['creditAccount'], flex: 3),
-                              _buildActionCell(index, flex: 3),
-                            ],
+                          elevation: 2,
+                        ),
+                        child: const Text(
+                          'Delete',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
                           ),
-                        );
-                      },
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
-            ),
-          ),
-
-          // Total Section
-          Container(
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.teal.shade50,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.teal.shade200),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Total Amount:',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  '₹${_calculateTotal()}',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.teal.shade700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeaderCell(String text, {required int flex}) {
-    return Expanded(
-      flex: flex,
-      child: Container(
-        height: 60,
-        alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          border: Border(right: BorderSide(color: Colors.grey.shade300)),
-        ),
-        child: Text(
-          text,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-          textAlign: TextAlign.center,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDataCell(String text, {required int flex}) {
-    return Expanded(
-      flex: flex,
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 120),
-        alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
-        decoration: BoxDecoration(
-          border: Border(right: BorderSide(color: Colors.black)),
-        ),
-        child: Text(
-          text,
-          style: const TextStyle(fontSize: 13),
-          textAlign: TextAlign.center,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionCell(int index, {required int flex}) {
-    return Expanded(
-      flex: flex,
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 80),
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: double.infinity,
-              child: TextButton(
-                onPressed: () => _handleEdit(index),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  minimumSize: const Size(0, 30),
-                ),
-                child: const Text(
-                  'Edit / Delete',
-                  style: TextStyle(color: Colors.red, fontSize: 12),
-                ),
-              ),
-            ),
-            Container(
-              height: 1,
-              width: double.infinity,
-              color: Colors.grey.shade300,
-              margin: const EdgeInsets.symmetric(vertical: 4),
-            ),
-            SizedBox(
-              width: double.infinity,
-              child: TextButton(
-                onPressed: () => _handleGetReceipt(index),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  minimumSize: const Size(0, 30),
-                ),
-                child: const Text(
-                  'Get Receipt',
-                  style: TextStyle(color: Colors.green, fontSize: 12),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _handleEdit(int index) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Action'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.edit, color: Colors.blue),
-                  title: const Text('Edit'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    // Navigate to edit screen
-                    _editItem(index);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.delete, color: Colors.red),
-                  title: const Text('Delete'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _deleteItem(index);
-                  },
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
+              const SizedBox(height: 20),
             ],
           ),
-    );
-  }
-
-  void _handleGetReceipt(int index) {
-    // Implement get receipt functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Getting receipt for ${sampleData[index]['partyName']}'),
-        backgroundColor: Colors.green,
+        ),
       ),
     );
-  }
-
-  void _editItem(int index) {
-    // Implement edit functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Editing ${sampleData[index]['partyName']}'),
-        backgroundColor: Colors.blue,
-      ),
-    );
-  }
-
-  void _deleteItem(int index) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Confirm Delete'),
-            content: Text(
-              'Are you sure you want to delete ${sampleData[index]['partyName']}?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    sampleData.removeAt(index);
-                  });
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Item deleted successfully'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                },
-                child: const Text(
-                  'Delete',
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-            ],
-          ),
-    );
-  }
-
-  String _calculateTotal() {
-    double total = 0;
-    for (var item in sampleData) {
-      total += double.tryParse(item['amount']) ?? 0;
-    }
-    return total.toStringAsFixed(2);
   }
 }

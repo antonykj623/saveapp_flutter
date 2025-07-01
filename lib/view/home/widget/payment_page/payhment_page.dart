@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:new_project_2025/view/home/widget/payment_page/Month_date/Moth_datepage.dart';
@@ -18,7 +17,6 @@ class _PaymentsPageState extends State<PaymentsPage> {
   String selectedYearMonth = DateFormat('yyyy-MM').format(DateTime.now());
   List<Payment> payments = [];
   double total = 0;
-  final ScrollController _horizontalScrollController = ScrollController();
   final ScrollController _verticalScrollController = ScrollController();
 
   @override
@@ -29,17 +27,14 @@ class _PaymentsPageState extends State<PaymentsPage> {
 
   @override
   void dispose() {
-    _horizontalScrollController.dispose();
     _verticalScrollController.dispose();
     super.dispose();
   }
 
-  void _loadPayments() async {
+  Future<void> _loadPayments() async {
     try {
       List<Map<String, dynamic>> paymentsList = await DatabaseHelper()
           .getAllData("TABLE_ACCOUNTS");
-
-      // Get all account settings to map setup IDs to account names
       List<Map<String, dynamic>> accountSettings = await DatabaseHelper()
           .getAllData("TABLE_ACCOUNTSETTINGS");
 
@@ -55,37 +50,57 @@ class _PaymentsPageState extends State<PaymentsPage> {
           print('Error parsing account settings: $e');
         }
       }
+      // setupIdToAccountName['1'] = 'Cash'; // Fallback for Cash account
 
-      setupIdToAccountName['1'] = 'Cash';
+      // Filter unique debit entries for payments
+      final uniqueDebitEntries = <String, Map<String, dynamic>>{};
+      for (var mp in paymentsList) {
+        if (mp['ACCOUNTS_VoucherType'] == 1 &&
+            mp['ACCOUNTS_type'] == 'debit' &&
+            DateFormat(
+                  'yyyy-MM',
+                ).format(DateFormat('dd/MM/yyyy').parse(mp['ACCOUNTS_date'])) ==
+                selectedYearMonth) {
+          uniqueDebitEntries[mp['ACCOUNTS_entryid'].toString()] = mp;
+        }
+      }
 
       setState(() {
         payments =
-            paymentsList
-                .where(
-                  (mp) =>
-                      mp['ACCOUNTS_VoucherType'] == 1 &&
-                      mp['ACCOUNTS_type'] == 'debit' &&
-                      DateFormat('yyyy-MM').format(
-                            DateFormat('dd/MM/yyyy').parse(mp['ACCOUNTS_date']),
-                          ) ==
-                          selectedYearMonth,
-                )
-                .map((mp) {
-                  String setupId = mp['ACCOUNTS_setupid'].toString();
-                  String accountName =
-                      setupIdToAccountName[setupId] ?? 'Unknown Account';
+            uniqueDebitEntries.values.map((mp) {
+              String debitSetupId = mp['ACCOUNTS_setupid'].toString();
+              String accountName =
+                  setupIdToAccountName[debitSetupId] ??
+                  'Unknown Account (ID: $debitSetupId)';
 
-                  return Payment(
-                    id: int.parse(mp['ACCOUNTS_entryid']),
-                    date: mp['ACCOUNTS_date'],
-                    accountName: accountName,
-                    amount: double.parse(mp['ACCOUNTS_amount'].toString()),
-                    paymentMode:
-                        mp['ACCOUNTS_cashbanktype'] == '1' ? 'Cash' : 'Bank',
-                    remarks: mp['ACCOUNTS_remarks'] ?? '',
-                  );
-                })
-                .toList();
+              String paymentMode = 'Cash';
+              try {
+                var creditEntry = paymentsList.firstWhere(
+                  (entry) =>
+                      entry['ACCOUNTS_VoucherType'] == 1 &&
+                      entry['ACCOUNTS_type'] == 'credit' &&
+                      entry['ACCOUNTS_entryid'].toString() ==
+                          mp['ACCOUNTS_entryid'].toString(),
+                );
+                String creditSetupId =
+                    creditEntry['ACCOUNTS_setupid'].toString();
+                paymentMode = setupIdToAccountName[creditSetupId] ?? 'Cash';
+              } catch (e) {
+                print(
+                  'Could not find credit entry for payment ID ${mp['ACCOUNTS_entryid']}: $e',
+                );
+              }
+
+              return Payment(
+                id: int.parse(mp['ACCOUNTS_entryid']),
+                date: mp['ACCOUNTS_date'],
+                accountName: accountName,
+                amount: double.parse(mp['ACCOUNTS_amount'].toString()),
+                paymentMode: paymentMode,
+                remarks: mp['ACCOUNTS_remarks'] ?? '',
+              );
+            }).toList();
+
         total = payments.fold(0, (sum, payment) => sum + payment.amount);
       });
     } catch (e) {
@@ -134,43 +149,16 @@ class _PaymentsPageState extends State<PaymentsPage> {
     return '$monthName/$year';
   }
 
-  void _updatePayment(Payment updatedPayment) async {
-    try {
-      final db = await DatabaseHelper().database;
+  void _navigateToEditPayment(Payment payment) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddPaymentVoucherPage(payment: payment),
+      ),
+    );
 
-      await db.update(
-        "TABLE_ACCOUNTS",
-        {
-          "ACCOUNTS_date": updatedPayment.date,
-          "ACCOUNTS_Particulars": updatedPayment.accountName,
-          "ACCOUNTS_amount": updatedPayment.amount,
-          "ACCOUNTS_cashbanktype":
-              updatedPayment.paymentMode == 'Cash' ? '1' : '2',
-          "ACCOUNTS_remarks": updatedPayment.remarks,
-        },
-        where:
-            "ACCOUNTS_VoucherType = ? AND ACCOUNTS_entryid = ? AND ACCOUNTS_type = ?",
-        whereArgs: [1, updatedPayment.id.toString(), 'debit'],
-      );
-
-      final isBalanced = await DatabaseHelper().validateDoubleEntry();
-      if (!isBalanced) {
-        throw Exception('Double-entry accounting is unbalanced after update');
-      }
-
+    if (result == true) {
       _loadPayments();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Payment updated successfully')),
-        );
-      }
-    } catch (e) {
-      print('Error updating payment: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error updating payment: $e')));
-      }
     }
   }
 
@@ -202,30 +190,6 @@ class _PaymentsPageState extends State<PaymentsPage> {
           context,
         ).showSnackBar(SnackBar(content: Text('Error deleting payment: $e')));
       }
-    }
-  }
-
-  void _navigateToEditPayment(Payment payment) async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AddPaymentVoucherPage(payment: payment),
-      ),
-    );
-
-    if (result == true) {
-      _loadPayments();
-    }
-  }
-
-  void _navigateToAddPayment() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const AddPaymentVoucherPage()),
-    );
-
-    if (result == true) {
-      _loadPayments();
     }
   }
 
@@ -312,14 +276,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
                                     ),
                                     child: Row(
                                       children: [
-                                        _buildDataCell(
-                                          DateFormat('dd/MM/yyyy').format(
-                                            DateFormat(
-                                              'dd/MM/yyyy',
-                                            ).parse(payment.date),
-                                          ),
-                                          flex: 1,
-                                        ),
+                                        _buildDataCell(payment.date, flex: 1),
                                         _buildDataCell(
                                           payment.accountName,
                                           flex: 2,
@@ -473,7 +430,18 @@ class _PaymentsPageState extends State<PaymentsPage> {
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: Theme.of(context).colorScheme.secondary,
-        onPressed: _navigateToAddPayment,
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AddPaymentVoucherPage(),
+            ),
+          ).then((result) {
+            if (result == true) {
+              _loadPayments();
+            }
+          });
+        },
         child: const Icon(Icons.add, color: Colors.white),
       ),
     );

@@ -16,7 +16,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp( 
       debugShowCheckedModeBanner: false,
       title: 'SAVE App',
       theme: ThemeData(primarySwatch: Colors.teal),
@@ -33,14 +33,13 @@ class SplashPage extends StatefulWidget {
 class _SplashPageState extends State<SplashPage> {
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
 
     delayedFunction();
   }
 
   void delayedFunction() async {
-    await Future.delayed(Duration(seconds: 3)); // 2-second delay
+    await Future.delayed(Duration(seconds: 3)); 
 
     final prefs = await SharedPreferences.getInstance();
    

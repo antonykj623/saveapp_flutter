@@ -2,133 +2,62 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:new_project_2025/view_model/VisitingCard/test.dart';
+import 'package:new_project_2025/view/home/widget/wallet_page/wallet_transation_class/wallet_transtion_class.dart';
 import '../../view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
-import 'package:new_project_2025/view/home/widget/payment_page/payment_class/payment_class.dart';
-import 'package:new_project_2025/view_model/AccountSet_up/Add_Acount.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-class AddBill extends StatefulWidget {
-  final Payment? payment;
 
-  const AddBill({super.key, this.payment});
+class AddMoneyToWalletPage extends StatefulWidget {
+  final WalletTransaction? transaction;
+
+  const AddMoneyToWalletPage({super.key, this.transaction});
 
   @override
-  State<AddBill> createState() => _AddPaymentVoucherPageState();
+  State<AddMoneyToWalletPage> createState() => _AddMoneyToWalletPageState();
 }
 
-class _AddPaymentVoucherPageState extends State<AddBill> {
-  int _counter = 0;
-
-  Future<void> _incrementCounterAutomatically() async {
-    final prefs = await SharedPreferences.getInstance();
-    int counter = prefs.getInt('counter') ?? 0;
-    counter++;
-    await prefs.setInt('counter', counter);
-
-    setState(() {
-      _counter = counter;
-    });
-  }
-
-  String name = "";
-  final _formKey = GlobalKey<FormState>();
-  DateTime? selectedDate = DateTime.now();
-  String? selectedAccount;
-  String? selectedincomeAccount;
+class _AddMoneyToWalletPageState extends State<AddMoneyToWalletPage> {
   final TextEditingController _amountController = TextEditingController();
-  String paymentMode = 'Cash';
-  String? selectedCashOption;
-  final TextEditingController _remarksController = TextEditingController();
-  var dropdownvalu1 = 'Asset Account';
-  List<Map<String, dynamic>> _items = [];
-  List<Map<String, dynamic>> _items1 = [];
-  List<String> accountNames = [];
-  List<String> incomeaccountNames = [];
-  String eid = "";
-
-  // var items1 = [
-  //   'Asset Account',
-  //   'Bank',
-  //   'Cash',
-  //   'Credit Card',
-  //   'Customers',
-  //   'Expense Account',
-  //   'Income Account',
-  //   'Insurance',
-  //   'Investment',
-  //   'Liability Account',
-  // ];
-  final List<String> accounts = [
-    'Agriculture Expenses',
-    'Agriculture Income',
-    'Household Expenses',
-    'Salary Income',
-    'Miscellaneous',
-  ];
-
-  final List<String> cashOptions = [
-    'Cash',
-    'Bank - HDFC',
-    'Bank - SBI',
-    'Bank - ICICI',
-  ];
-
+  DateTime selectedDate = DateTime.now();
+  bool isEditMode = false;
+  final TextEditingController amount = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
   @override
   void initState() {
     super.initState();
-    _loadItemsFromDB();
-    _loadaccountFromDB();
-    _incrementCounterAutomatically();
+    if (widget.transaction != null) {
+      isEditMode = true;
+      _amountController.text = widget.transaction!.amount.abs().toString();
+      selectedDate = DateFormat('yyyy-MM-dd').parse(widget.transaction!.date);
+    }
   }
 
-  Future<void> _loadaccountFromDB() async {
-    final data = await DatabaseHelper().getAllData('TABLE_ACCOUNTSETTINGS');
-    setState(() {
-      _items1 = data;
-      for (var i in _items1) {
-        Map<String, dynamic>dat = jsonDecode(i["data"]);
-        if (dat['Accounttype'].toString().contains("Income Account")) {
-          incomeaccountNames.add(dat['Accountname'].toString());
-        }
-      }
-      // Extract account names from the database
-      // accountNames = _items
-      //     .map((item) => jsonDecode(item['data'])['Accountname'].toString() )
-      //     .toList();
-      // Set default selected account if available
-      selectedincomeAccount =
-      incomeaccountNames.isNotEmpty ? incomeaccountNames[0] : null;
-    });
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
   }
 
-  Future<void> _loadItemsFromDB() async {
-    final data = await DatabaseHelper().getAllData('TABLE_ACCOUNTSETTINGS');
-    setState(() {
-      _items = data;
-      for (var i in _items) {
-        Map<String, dynamic>dat = jsonDecode(i["data"]);
-        if (dat['Accounttype'].toString().contains("Customers")) {
-          accountNames.add(dat['Accountname'].toString());
-        }
-      }
-      // Extract account names from the database
-      // accountNames = _items
-      //     .map((item) => jsonDecode(item['data'])['Accountname'].toString() )
-      //     .toList();
-      // Set default selected account if available
-      selectedAccount = accountNames.isNotEmpty ? accountNames[0] : null;
-    });
-  }
-
-
-  Future<void> _selectDate(BuildContext context) async {
+  Future<void> _selectDate() async {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: selectedDate,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2101),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Colors.teal,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
+
     if (picked != null && picked != selectedDate) {
       setState(() {
         selectedDate = picked;
@@ -136,352 +65,343 @@ class _AddPaymentVoucherPageState extends State<AddBill> {
     }
   }
 
+  Future<void> _saveTransaction() async {
+    if (_amountController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter an amount'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final double amount = double.tryParse(_amountController.text) ?? 0.0;
+    if (amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid amount'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final transaction = WalletTransaction(
+      id: isEditMode ? widget.transaction!.id : null,
+      date: DateFormat('yyyy-MM-dd').format(selectedDate),
+      amount: amount,
+      description: 'Money Added To Wallet',
+      type: 'credit',
+    );
+
+    try {
+      if (isEditMode) {
+      //  await WalletDatabaseHelper.instance.updateWalletTransaction(transaction);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Transaction updated successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+     //   await WalletDatabaseHelper.instance.insertWalletTransaction(transaction);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Money added to wallet successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteTransaction() async {
+    if (!isEditMode || widget.transaction?.id == null) return;
+
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Delete'),
+        content: const Text('Are you sure you want to delete this transaction?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+       // await WalletDatabaseHelper.instance.deleteWalletTransaction(widget.transaction!.id!);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Transaction deleted successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pop(context);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         backgroundColor: Colors.teal,
+        title: Text(
+          isEditMode ? 'Edit Wallet Transaction' : 'Add money to wallet',
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
         leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
             Navigator.pop(context);
           },
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
         ),
-        title: const Text('Add Bill', style: TextStyle(color: Colors.white)),
+        elevation: 0,
       ),
-      body: SingleChildScrollView(
+      body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10.0),
-                child: Row(
-
-                  children: [
-                    Text('Bill no                                      :'),
-                    Text(
-                      ' Save_Bill_000 $_counter ',
-                      style: TextStyle(fontSize: 14),
+          children: [
+            // Date Picker
+            InkWell(
+              onTap: _selectDate,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: Colors.grey[300]!),
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      spreadRadius: 1,
+                      blurRadius: 3,
+                      offset: const Offset(0, 1),
                     ),
                   ],
                 ),
-              ),
 
-              InkWell(
-                onTap: () => _selectDate(context),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        DateFormat('dd-MM-yyyy').format(selectedDate!),
-                        style: const TextStyle(fontSize: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      DateFormat('dd-M-yyyy').format(selectedDate),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.black87,
                       ),
-                      const Icon(Icons.calendar_today),
-                    ],
-                  ),
+                    ),
+                    Icon(Icons.calendar_today, color: Colors.grey[600]),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          isExpanded: true,
-                          value: selectedAccount,
-                          icon: const Icon(Icons.keyboard_arrow_down),
-                          items: accountNames.map((String account) {
-                            return DropdownMenuItem<String>(
-                              value: account,
-                              child: Text(account),
-                            );
-                          }).toList(),
-                          onChanged: (String? newValue) {
-                            setState(() {
-                              selectedAccount = newValue;
-                            });
-                          },
-                          hint: const Text('Select Account'),
-                        ),
-                      ),
+            ),
 
+            const SizedBox(height: 16),
 
-                    ),
-                  ),
-
-
-                  const SizedBox(width: 16),
-
-                  Container(
-
-
-                    child: FloatingActionButton(
-                      backgroundColor: Colors.red,
-                      tooltip: 'Increment',
-                      shape: const CircleBorder(),
-                      onPressed: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (
-                            context) => Addaccountsdet()));
-                      },
-                      child: const Icon(
-                          Icons.add, color: Colors.white, size: 25),
-                    ),
-
-
+            // Amount Input
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.1),
+                    spreadRadius: 1,
+                    blurRadius: 3,
+                    offset: const Offset(0, 1),
                   ),
                 ],
               ),
-
-
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: TextFormField(
-                        controller: _amountController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-
-                          hintText: 'Amount',
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter an amount';
-                          }
-                          if (double.tryParse(value) == null) {
-                            return 'Please enter a valid number';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
+              child: TextFormField(
+                controller: _amountController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  hintText: 'Amount',
+                  hintStyle: TextStyle(color: Colors.grey[500]),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
                   ),
-
-
-                ],
-              ),
-
-
-              const SizedBox(height: 16),
-
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          isExpanded: true,
-                          value: selectedincomeAccount,
-                          icon: const Icon(Icons.keyboard_arrow_down),
-                          items: incomeaccountNames.map((String account) {
-                            return DropdownMenuItem<String>(
-                              value: account,
-                              child: Text(account),
-                            );
-                          }).toList(),
-                          onChanged: (String? newValue) {
-                            setState(() {
-                              selectedincomeAccount = newValue;
-                            });
-                          },
-                          hint: const Text('Select Income Account'),
-                        ),
-                      ),
-
-
-                    ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
                   ),
-
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Container(
-                      child: FloatingActionButton(
-                        backgroundColor: Colors.red,
-                        tooltip: 'Increment',
-                        shape: const CircleBorder(),
-                        onPressed: () {
-                          Navigator.push(context, MaterialPageRoute(
-                              builder: (context) => Addaccountsdet()));
-                        },
-                        child: const Icon(
-                            Icons.add, color: Colors.white, size: 25),
-                      ),
-                    ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Colors.teal, width: 2),
                   ),
-                ],),
-
-
-              const SizedBox(height: 24),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(4),
+                  contentPadding: const EdgeInsets.all(16),
                 ),
-                child: TextFormField(
-                  controller: _remarksController,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    hintText: 'Enter Remarks',
-                  ),
-                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter amount';
+                  }
+                  return null;
+                },
               ),
-              const SizedBox(height: 32),
-              Column(
-                children: [
-                  ElevatedButton(
+            ),
+
+            const Spacer(),
+
+            // Action Buttons
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
                     onPressed: () async {
                       if (_formKey.currentState!.validate()) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Processing Data')),
-                        );
+                        try {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Processing Data')),
+                          );
 
-                        final billno = _counter;
-                        final date = selectedDate;
-                        DateTime date1 = selectedDate!;
-                        int year = date1.year;
-                        int month = date1.month;
-                        final customersdata = selectedAccount;
-                        final amount = _amountController.text;
-                        final income = selectedincomeAccount;
-                        final remarks = _remarksController.text;
+                          final amnt = _amountController.text;
 
-                        Future<String> getNextSetupId(name) async {
-                          try {
-                            String maxId = "0";
-                            List<Map<String,
-                                dynamic>> allrows = await DatabaseHelper()
-                                .queryallacc();
 
-                            allrows.forEach((row) {
-                              Map<String, dynamic> dat = jsonDecode(
-                                  row["data"]);
-                              if (dat['Accountname'].toString().compareTo(
-                                  name) == 0) {
-                                maxId = row['keyid'].toString();
-                              }
+                          Map<String, dynamic> amntsetupData = {
+                            "amount": amnt,
+
+                          };
+
+                          // Save to database
+                          await  DatabaseHelper().addData(
+                            "TABLE_WALLET",
+                            jsonEncode(amntsetupData),
+                          );
+
+
+
+
+                          // Show success message
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Account "$amnt" added successfully!',
+                                ),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+
+                            // Clear form fields
+                            _amountController.clear();
+
+                            setState(() {
+
+
                             });
 
-                            return maxId;
-                          } catch (e) {
-                            return '0';
+                            // Return true to indicate success and pop the page
+                            Navigator.pop(context, true);
+                          }
+                        } catch (e) {
+                          print('Error saving account: $e');
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error saving account: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
                           }
                         }
-
-                        String setid = await getNextSetupId(customersdata
-                            .toString());
-
-                        // Credit entry
-                        Map<String, dynamic> creditDatas = {
-                          "ACCOUNTS_date": DateFormat('yyyy-MM-dd').format(
-                              selectedDate!),
-                          // Fixed format
-                          "ACCOUNTS_billVoucherNumber": billno.toString(),
-                          "ACCOUNTS_amount": amount,
-                          "ACCOUNTS_setupid": setid,
-                          "ACCOUNTS_VoucherType": 3,
-                          // Remove quotes for integer
-                          "ACCOUNTS_entryid": "0",
-                          "ACCOUNTS_type": "credit",
-                          "ACCOUNTS_remarks": remarks,
-                          "ACCOUNTS_year": year.toString(),
-                          "ACCOUNTS_month": month.toString(),
-                          "ACCOUNTS_cashbanktype": "0",
-                          "ACCOUNTS_billId": "0",
-                        };
-
-                        final id = await DatabaseHelper().insertData(
-                            "TABLE_ACCOUNTS", creditDatas);
-                        if (id != null) {
-                          print("credit data inserted...$id");
-                        }
-
-                        String setupid = await getNextSetupId(income
-                            .toString());
-
-                        // Debit entry
-                        Map<String, dynamic> debitDatas = {
-                          "ACCOUNTS_date": DateFormat('yyyy-MM-dd').format(
-                              selectedDate!),
-                          // Fixed format
-                          "ACCOUNTS_billVoucherNumber": billno.toString(),
-                          "ACCOUNTS_amount": amount,
-                          "ACCOUNTS_setupid": setupid,
-                          "ACCOUNTS_VoucherType": 3,
-                          // Remove quotes for integer
-                          "ACCOUNTS_entryid": id.toString(),
-                          "ACCOUNTS_type": "debit",
-                          "ACCOUNTS_remarks": remarks,
-                          "ACCOUNTS_year": year.toString(),
-                          "ACCOUNTS_month": month.toString(),
-                          "ACCOUNTS_cashbanktype": "0",
-                          "ACCOUNTS_billId": "0",
-                        };
-
-                        var debtdata = await DatabaseHelper().insertData(
-                            "TABLE_ACCOUNTS", debitDatas);
-                        if (debtdata != null) {
-                          print("debt data inserted...$debtdata");
-
-                          Navigator.pop(context, true);
-                        }
-
-                        print("Value inserted");
                       }
                     },
+                    // _saveTransaction,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.teal, // background (button) color
-                      foregroundColor: Colors.white, // foreground (text) color
+                      backgroundColor: Colors.teal,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(25),
+                      ),
+                      elevation: 2,
                     ),
-
                     child: Text(
-                      "Save",
-                      style: TextStyle(
-                          color: const Color.fromARGB(255, 255, 255, 255)),
+                      isEditMode ? 'Update' : 'Save',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
+                ),
+                if (isEditMode) ...[
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _deleteTransaction,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.teal,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(25),
+                        ),
+                        elevation: 2,
+                      ),
+                      child: const Text(
+                        'Delete',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
 
-
-
-                ],),
-
-      
-            ],
-          ),
+            const SizedBox(height: 20),
+          ],
         ),
+      ),
       ),
     );
   }
 }
-
-

@@ -125,7 +125,7 @@ class DatabaseHelper {
 
     await db.execute('''
       CREATE TABLE TABLE_ACCOUNTS (
-        ACCOUNTS_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ACCOUNTS_id INTEGER PRIMARY KEY AUTOINCREMENT, 
         ACCOUNTS_VoucherType INTEGER,
         ACCOUNTS_entryid TEXT,
         ACCOUNTS_date TEXT,
@@ -525,6 +525,14 @@ class DatabaseHelper {
       whereArgs: [id],
     );
   }
+  Future<List<Map<String, dynamic>>> getWalletData() async {
+    Database db = await database;
+    var res = await db.query('TABLE_WALLET');
+
+    List<Map<String, dynamic>> s = res.toList();
+    print("Wallet datas are: $s");
+ return s;
+}
 
   Future<List<Payment>> getPaymentsByMonth(String yearMonth) async {
     final db = await database;

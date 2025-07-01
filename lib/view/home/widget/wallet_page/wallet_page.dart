@@ -1,10 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
-import 'package:new_project_2025/view/home/widget/payment_page/Month_date/Moth_datepage.dart';
-import 'package:new_project_2025/view/home/widget/wallet_page/addmoney_wallet/add_money_wallet.dart';
-import 'package:new_project_2025/view/home/widget/wallet_page/wallet_date_helper/wallet_data_helper.dart';
+import 'package:new_project_2025/view/home/widget/CashBank/Receipt_class/monthYearPicker.dart';
+import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 import 'package:new_project_2025/view/home/widget/wallet_page/wallet_transation_class/wallet_transtion_class.dart';
+import 'package:new_project_2025/view/home/widget/wallet_page/addmoney_wallet/add_money_wallet.dart';
 
 class WalletPage extends StatefulWidget {
   const WalletPage({super.key});
@@ -16,7 +16,7 @@ class WalletPage extends StatefulWidget {
 class _WalletPageState extends State<WalletPage> {
   String selectedYearMonth = DateFormat('yyyy-MM').format(DateTime.now());
   List<WalletTransaction> transactions = [];
-  double openingBalance = 0.0;
+  double openingBalance = 0.0; // Will be set from the first transaction
   double closingBalance = 0.0;
 
   @override
@@ -25,25 +25,144 @@ class _WalletPageState extends State<WalletPage> {
     _loadWalletData();
   }
 
-  void _loadWalletData() async {
-    final transactionsList = await WalletDatabaseHelper.instance
-        .getWalletTransactionsByMonth(selectedYearMonth);
+  Future<void> _loadWalletData() async {
+    try {
+      var walletData = await DatabaseHelper().getWalletData();
+      List<WalletTransaction> tempTransactions = [];
+      double totalAmount = 0.0;
 
-    final opening = await WalletDatabaseHelper.instance.getWalletOpeningBalance(
-      selectedYearMonth,
-    );
+      var sortedData = walletData.toList();
+      sortedData.sort((a, b) {
+        Map<String, dynamic> dataA = jsonDecode(a['data']);
+        Map<String, dynamic> dataB = jsonDecode(b['data']);
+        return DateTime.parse(
+          dataA['date'] ?? '1970-01-01',
+        ).compareTo(DateTime.parse(dataB['date'] ?? '1970-01-01'));
+      });
 
-    setState(() {
-      transactions = transactionsList;
-      openingBalance = opening;
+      double firstCreditAmount = 0.0;
+      for (var row in sortedData) {
+        Map<String, dynamic> data = jsonDecode(row['data']);
+        double amount = double.tryParse(data['edtAmount'] ?? '0') ?? 0.0;
+        if (amount > 0) {
+          firstCreditAmount = amount;
+          break; 
+        }
+      }
 
-      double monthlyTotal = transactions.fold(
-        0,
-        (sum, transaction) => sum + transaction.amount,
-      );
-      closingBalance = openingBalance + monthlyTotal;
-    });
+      var selectedMonthData =
+          sortedData.where((row) {
+            Map<String, dynamic> data = jsonDecode(row['data']);
+            return data['date']?.startsWith(selectedYearMonth) ?? false;
+          }).toList();
+
+      for (var row in selectedMonthData) {
+        Map<String, dynamic> data = jsonDecode(row['data']);
+        String date = data['date'] ?? '';
+        double amount = double.tryParse(data['edtAmount'] ?? '0') ?? 0.0;
+        String description =
+            data.containsKey('description')
+                ? data['description']
+                : 'Money Added To Wallet';
+        String type = amount >= 0 ? 'credit' : 'debit';
+
+        tempTransactions.add(
+          WalletTransaction(
+            id: row['keyid'],
+            date: date,
+            amount: amount,
+            description: description,
+            type: type,
+          ),
+        );
+        totalAmount += amount;
+      }
+
+      setState(() {
+        transactions = tempTransactions;
+        openingBalance =
+            firstCreditAmount; // Set to the first positive transaction's amount
+        closingBalance = openingBalance + totalAmount;
+      });
+    } catch (e) {
+      print('Error loading wallet data: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading wallet data: $e')),
+        );
+      }
+    }
   }
+
+  // Future<void> _loadWalletData() async {
+  //   try {
+  //     var walletData = await DatabaseHelper().getWalletData();
+  //     List<WalletTransaction> tempTransactions = [];
+  //     double totalAmount = 0.0;
+  //     double priorBalance = 0.0;
+
+  //     // Parse selected year and month
+  //     final yearMonthParts = selectedYearMonth.split('-');
+  //     final selectedYear = int.parse(yearMonthParts[0]);
+  //     final selectedMonth = int.parse(yearMonthParts[1]);
+  //     final startOfMonth = DateTime(selectedYear, selectedMonth, 1);
+
+  //     // Sort all data by date
+  //     var sortedData = walletData.toList();
+  //     sortedData.sort((a, b) {
+  //       Map<String, dynamic> dataA = jsonDecode(a['data']);
+  //       Map<String, dynamic> dataB = jsonDecode(b['data']);
+  //       return DateTime.parse(
+  //         dataA['date'] ?? '1970-01-01',
+  //       ).compareTo(DateTime.parse(dataB['data'] ?? '1970-01-01'));
+  //     });
+
+  //     for (var row in sortedData) {
+  //       Map<String, dynamic> data = jsonDecode(row['data']);
+  //       String date = data['date'] ?? '';
+  //       DateTime transactionDate = DateTime.parse(date);
+  //       double amount = double.tryParse(data['edtAmount'] ?? '0') ?? 0.0;
+  //       String description =
+  //           data.containsKey('description')
+  //               ? data['description']
+  //               : 'Money Added To Wallet';
+  //       String type = amount >= 0 ? 'credit' : 'debit';
+
+  //       // Calculate opening balance from transactions before the selected month
+  //       if (transactionDate.isBefore(startOfMonth)) {
+  //         priorBalance += amount;
+  //       }
+
+  //       // Include transactions for the selected month
+  //       if (data['date']?.startsWith(selectedYearMonth) ?? false) {
+  //         tempTransactions.add(
+  //           WalletTransaction(
+  //             id: row['keyid'],
+  //             date: date,
+  //             amount: amount,
+  //             description: description,
+  //             type: type,
+  //           ),
+  //         );
+  //         totalAmount += amount;
+  //       }
+  //     }
+
+  //     setState(() {
+  //       transactions = tempTransactions;
+  //       openingBalance =
+  //           priorBalance; // Set opening balance as sum of prior transactions
+  //       closingBalance = openingBalance + totalAmount;
+  //     });
+  //   } catch (e) {
+  //     print('Error loading wallet data: $e');
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(content: Text('Error loading wallet data: $e')),
+  //       );
+  //     }
+  //   }
+  // }
 
   void _showMonthYearPicker() {
     final yearMonthParts = selectedYearMonth.split('-');
@@ -63,6 +182,7 @@ class _WalletPageState extends State<WalletPage> {
                       '$year-${month.toString().padLeft(2, '0')}';
                   _loadWalletData();
                 });
+                Navigator.pop(context);
               },
             ),
           ),
@@ -89,9 +209,7 @@ class _WalletPageState extends State<WalletPage> {
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () {
-            Navigator.pop(context);
-          },
+          onPressed: () => Navigator.pop(context),
         ),
         elevation: 0,
       ),
@@ -127,7 +245,6 @@ class _WalletPageState extends State<WalletPage> {
               ),
             ),
           ),
-
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
@@ -147,7 +264,6 @@ class _WalletPageState extends State<WalletPage> {
               ],
             ),
           ),
-
           Expanded(
             child: Container(
               margin: const EdgeInsets.all(16),
@@ -166,7 +282,6 @@ class _WalletPageState extends State<WalletPage> {
               ),
               child: Column(
                 children: [
-                  // Table Header
                   Container(
                     decoration: BoxDecoration(
                       color: Colors.grey[100],
@@ -185,8 +300,6 @@ class _WalletPageState extends State<WalletPage> {
                       ],
                     ),
                   ),
-
-                  // Transactions List
                   Expanded(
                     child:
                         transactions.isEmpty
@@ -267,8 +380,6 @@ class _WalletPageState extends State<WalletPage> {
               ),
             ),
           ),
-
-          // Closing Balance
           Container(
             padding: const EdgeInsets.all(16),
             child: Text(
@@ -357,7 +468,8 @@ class _WalletPageState extends State<WalletPage> {
                 ListTile(
                   title: const Text('Delete'),
                   onTap: () async {
-                    await WalletDatabaseHelper.instance.deleteWalletTransaction(
+                    await DatabaseHelper().deleteData(
+                      'TABLE_WALLET',
                       transaction.id!,
                     );
                     _loadWalletData();

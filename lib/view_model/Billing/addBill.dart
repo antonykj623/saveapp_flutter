@@ -38,7 +38,7 @@ class _AddBillState extends State<AddBill> {
 
   Future<void> _incrementCounterAutomatically() async {
     final prefs = await SharedPreferences.getInstance();
-    int counter = prefs.getInt('bill_counter') ?? 0; // Changed to bill_counter for isolation
+    int counter = prefs.getInt('bill_counter') ?? 0;
     counter++;
     await prefs.setInt('bill_counter', counter);
     setState(() {
@@ -50,20 +50,19 @@ class _AddBillState extends State<AddBill> {
     try {
       final data = await DatabaseHelper().getAllData('TABLE_ACCOUNTSETTINGS');
       print("Loading accounts from DB: ${data.length} records found");
-      
+
       setState(() {
         accountNames.clear();
         incomeAccountNames.clear();
-        
+
         for (var item in data) {
           try {
             Map<String, dynamic> dat = jsonDecode(item["data"]);
             String accountType = dat['Accounttype']?.toString() ?? '';
             String accountName = dat['Accountname']?.toString() ?? '';
-            
+
             print("Account: $accountName, Type: $accountType");
-            
-            // More specific filtering for bill page
+
             if (accountType.toLowerCase().contains("customers")) {
               accountNames.add(accountName);
               print("Added to customer accounts: $accountName");
@@ -75,11 +74,11 @@ class _AddBillState extends State<AddBill> {
             print("Error parsing account data: $e");
           }
         }
-        
-        // Set default selections
+
         selectedAccount = accountNames.isNotEmpty ? accountNames[0] : null;
-        selectedIncomeAccount = incomeAccountNames.isNotEmpty ? incomeAccountNames[0] : null;
-        
+        selectedIncomeAccount =
+            incomeAccountNames.isNotEmpty ? incomeAccountNames[0] : null;
+
         print("Customer accounts: $accountNames");
         print("Income accounts: $incomeAccountNames");
       });
@@ -121,21 +120,19 @@ class _AddBillState extends State<AddBill> {
   Future<void> _navigateToAddAccount({bool isIncomeAccount = false}) async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => Addaccountsdet1(),
-      ),
+      MaterialPageRoute(builder: (context) => Addaccountsdet1()),
     );
-    
+
     if (result == true) {
-      // Reload accounts after adding new one
       await _loadAccountsFromDB();
       if (mounted) {
-        String message = isIncomeAccount 
-            ? 'Income Account added successfully'
-            : 'Customer Account added successfully';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
+        String message =
+            isIncomeAccount
+                ? 'Income Account added successfully'
+                : 'Customer Account added successfully';
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
       }
     }
   }
@@ -165,10 +162,7 @@ class _AddBillState extends State<AddBill> {
                 child: Row(
                   children: [
                     Text('Bill no                                      :'),
-                    Text(
-                      ' Bill_000$_counter ',
-                      style: TextStyle(fontSize: 14),
-                    ),
+                    Text(' Bill_000$_counter ', style: TextStyle(fontSize: 14)),
                   ],
                 ),
               ),
@@ -193,8 +187,11 @@ class _AddBillState extends State<AddBill> {
                 ),
               ),
               const SizedBox(height: 16),
-              
-              Text('Customer Account:', style: TextStyle(fontWeight: FontWeight.bold)),
+
+              Text(
+                'Customer Account:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -210,12 +207,13 @@ class _AddBillState extends State<AddBill> {
                           isExpanded: true,
                           value: selectedAccount,
                           icon: const Icon(Icons.keyboard_arrow_down),
-                          items: accountNames.map((String account) {
-                            return DropdownMenuItem<String>(
-                              value: account,
-                              child: Text(account),
-                            );
-                          }).toList(),
+                          items:
+                              accountNames.map((String account) {
+                                return DropdownMenuItem<String>(
+                                  value: account,
+                                  child: Text(account),
+                                );
+                              }).toList(),
                           onChanged: (String? newValue) {
                             setState(() {
                               selectedAccount = newValue;
@@ -228,18 +226,18 @@ class _AddBillState extends State<AddBill> {
                   ),
                   const SizedBox(width: 16),
                   FloatingActionButton(
-                    heroTag: "customer_account_btn", // Added unique hero tag
+                    heroTag: "customer_account_btn",
                     backgroundColor: Colors.red,
                     tooltip: 'Add Customer Account',
                     shape: const CircleBorder(),
-                    onPressed: () => _navigateToAddAccount(isIncomeAccount: false),
+                    onPressed:
+                        () => _navigateToAddAccount(isIncomeAccount: false),
                     child: const Icon(Icons.add, color: Colors.white, size: 25),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
-              
-              // Amount Field
+
               Text('Amount:', style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               Container(
@@ -267,9 +265,11 @@ class _AddBillState extends State<AddBill> {
                 ),
               ),
               const SizedBox(height: 16),
-              
-              // Income Account Selection
-              Text('Income Account:', style: TextStyle(fontWeight: FontWeight.bold)),
+
+              Text(
+                'Income Account:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -285,12 +285,13 @@ class _AddBillState extends State<AddBill> {
                           isExpanded: true,
                           value: selectedIncomeAccount,
                           icon: const Icon(Icons.keyboard_arrow_down),
-                          items: incomeAccountNames.map((String account) {
-                            return DropdownMenuItem<String>(
-                              value: account,
-                              child: Text(account),
-                            );
-                          }).toList(),
+                          items:
+                              incomeAccountNames.map((String account) {
+                                return DropdownMenuItem<String>(
+                                  value: account,
+                                  child: Text(account),
+                                );
+                              }).toList(),
                           onChanged: (String? newValue) {
                             setState(() {
                               selectedIncomeAccount = newValue;
@@ -307,13 +308,14 @@ class _AddBillState extends State<AddBill> {
                     backgroundColor: Colors.red,
                     tooltip: 'Add Income Account',
                     shape: const CircleBorder(),
-                    onPressed: () => _navigateToAddAccount(isIncomeAccount: true),
+                    onPressed:
+                        () => _navigateToAddAccount(isIncomeAccount: true),
                     child: const Icon(Icons.add, color: Colors.white, size: 25),
                   ),
                 ],
               ),
               const SizedBox(height: 24),
-              
+
               // Remarks Field
               Text('Remarks:', style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
@@ -333,8 +335,7 @@ class _AddBillState extends State<AddBill> {
                 ),
               ),
               const SizedBox(height: 32),
-              
-              // Validation before save
+
               if (accountNames.isEmpty || incomeAccountNames.isEmpty)
                 Container(
                   padding: EdgeInsets.all(12),
@@ -357,62 +358,55 @@ class _AddBillState extends State<AddBill> {
                     ],
                   ),
                 ),
-              
+
               // Save Button
               Center(
                 child: ElevatedButton(
-                  onPressed: (accountNames.isEmpty || incomeAccountNames.isEmpty || selectedAccount == null || selectedIncomeAccount == null) 
-                      ? null 
-                      : () async {
-                          if (_formKey.currentState!.validate()) {
-                            try {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Processing Bill Data...')),
-                              );
+                  onPressed:
+                      (accountNames.isEmpty ||
+                              incomeAccountNames.isEmpty ||
+                              selectedAccount == null ||
+                              selectedIncomeAccount == null)
+                          ? null
+                          : () async {
+                            if (_formKey.currentState!.validate()) {
+                              try {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Processing Bill Data...'),
+                                  ),
+                                );
 
-                              final billno = _counter;
-                              final date = selectedDate;
-                              DateTime date1 = selectedDate!;
-                              int year = date1.year;
-                              int month = date1.month;
-                              final customersdata = selectedAccount;
-                              final amount = _amountController.text;
-                              final income = selectedIncomeAccount;
-                              final remarks = _remarksController.text;
+                                final billno = _counter;
+                                final date = selectedDate;
+                                DateTime date1 = selectedDate!;
+                                int year = date1.year;
+                                int month = date1.month;
+                                final customersdata = selectedAccount;
+                                final amount = _amountController.text;
+                                final income = selectedIncomeAccount;
+                                final remarks = _remarksController.text;
 
-                              String setid = await getNextSetupId(customersdata.toString());
-                              String setupid = await getNextSetupId(income.toString());
+                                String setid = await getNextSetupId(
+                                  customersdata.toString(),
+                                );
+                                String setupid = await getNextSetupId(
+                                  income.toString(),
+                                );
 
-                              // Credit entry for customer
-                              Map<String, dynamic> creditDatas = {
-                                "ACCOUNTS_date": DateFormat('yyyy-MM-dd').format(selectedDate!),
-                                "ACCOUNTS_billVoucherNumber": billno.toString(),
-                                "ACCOUNTS_amount": amount,
-                                "ACCOUNTS_setupid": setid,
-                                "ACCOUNTS_VoucherType": 3, // Bill voucher type
-                                "ACCOUNTS_entryid": "0",
-                                "ACCOUNTS_type": "credit",
-                                "ACCOUNTS_remarks": remarks,
-                                "ACCOUNTS_year": year.toString(),
-                                "ACCOUNTS_month": month.toString(),
-                                "ACCOUNTS_cashbanktype": "0",
-                                "ACCOUNTS_billId": "0",
-                              };
-
-                              final id = await DatabaseHelper().insertData("TABLE_ACCOUNTS", creditDatas);
-                              
-                              if (id != null) {
-                                print("Credit data inserted...$id");
-
-                                // Debit entry for income
-                                Map<String, dynamic> debitDatas = {
-                                  "ACCOUNTS_date": DateFormat('yyyy-MM-dd').format(selectedDate!),
-                                  "ACCOUNTS_billVoucherNumber": billno.toString(),
+                                // Credit entry for customer
+                                Map<String, dynamic> creditDatas = {
+                                  "ACCOUNTS_date": DateFormat(
+                                    'yyyy-MM-dd',
+                                  ).format(selectedDate!),
+                                  "ACCOUNTS_billVoucherNumber":
+                                      billno.toString(),
                                   "ACCOUNTS_amount": amount,
-                                  "ACCOUNTS_setupid": setupid,
-                                  "ACCOUNTS_VoucherType": 3, // Bill voucher type
-                                  "ACCOUNTS_entryid": id.toString(),
-                                  "ACCOUNTS_type": "debit",
+                                  "ACCOUNTS_setupid": setid,
+                                  "ACCOUNTS_VoucherType":
+                                      3, // Bill voucher type
+                                  "ACCOUNTS_entryid": "0",
+                                  "ACCOUNTS_type": "credit",
                                   "ACCOUNTS_remarks": remarks,
                                   "ACCOUNTS_year": year.toString(),
                                   "ACCOUNTS_month": month.toString(),
@@ -420,39 +414,76 @@ class _AddBillState extends State<AddBill> {
                                   "ACCOUNTS_billId": "0",
                                 };
 
-                                var debtdata = await DatabaseHelper().insertData("TABLE_ACCOUNTS", debitDatas);
-                                
-                                if (debtdata != null) {
-                                  print("Debit data inserted...$debtdata");
-                                  
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Bill saved successfully!'),
-                                        backgroundColor: Colors.green,
-                                      ),
+                                final id = await DatabaseHelper().insertData(
+                                  "TABLE_ACCOUNTS",
+                                  creditDatas,
+                                );
+
+                                if (id != null) {
+                                  print("Credit data inserted...$id");
+
+                                  // Debit entry for income
+                                  Map<String, dynamic> debitDatas = {
+                                    "ACCOUNTS_date": DateFormat(
+                                      'yyyy-MM-dd',
+                                    ).format(selectedDate!),
+                                    "ACCOUNTS_billVoucherNumber":
+                                        billno.toString(),
+                                    "ACCOUNTS_amount": amount,
+                                    "ACCOUNTS_setupid": setupid,
+                                    "ACCOUNTS_VoucherType":
+                                        3, // Bill voucher type
+                                    "ACCOUNTS_entryid": id.toString(),
+                                    "ACCOUNTS_type": "debit",
+                                    "ACCOUNTS_remarks": remarks,
+                                    "ACCOUNTS_year": year.toString(),
+                                    "ACCOUNTS_month": month.toString(),
+                                    "ACCOUNTS_cashbanktype": "0",
+                                    "ACCOUNTS_billId": "0",
+                                  };
+
+                                  var debtdata = await DatabaseHelper()
+                                      .insertData("TABLE_ACCOUNTS", debitDatas);
+
+                                  if (debtdata != null) {
+                                    print("Debit data inserted...$debtdata");
+
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Bill saved successfully!',
+                                          ),
+                                          backgroundColor: Colors.green,
+                                        ),
+                                      );
+                                      Navigator.pop(context, true);
+                                    }
+                                  } else {
+                                    throw Exception(
+                                      "Failed to insert debit data",
                                     );
-                                    Navigator.pop(context, true);
                                   }
                                 } else {
-                                  throw Exception("Failed to insert debit data");
+                                  throw Exception(
+                                    "Failed to insert credit data",
+                                  );
                                 }
-                              } else {
-                                throw Exception("Failed to insert credit data");
-                              }
-                            } catch (e) {
-                              print("Error saving bill: $e");
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Error saving bill: $e'),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
+                              } catch (e) {
+                                print("Error saving bill: $e");
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Error saving bill: $e'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
                               }
                             }
-                          }
-                        },
+                          },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.teal,
                     foregroundColor: Colors.white,

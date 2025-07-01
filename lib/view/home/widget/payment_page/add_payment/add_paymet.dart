@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:new_project_2025/view/home/widget/payment_page/Month_date/Moth_datepage.dart';
 import 'package:new_project_2025/view/home/widget/payment_page/payment_class/payment_class.dart';
 import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 import 'package:new_project_2025/view_model/AccountSet_up/Add_Acount.dart';
@@ -49,7 +50,6 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
           }
         }
       }
-
       selectedAccount = widget.payment!.accountName;
       _amountController.text = widget.payment!.amount.toString();
       paymentMode = widget.payment!.paymentMode;
@@ -83,9 +83,8 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
               accountData['Accounttype'].toString().toLowerCase();
           String accountName = accountData['Accountname'].toString();
 
-          // Exclude 'Customers' account type
           if (accountType == 'customers') {
-            continue; // Skip Customers accounts
+            continue;
           }
 
           if (accountType == 'bank') {
@@ -104,11 +103,11 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
         bankOptions = banks;
         allBankCashOptions = [...cashOptions, ...bankOptions];
 
+        // Avoid defaulting to 'Cash' unless explicitly selected
         if (paymentMode == 'Cash') {
           if (selectedCashOption == null ||
               !cashOptions.contains(selectedCashOption)) {
-            selectedCashOption =
-                cashOptions.isNotEmpty ? cashOptions.first : 'Cash';
+            selectedCashOption = null;
           }
         } else {
           if (selectedCashOption == null ||
@@ -167,12 +166,14 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
       for (var row in allRows) {
         Map<String, dynamic> dat = jsonDecode(row["data"]);
         if (dat['Accountname'].toString().toLowerCase() == name.toLowerCase()) {
+          print('Found account: $name, keyid: ${row['keyid']}');
           return row['keyid'].toString();
         }
       }
-      return name.toLowerCase() == 'cash' ? '1' : '0';
+      print('Account not found: $name');
+      return '0'; // Return '0' for unknown accounts
     } catch (e) {
-      print('Error getting setup ID: $e');
+      print('Error getting setup ID for $name: $e');
       return '0';
     }
   }
@@ -210,6 +211,10 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
       return;
     }
 
+    print(
+      'Saving payment: selectedAccount=$selectedAccount, selectedCashOption=$selectedCashOption, paymentMode=$paymentMode',
+    );
+
     try {
       final db = await DatabaseHelper().database;
       final currentDate = selectedDate;
@@ -221,7 +226,28 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
       final firstSetupId = await getNextSetupId(selectedAccount!);
       final contraSetupId = await getNextSetupId(selectedCashOption!);
 
+      // Validate setup IDs to prevent saving invalid accounts
+      if (firstSetupId == '0' || contraSetupId == '0') {
+        throw Exception(
+          'Invalid account selected: $selectedAccount or $selectedCashOption',
+        );
+      }
+
+      // Prepare the amount as a negative value for the wallet
+      final double amount = double.parse(_amountController.text);
+      final double walletAmount = -amount; // Negative for wallet deduction
+
+      // Prepare wallet transaction data
+      Map<String, dynamic> walletTransactionData = {
+        "date": DateFormat('yyyy-MM-dd').format(currentDate),
+        "month_selected": currentDate.month,
+        "yearselected": currentDate.year,
+        "edtAmount": walletAmount.toString(),
+        "description": "Payment to $selectedAccount",
+      };
+
       if (widget.payment != null) {
+        // Update existing payment
         await db.update(
           "TABLE_ACCOUNTS",
           {
@@ -246,14 +272,38 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
             "ACCOUNTS_amount": _amountController.text,
             "ACCOUNTS_remarks": _remarksController.text,
             "ACCOUNTS_year": yearString,
-            "ACOUNTS_month": monthString,
+            "ACCOUNTS_month": monthString,
             "ACCOUNTS_cashbanktype": paymentMode == 'Cash' ? '1' : '2',
           },
           where:
               "ACCOUNTS_VoucherType = ? AND ACCOUNTS_entryid = ? AND ACCOUNTS_type = ?",
           whereArgs: [1, widget.payment!.id.toString(), 'credit'],
         );
+
+        // Update corresponding wallet entry (if it exists)
+        final existingWalletEntries = await db.query(
+          'TABLE_WALLET',
+          where: "data LIKE ?",
+          whereArgs: ['%Payment to $selectedAccount%'],
+        );
+
+        if (existingWalletEntries.isNotEmpty) {
+          // Update the first matching wallet entry (assuming one payment corresponds to one wallet entry)
+          await db.update(
+            'TABLE_WALLET',
+            {"data": jsonEncode(walletTransactionData)},
+            where: "keyid = ?",
+            whereArgs: [existingWalletEntries.first['keyid']],
+          );
+        } else {
+          // If no matching wallet entry exists, insert a new one
+          await DatabaseHelper().addData(
+            'TABLE_WALLET',
+            jsonEncode(walletTransactionData),
+          );
+        }
       } else {
+        // Insert new payment
         Map<String, dynamic> mainAccountEntry = {
           'ACCOUNTS_VoucherType': 1,
           'ACCOUNTS_entryid': 0,
@@ -294,6 +344,12 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
           where: "ACCOUNTS_id = ?",
           whereArgs: [debitId],
         );
+
+        // Insert new wallet transaction
+        await DatabaseHelper().addData(
+          'TABLE_WALLET',
+          jsonEncode(walletTransactionData),
+        );
       }
 
       final isBalanced = await DatabaseHelper().validateDoubleEntry();
@@ -316,6 +372,138 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
       }
     }
   }
+  // Future<void> _saveDoubleEntryAccounts() async {
+  //   if (!_formKey.currentState!.validate()) return;
+  //   if (selectedAccount == null) {
+  //     ScaffoldMessenger.of(
+  //       context,
+  //     ).showSnackBar(const SnackBar(content: Text('Please select an account')));
+  //     return;
+  //   }
+  //   if (selectedCashOption == null) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(content: Text('Please select a cash/bank option')),
+  //     );
+  //     return;
+  //   }
+
+  //   print(
+  //     'Saving payment: selectedAccount=$selectedAccount, selectedCashOption=$selectedCashOption, paymentMode=$paymentMode',
+  //   );
+
+  //   try {
+  //     final db = await DatabaseHelper().database;
+  //     final currentDate = selectedDate;
+  //     final dateString =
+  //         "${currentDate.day}/${currentDate.month}/${currentDate.year}";
+  //     final monthString = _getMonthName(currentDate.month);
+  //     final yearString = currentDate.year.toString();
+
+  //     final firstSetupId = await getNextSetupId(selectedAccount!);
+  //     final contraSetupId = await getNextSetupId(selectedCashOption!);
+
+  //     // Validate setup IDs to prevent saving invalid accounts
+  //     if (firstSetupId == '0' || contraSetupId == '0') {
+  //       throw Exception(
+  //         'Invalid account selected: $selectedAccount or $selectedCashOption',
+  //       );
+  //     }
+
+  //     if (widget.payment != null) {
+  //       await db.update(
+  //         "TABLE_ACCOUNTS",
+  //         {
+  //           "ACCOUNTS_date": dateString,
+  //           "ACCOUNTS_setupid": firstSetupId,
+  //           "ACCOUNTS_amount": _amountController.text,
+  //           "ACCOUNTS_remarks": _remarksController.text,
+  //           "ACCOUNTS_year": yearString,
+  //           "ACCOUNTS_month": monthString,
+  //           "ACCOUNTS_cashbanktype": paymentMode == 'Cash' ? '1' : '2',
+  //         },
+  //         where:
+  //             "ACCOUNTS_VoucherType = ? AND ACCOUNTS_entryid = ? AND ACCOUNTS_type = ?",
+  //         whereArgs: [1, widget.payment!.id.toString(), 'debit'],
+  //       );
+
+  //       await db.update(
+  //         "TABLE_ACCOUNTS",
+  //         {
+  //           "ACCOUNTS_date": dateString,
+  //           "ACCOUNTS_setupid": contraSetupId,
+  //           "ACCOUNTS_amount": _amountController.text,
+  //           "ACCOUNTS_remarks": _remarksController.text,
+  //           "ACCOUNTS_year": yearString,
+  //           "ACCOUNTS_month": monthString,
+  //           "ACCOUNTS_cashbanktype": paymentMode == 'Cash' ? '1' : '2',
+  //         },
+  //         where:
+  //             "ACCOUNTS_VoucherType = ? AND ACCOUNTS_entryid = ? AND ACCOUNTS_type = ?",
+  //         whereArgs: [1, widget.payment!.id.toString(), 'credit'],
+  //       );
+  //     } else {
+  //       Map<String, dynamic> mainAccountEntry = {
+  //         'ACCOUNTS_VoucherType': 1,
+  //         'ACCOUNTS_entryid': 0,
+  //         'ACCOUNTS_date': dateString,
+  //         'ACCOUNTS_setupid': firstSetupId,
+  //         'ACCOUNTS_amount': _amountController.text,
+  //         'ACCOUNTS_type': 'debit',
+  //         'ACCOUNTS_remarks': _remarksController.text,
+  //         'ACCOUNTS_year': yearString,
+  //         'ACCOUNTS_month': monthString,
+  //         'ACCOUNTS_cashbanktype': paymentMode == 'Cash' ? '1' : '2',
+  //         'ACCOUNTS_billId': '',
+  //         'ACCOUNTS_billVoucherNumber': '',
+  //       };
+
+  //       final debitId = await db.insert("TABLE_ACCOUNTS", mainAccountEntry);
+
+  //       Map<String, dynamic> contraEntry = {
+  //         'ACCOUNTS_VoucherType': 1,
+  //         'ACCOUNTS_entryid': debitId.toString(),
+  //         'ACCOUNTS_date': dateString,
+  //         'ACCOUNTS_setupid': contraSetupId,
+  //         'ACCOUNTS_amount': _amountController.text,
+  //         'ACCOUNTS_type': 'credit',
+  //         'ACCOUNTS_remarks': _remarksController.text,
+  //         'ACCOUNTS_year': yearString,
+  //         'ACCOUNTS_month': monthString,
+  //         'ACCOUNTS_cashbanktype': paymentMode == 'Cash' ? '1' : '2',
+  //         'ACCOUNTS_billId': '',
+  //         'ACCOUNTS_billVoucherNumber': '',
+  //       };
+
+  //       await db.insert("TABLE_ACCOUNTS", contraEntry);
+
+  //       await db.update(
+  //         "TABLE_ACCOUNTS",
+  //         {"ACCOUNTS_entryid": debitId},
+  //         where: "ACCOUNTS_id = ?",
+  //         whereArgs: [debitId],
+  //       );
+  //     }
+
+  //     final isBalanced = await DatabaseHelper().validateDoubleEntry();
+  //     if (!isBalanced) {
+  //       throw Exception('Double-entry accounting is unbalanced');
+  //     }
+
+  //     if (mounted) {
+  //       Navigator.pop(context, true);
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         const SnackBar(content: Text('Payment saved successfully')),
+  //       );
+  //     }
+  //   } catch (e) {
+  //     print('Error saving payment: $e');
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(
+  //         context,
+  //       ).showSnackBar(SnackBar(content: Text('Error saving payment: $e')));
+  //     }
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -493,7 +681,7 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
                     onChanged: (String? value) {
                       setState(() {
                         paymentMode = value!;
-                        selectedCashOption = 'Cash';
+                        selectedCashOption = null; // Allow user to select
                       });
                     },
                   ),
@@ -519,7 +707,7 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
                               paymentMode == 'Cash'
                                   ? (cashOptions.contains(selectedCashOption)
                                       ? selectedCashOption
-                                      : cashOptions.first)
+                                      : null)
                                   : (bankOptions.contains(selectedCashOption)
                                       ? selectedCashOption
                                       : (bankOptions.isNotEmpty
@@ -695,7 +883,6 @@ class _SearchableAccountDialogState extends State<SearchableAccountDialog> {
                           dat['Accounttype'].toString().toLowerCase();
                       String accountName = dat['Accountname'].toString();
 
-                      // Exclude 'Customers' accounts
                       if (accountType == 'customers') {
                         continue;
                       }

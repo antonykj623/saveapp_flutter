@@ -35,12 +35,11 @@ class _ReceiptsPageState extends State<ReceiptsPage> {
     try {
       List<Map<String, dynamic>> receiptsList = await DatabaseHelper()
           .getAllData("TABLE_ACCOUNTS");
-
-      // Get all account settings to map setup IDs to account names
       List<Map<String, dynamic>> accountSettings = await DatabaseHelper()
           .getAllData("TABLE_ACCOUNTSETTINGS");
 
       // Create a map of setup ID to account name
+
       Map<String, String> setupIdToAccountName = {};
       for (var account in accountSettings) {
         try {
@@ -52,38 +51,53 @@ class _ReceiptsPageState extends State<ReceiptsPage> {
           print('Error parsing account settings: $e');
         }
       }
-      setupIdToAccountName['1'] = 'Cash';
+      // setupIdToAccountName['0'] = 'Cash'; // Fallback for Cash account
+
+      // Filter unique debit entries for the selected year-month
+      final uniqueDebitEntries = <String, Map<String, dynamic>>{};
+      for (var mp in receiptsList) {
+        if (mp['ACCOUNTS_VoucherType'] == 2 &&
+            mp['ACCOUNTS_type'] == 'debit' &&
+            DateFormat(
+                  'yyyy-MM',
+                ).format(DateFormat('dd/MM/yyyy').parse(mp['ACCOUNTS_date'])) ==
+                selectedYearMonth) {
+          uniqueDebitEntries[mp['ACCOUNTS_entryid'].toString()] = mp;
+        }
+      }
 
       setState(() {
         receipts =
-            receiptsList
-                .where(
-                  (mp) =>
-                      mp['ACCOUNTS_VoucherType'] == 2 &&
-                      mp['ACCOUNTS_type'] == 'debit' &&
-                      DateFormat('yyyy-MM').format(
-                            DateFormat('dd/MM/yyyy').parse(mp['ACCOUNTS_date']),
-                          ) ==
-                          selectedYearMonth,
-                )
-                .map((mp) {
-                  String setupId = mp['ACCOUNTS_setupid'].toString();
-                  String accountName =
-                      setupIdToAccountName[setupId] ?? 'Unknown Account';
+            uniqueDebitEntries.values.map((mp) {
+              String debitSetupId = mp['ACCOUNTS_setupid'].toString();
+              String accountName =
+                  setupIdToAccountName[debitSetupId] ?? 'Unknown Account';
 
-                  return Receipt(
-                    id: int.parse(mp['ACCOUNTS_entryid']),
-                    date: mp['ACCOUNTS_date'], // Use stored date directly
-                    accountName: accountName,
-                    amount: double.parse(mp['ACCOUNTS_amount'].toString()),
-                    paymentMode:
-                        mp['ACCOUNTS_cashbanktype'] == '1'
-                            ? 'Cash'
-                            : setupIdToAccountName[setupId] ?? 'Bank',
-                    remarks: mp['ACCOUNTS_remarks'] ?? '',
-                  );
-                })
-                .toList();
+              String paymentMode = 'Cash';
+              try {
+                var creditEntry = receiptsList.firstWhere(
+                  (entry) =>
+                      entry['ACCOUNTS_VoucherType'] == 2 &&
+                      entry['ACCOUNTS_type'] == 'credit' &&
+                      entry['ACCOUNTS_entryid'].toString() ==
+                          mp['ACCOUNTS_entryid'].toString(),
+                );
+                String creditSetupId =
+                    creditEntry['ACCOUNTS_setupid'].toString();
+              } catch (e) {
+                print('Could not find credit entry: $e');
+              }
+
+              return Receipt(
+                id: int.parse(mp['ACCOUNTS_entryid']),
+                date: mp['ACCOUNTS_date'],
+                accountName: accountName,
+                amount: double.parse(mp['ACCOUNTS_amount'].toString()),
+                paymentMode: paymentMode,
+                remarks: mp['ACCOUNTS_remarks'] ?? '',
+              );
+            }).toList();
+
         total = receipts.fold(0, (sum, receipt) => sum + receipt.amount);
       });
     } catch (e) {
@@ -168,6 +182,7 @@ class _ReceiptsPageState extends State<ReceiptsPage> {
       }
     } catch (e) {
       print('Error deleting receipt: $e');
+
       if (mounted) {
         ScaffoldMessenger.of(
           context,
