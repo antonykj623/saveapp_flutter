@@ -8,7 +8,6 @@ import 'package:quickalert/models/quickalert_type.dart';
 import 'package:quickalert/widgets/quickalert_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-// Replace with actual path if needed
 
 void main() {
   runApp(const MyApp());

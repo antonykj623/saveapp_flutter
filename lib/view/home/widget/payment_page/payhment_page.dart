@@ -33,12 +33,9 @@ class _PaymentsPageState extends State<PaymentsPage> {
 
   Future<void> _loadPayments() async {
     try {
-      List<Map<String, dynamic>> paymentsList = await DatabaseHelper()
-          .getAllData("TABLE_ACCOUNTS");
-      List<Map<String, dynamic>> accountSettings = await DatabaseHelper()
-          .getAllData("TABLE_ACCOUNTSETTINGS");
+      List<Map<String, dynamic>> paymentsList = await DatabaseHelper().getAllData("TABLE_ACCOUNTS");
+      List<Map<String, dynamic>> accountSettings = await DatabaseHelper().getAllData("TABLE_ACCOUNTSETTINGS");
 
-      // Create a map of setup ID to account name
       Map<String, String> setupIdToAccountName = {};
       for (var account in accountSettings) {
         try {
@@ -50,65 +47,51 @@ class _PaymentsPageState extends State<PaymentsPage> {
           print('Error parsing account settings: $e');
         }
       }
-      // setupIdToAccountName['1'] = 'Cash'; // Fallback for Cash account
 
-      // Filter unique debit entries for payments
       final uniqueDebitEntries = <String, Map<String, dynamic>>{};
       for (var mp in paymentsList) {
         if (mp['ACCOUNTS_VoucherType'] == 1 &&
             mp['ACCOUNTS_type'] == 'debit' &&
-            DateFormat(
-                  'yyyy-MM',
-                ).format(DateFormat('dd/MM/yyyy').parse(mp['ACCOUNTS_date'])) ==
-                selectedYearMonth) {
+            DateFormat('yyyy-MM').format(DateFormat('dd/MM/yyyy').parse(mp['ACCOUNTS_date'])) == selectedYearMonth) {
           uniqueDebitEntries[mp['ACCOUNTS_entryid'].toString()] = mp;
         }
       }
 
       setState(() {
-        payments =
-            uniqueDebitEntries.values.map((mp) {
-              String debitSetupId = mp['ACCOUNTS_setupid'].toString();
-              String accountName =
-                  setupIdToAccountName[debitSetupId] ??
-                  'Unknown Account (ID: $debitSetupId)';
+        payments = uniqueDebitEntries.values.map((mp) {
+          String debitSetupId = mp['ACCOUNTS_setupid'].toString();
+          String accountName = setupIdToAccountName[debitSetupId] ?? 'Unknown Account (ID: $debitSetupId)';
 
-              String paymentMode = 'Cash';
-              try {
-                var creditEntry = paymentsList.firstWhere(
-                  (entry) =>
-                      entry['ACCOUNTS_VoucherType'] == 1 &&
-                      entry['ACCOUNTS_type'] == 'credit' &&
-                      entry['ACCOUNTS_entryid'].toString() ==
-                          mp['ACCOUNTS_entryid'].toString(),
-                );
-                String creditSetupId =
-                    creditEntry['ACCOUNTS_setupid'].toString();
-                paymentMode = setupIdToAccountName[creditSetupId] ?? 'Cash';
-              } catch (e) {
-                print(
-                  'Could not find credit entry for payment ID ${mp['ACCOUNTS_entryid']}: $e',
-                );
-              }
+          String paymentMode = 'Cash';
+          try {
+            var creditEntry = paymentsList.firstWhere(
+              (entry) =>
+                  entry['ACCOUNTS_VoucherType'] == 1 &&
+                  entry['ACCOUNTS_type'] == 'credit' &&
+                  entry['ACCOUNTS_entryid'].toString() == mp['ACCOUNTS_entryid'].toString(),
+            );
+            String creditSetupId = creditEntry['ACCOUNTS_setupid'].toString();
+            paymentMode = setupIdToAccountName[creditSetupId] ?? 'Cash';
+          } catch (e) {
+            print('Could not find credit entry for payment ID ${mp['ACCOUNTS_entryid']}: $e');
+          }
 
-              return Payment(
-                id: int.parse(mp['ACCOUNTS_entryid']),
-                date: mp['ACCOUNTS_date'],
-                accountName: accountName,
-                amount: double.parse(mp['ACCOUNTS_amount'].toString()),
-                paymentMode: paymentMode,
-                remarks: mp['ACCOUNTS_remarks'] ?? '',
-              );
-            }).toList();
+          return Payment(
+            id: int.parse(mp['ACCOUNTS_entryid']),
+            date: mp['ACCOUNTS_date'],
+            accountName: accountName,
+            amount: double.parse(mp['ACCOUNTS_amount'].toString()),
+            paymentMode: paymentMode,
+            remarks: mp['ACCOUNTS_remarks'] ?? '',
+          );
+        }).toList();
 
         total = payments.fold(0, (sum, payment) => sum + payment.amount);
       });
     } catch (e) {
       print('Error loading payments: $e');
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error loading payments: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error loading payments: $e')));
       }
       setState(() {
         payments = [];
@@ -124,20 +107,18 @@ class _PaymentsPageState extends State<PaymentsPage> {
 
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            content: MonthYearPicker(
-              initialMonth: initialMonth,
-              initialYear: initialYear,
-              onDateSelected: (int month, int year) {
-                setState(() {
-                  selectedYearMonth =
-                      '$year-${month.toString().padLeft(2, '0')}';
-                  _loadPayments();
-                });
-              },
-            ),
-          ),
+      builder: (context) => AlertDialog(
+        content: MonthYearPicker(
+          initialMonth: initialMonth,
+          initialYear: initialYear,
+          onDateSelected: (int month, int year) {
+            setState(() {
+              selectedYearMonth = '$year-${month.toString().padLeft(2, '0')}';
+              _loadPayments();
+            });
+          },
+        ),
+      ),
     );
   }
 
@@ -172,6 +153,12 @@ class _PaymentsPageState extends State<PaymentsPage> {
         whereArgs: [1, id.toString()],
       );
 
+      await db.delete(
+        "TABLE_WALLET",
+        where: "data LIKE ?",
+        whereArgs: ['%\"paymentEntryId\":\"$id\"%'],
+      );
+
       final isBalanced = await DatabaseHelper().validateDoubleEntry();
       if (!isBalanced) {
         throw Exception('Double-entry accounting is unbalanced after deletion');
@@ -186,9 +173,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
     } catch (e) {
       print('Error deleting payment: $e');
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error deleting payment: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error deleting payment: $e')));
       }
     }
   }
@@ -254,166 +239,94 @@ class _PaymentsPageState extends State<PaymentsPage> {
                     ),
                   ),
                   Expanded(
-                    child:
-                        payments.isEmpty
-                            ? const Center(
-                              child: Text('No payments for this month'),
-                            )
-                            : Scrollbar(
+                    child: payments.isEmpty
+                        ? const Center(
+                            child: Text('No payments for this month'),
+                          )
+                        : Scrollbar(
+                            controller: _verticalScrollController,
+                            child: ListView.builder(
                               controller: _verticalScrollController,
-                              child: ListView.builder(
-                                controller: _verticalScrollController,
-                                itemCount: payments.length,
-                                itemBuilder: (context, index) {
-                                  final payment = payments[index];
-                                  return Container(
-                                    decoration: BoxDecoration(
-                                      border: Border(
-                                        bottom: BorderSide(
-                                          color: Colors.grey.shade300,
-                                        ),
-                                      ),
+                              itemCount: payments.length,
+                              itemBuilder: (context, index) {
+                                final payment = payments[index];
+                                return Container(
+                                  decoration: BoxDecoration(
+                                    border: Border(
+                                      bottom: BorderSide(color: Colors.grey.shade300),
                                     ),
-                                    child: Row(
-                                      children: [
-                                        _buildDataCell(payment.date, flex: 1),
-                                        _buildDataCell(
-                                          payment.accountName,
-                                          flex: 2,
-                                        ),
-                                        _buildDataCell(
-                                          payment.amount.toStringAsFixed(2),
-                                          flex: 1,
-                                        ),
-                                        _buildDataCell(
-                                          payment.paymentMode,
-                                          flex: 1,
-                                        ),
-                                        Expanded(
-                                          flex: 1,
-                                          child: Container(
-                                            alignment: Alignment.center,
-                                            padding: const EdgeInsets.symmetric(
-                                              vertical: 8,
-                                            ),
-                                            child: TextButton(
-                                              onPressed: () {
-                                                showDialog(
-                                                  context: context,
-                                                  builder:
-                                                      (context) => AlertDialog(
-                                                        title: const Text(
-                                                          'Choose Action',
-                                                        ),
-                                                        content: Column(
-                                                          mainAxisSize:
-                                                              MainAxisSize.min,
-                                                          children: [
-                                                            ListTile(
-                                                              leading:
-                                                                  const Icon(
-                                                                    Icons.edit,
-                                                                  ),
-                                                              title: const Text(
-                                                                'Edit',
-                                                              ),
-                                                              onTap: () {
-                                                                Navigator.pop(
-                                                                  context,
-                                                                );
-                                                                _navigateToEditPayment(
-                                                                  payment,
-                                                                );
-                                                              },
-                                                            ),
-                                                            ListTile(
-                                                              leading:
-                                                                  const Icon(
-                                                                    Icons
-                                                                        .delete,
-                                                                    color:
-                                                                        Colors
-                                                                            .red,
-                                                                  ),
-                                                              title: const Text(
-                                                                'Delete',
-                                                                style: TextStyle(
-                                                                  color:
-                                                                      Colors
-                                                                          .red,
-                                                                ),
-                                                              ),
-                                                              onTap: () {
-                                                                Navigator.pop(
-                                                                  context,
-                                                                );
-                                                                showDialog(
-                                                                  context:
-                                                                      context,
-                                                                  builder:
-                                                                      (
-                                                                        context,
-                                                                      ) => AlertDialog(
-                                                                        title: const Text(
-                                                                          'Confirm Delete',
-                                                                        ),
-                                                                        content:
-                                                                            const Text(
-                                                                              'Are you sure you want to delete this payment?',
-                                                                            ),
-                                                                        actions: [
-                                                                          TextButton(
-                                                                            onPressed: () {
-                                                                              Navigator.pop(
-                                                                                context,
-                                                                              );
-                                                                            },
-                                                                            child: const Text(
-                                                                              'Cancel',
-                                                                            ),
-                                                                          ),
-                                                                          TextButton(
-                                                                            onPressed: () {
-                                                                              Navigator.pop(
-                                                                                context,
-                                                                              );
-                                                                              _deletePayment(
-                                                                                payment.id!,
-                                                                              );
-                                                                            },
-                                                                            style: TextButton.styleFrom(
-                                                                              foregroundColor:
-                                                                                  Colors.red,
-                                                                            ),
-                                                                            child: const Text(
-                                                                              'Delete',
-                                                                            ),
-                                                                          ),
-                                                                        ],
-                                                                      ),
-                                                                );
-                                                              },
-                                                            ),
-                                                          ],
-                                                        ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      _buildDataCell(payment.date, flex: 1),
+                                      _buildDataCell(payment.accountName, flex: 2),
+                                      _buildDataCell(payment.amount.toStringAsFixed(2), flex: 1),
+                                      _buildDataCell(payment.paymentMode, flex: 1),
+                                      Expanded(
+                                        flex: 1,
+                                        child: Container(
+                                          alignment: Alignment.center,
+                                          padding: const EdgeInsets.symmetric(vertical: 8),
+                                          child: TextButton(
+                                            onPressed: () {
+                                              showDialog(
+                                                context: context,
+                                                builder: (context) => AlertDialog(
+                                                  title: const Text('Choose Action'),
+                                                  content: Column(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      ListTile(
+                                                        leading: const Icon(Icons.edit),
+                                                        title: const Text('Edit'),
+                                                        onTap: () {
+                                                          Navigator.pop(context);
+                                                          _navigateToEditPayment(payment);
+                                                        },
                                                       ),
-                                                );
-                                              },
-                                              child: const Text(
-                                                'Edit/Delete',
-                                                style: TextStyle(
-                                                  color: Colors.blue,
+                                                      ListTile(
+                                                        leading: const Icon(Icons.delete, color: Colors.red),
+                                                        title: const Text('Delete', style: TextStyle(color: Colors.red)),
+                                                        onTap: () {
+                                                          Navigator.pop(context);
+                                                          showDialog(
+                                                            context: context,
+                                                            builder: (context) => AlertDialog(
+                                                              title: const Text('Confirm Delete'),
+                                                              content: const Text('Are you sure you want to delete this payment?'),
+                                                              actions: [
+                                                                TextButton(
+                                                                  onPressed: () => Navigator.pop(context),
+                                                                  child: const Text('Cancel'),
+                                                                ),
+                                                                TextButton(
+                                                                  onPressed: () {
+                                                                    Navigator.pop(context);
+                                                                    _deletePayment(payment.id!);
+                                                                  },
+                                                                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                                                                  child: const Text('Delete'),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          );
+                                                        },
+                                                      ),
+                                                    ],
+                                                  ),
                                                 ),
-                                              ),
-                                            ),
+                                              );
+                                            },
+                                            child: const Text('Edit/Delete', style: TextStyle(color: Colors.blue)),
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
                             ),
+                          ),
                   ),
                 ],
               ),

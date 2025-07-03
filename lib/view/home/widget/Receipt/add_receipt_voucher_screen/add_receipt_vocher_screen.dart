@@ -201,17 +201,14 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
       final monthString = _getMonthName(selectedDate.month);
       final yearString = selectedDate.year.toString();
 
-      // Get setup IDs
       final accountSetupId = await getNextSetupId(
         selectedAccount!,
-      ); // The account receiving money
+      ); 
       final cashBankSetupId = await getNextSetupId(
         selectedCashOption!,
-      ); // Cash/Bank giving money
+      );
 
       if (receiptId != null) {
-        // Update existing receipt
-        // DEBIT: The account receiving the money (selectedAccount)
         await db.update(
           "TABLE_ACCOUNTS",
           {

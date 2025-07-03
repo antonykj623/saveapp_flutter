@@ -5,6 +5,8 @@ import 'package:new_project_2025/view/home/widget/CashBank/Receipt_class/monthYe
 import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 import 'package:new_project_2025/view/home/widget/wallet_page/wallet_transation_class/wallet_transtion_class.dart';
 import 'package:new_project_2025/view/home/widget/wallet_page/addmoney_wallet/add_money_wallet.dart';
+import 'package:new_project_2025/view/home/widget/payment_page/add_payment/add_paymet.dart';
+import 'package:new_project_2025/view/home/widget/payment_page/payment_class/payment_class.dart';
 
 class WalletPage extends StatefulWidget {
   const WalletPage({super.key});
@@ -16,13 +18,99 @@ class WalletPage extends StatefulWidget {
 class _WalletPageState extends State<WalletPage> {
   String selectedYearMonth = DateFormat('yyyy-MM').format(DateTime.now());
   List<WalletTransaction> transactions = [];
-  double openingBalance = 0.0; // Will be set from the first transaction
+  double openingBalance = 0.0;
   double closingBalance = 0.0;
+  double total = 0;
+  List<Payment> payments = [];
 
   @override
   void initState() {
     super.initState();
     _loadWalletData();
+    _loadPayments();
+  }
+
+  Future<void> _loadPayments() async {
+    try {
+      List<Map<String, dynamic>> paymentsList = await DatabaseHelper()
+          .getAllData("TABLE_ACCOUNTS");
+      List<Map<String, dynamic>> accountSettings = await DatabaseHelper()
+          .getAllData("TABLE_ACCOUNTSETTINGS");
+
+      Map<String, String> setupIdToAccountName = {};
+      for (var account in accountSettings) {
+        try {
+          Map<String, dynamic> accountData = jsonDecode(account["data"]);
+          String setupId = account['keyid'].toString();
+          String accountName = accountData['Accountname'].toString();
+          setupIdToAccountName[setupId] = accountName;
+        } catch (e) {
+          print('Error parsing account settings: $e');
+        }
+      }
+
+      final uniqueDebitEntries = <String, Map<String, dynamic>>{};
+      for (var mp in paymentsList) {
+        if (mp['ACCOUNTS_VoucherType'] == 1 &&
+            mp['ACCOUNTS_type'] == 'debit' &&
+            DateFormat(
+                  'yyyy-MM',
+                ).format(DateFormat('dd/MM/yyyy').parse(mp['ACCOUNTS_date'])) ==
+                selectedYearMonth) {
+          uniqueDebitEntries[mp['ACCOUNTS_entryid'].toString()] = mp;
+        }
+      }
+
+      setState(() {
+        payments =
+            uniqueDebitEntries.values.map((mp) {
+              String debitSetupId = mp['ACCOUNTS_setupid'].toString();
+              String accountName =
+                  setupIdToAccountName[debitSetupId] ??
+                  'Unknown Account (ID: $debitSetupId)';
+
+              String paymentMode = 'Cash';
+              try {
+                var creditEntry = paymentsList.firstWhere(
+                  (entry) =>
+                      entry['ACCOUNTS_VoucherType'] == 1 &&
+                      entry['ACCOUNTS_type'] == 'credit' &&
+                      entry['ACCOUNTS_entryid'].toString() ==
+                          mp['ACCOUNTS_entryid'].toString(),
+                );
+                String creditSetupId =
+                    creditEntry['ACCOUNTS_setupid'].toString();
+                paymentMode = setupIdToAccountName[creditSetupId] ?? 'Cash';
+              } catch (e) {
+                print(
+                  'Could not find credit entry for payment ID ${mp['ACCOUNTS_entryid']}: $e',
+                );
+              }
+
+              return Payment(
+                id: int.parse(mp['ACCOUNTS_entryid']),
+                date: mp['ACCOUNTS_date'],
+                accountName: accountName,
+                amount: double.parse(mp['ACCOUNTS_amount'].toString()),
+                paymentMode: paymentMode,
+                remarks: mp['ACCOUNTS_remarks'] ?? '',
+              );
+            }).toList();
+
+        total = payments.fold(0, (sum, payment) => sum + payment.amount);
+      });
+    } catch (e) {
+      print('Error loading payments: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading payments: $e')));
+      }
+      setState(() {
+        payments = [];
+        total = 0;
+      });
+    }
   }
 
   Future<void> _loadWalletData() async {
@@ -30,6 +118,11 @@ class _WalletPageState extends State<WalletPage> {
       var walletData = await DatabaseHelper().getWalletData();
       List<WalletTransaction> tempTransactions = [];
       double totalAmount = 0.0;
+
+      final yearMonthParts = selectedYearMonth.split('-');
+      final selectedYear = int.parse(yearMonthParts[0]);
+      final selectedMonth = int.parse(yearMonthParts[1]);
+      final startOfMonth = DateTime(selectedYear, selectedMonth, 1);
 
       var sortedData = walletData.toList();
       sortedData.sort((a, b) {
@@ -40,13 +133,26 @@ class _WalletPageState extends State<WalletPage> {
         ).compareTo(DateTime.parse(dataB['date'] ?? '1970-01-01'));
       });
 
-      double firstCreditAmount = 0.0;
-      for (var row in sortedData) {
+      double firstWalletAmount = 0.0;
+      DateTime? firstTransactionDate;
+
+      if (sortedData.isNotEmpty) {
+        Map<String, dynamic> firstData = jsonDecode(sortedData[0]['data']);
+        firstWalletAmount =
+            double.tryParse(firstData['edtAmount'] ?? '0') ?? 0.0;
+        firstTransactionDate = DateTime.parse(
+          firstData['date'] ?? '1970-01-01',
+        );
+      }
+
+      double runningBalance = 0.0;
+      for (var row in sortedData.skip(1)) {
         Map<String, dynamic> data = jsonDecode(row['data']);
+        DateTime transactionDate = DateTime.parse(data['date'] ?? '1970-01-01');
         double amount = double.tryParse(data['edtAmount'] ?? '0') ?? 0.0;
-        if (amount > 0) {
-          firstCreditAmount = amount;
-          break; 
+
+        if (transactionDate.isBefore(startOfMonth)) {
+          runningBalance += amount;
         }
       }
 
@@ -60,11 +166,10 @@ class _WalletPageState extends State<WalletPage> {
         Map<String, dynamic> data = jsonDecode(row['data']);
         String date = data['date'] ?? '';
         double amount = double.tryParse(data['edtAmount'] ?? '0') ?? 0.0;
-        String description =
-            data.containsKey('description')
-                ? data['description']
-                : 'Money Added To Wallet';
+        String description = data['description'] ?? 'Money Added To Wallet';
         String type = amount >= 0 ? 'credit' : 'debit';
+        String? paymentMethod = data['paymentMethod'];
+        String? paymentEntryId = data['paymentEntryId'];
 
         tempTransactions.add(
           WalletTransaction(
@@ -73,16 +178,35 @@ class _WalletPageState extends State<WalletPage> {
             amount: amount,
             description: description,
             type: type,
+            paymentMethod: paymentMethod,
+            paymentEntryId: paymentEntryId,
           ),
         );
+
         totalAmount += amount;
+      }
+
+      double actualClosingBalance = 0.0;
+      DateTime endOfMonth = DateTime(
+        selectedYear,
+        selectedMonth + 1,
+        1,
+      ).subtract(Duration(days: 1));
+
+      for (var row in sortedData) {
+        Map<String, dynamic> data = jsonDecode(row['data']);
+        DateTime transactionDate = DateTime.parse(data['date'] ?? '1970-01-01');
+        double amount = double.tryParse(data['edtAmount'] ?? '0') ?? 0.0;
+
+        if (!transactionDate.isAfter(endOfMonth)) {
+          actualClosingBalance += amount;
+        }
       }
 
       setState(() {
         transactions = tempTransactions;
-        openingBalance =
-            firstCreditAmount; // Set to the first positive transaction's amount
-        closingBalance = openingBalance + totalAmount;
+        openingBalance = firstWalletAmount;
+        closingBalance = actualClosingBalance;
       });
     } catch (e) {
       print('Error loading wallet data: $e');
@@ -94,75 +218,108 @@ class _WalletPageState extends State<WalletPage> {
     }
   }
 
-  // Future<void> _loadWalletData() async {
-  //   try {
-  //     var walletData = await DatabaseHelper().getWalletData();
-  //     List<WalletTransaction> tempTransactions = [];
-  //     double totalAmount = 0.0;
-  //     double priorBalance = 0.0;
+  Future<bool> _isPaymentTransaction(WalletTransaction transaction) async {
+    try {
+      if (transaction.description == 'Money Added To Wallet' ||
+          transaction.paymentEntryId == null ||
+          transaction.paymentEntryId!.isEmpty) {
+        return false;
+      }
 
-  //     // Parse selected year and month
-  //     final yearMonthParts = selectedYearMonth.split('-');
-  //     final selectedYear = int.parse(yearMonthParts[0]);
-  //     final selectedMonth = int.parse(yearMonthParts[1]);
-  //     final startOfMonth = DateTime(selectedYear, selectedMonth, 1);
+      List<Map<String, dynamic>> paymentsList = await DatabaseHelper()
+          .getAllData("TABLE_ACCOUNTS");
 
-  //     // Sort all data by date
-  //     var sortedData = walletData.toList();
-  //     sortedData.sort((a, b) {
-  //       Map<String, dynamic> dataA = jsonDecode(a['data']);
-  //       Map<String, dynamic> dataB = jsonDecode(b['data']);
-  //       return DateTime.parse(
-  //         dataA['date'] ?? '1970-01-01',
-  //       ).compareTo(DateTime.parse(dataB['data'] ?? '1970-01-01'));
-  //     });
+      for (var payment in paymentsList) {
+        if (payment['ACCOUNTS_VoucherType'] == 1 &&
+            payment['ACCOUNTS_entryid'].toString() ==
+                transaction.paymentEntryId &&
+            payment['ACCOUNTS_type'] == 'debit') {
+          return true;
+        }
+      }
 
-  //     for (var row in sortedData) {
-  //       Map<String, dynamic> data = jsonDecode(row['data']);
-  //       String date = data['date'] ?? '';
-  //       DateTime transactionDate = DateTime.parse(date);
-  //       double amount = double.tryParse(data['edtAmount'] ?? '0') ?? 0.0;
-  //       String description =
-  //           data.containsKey('description')
-  //               ? data['description']
-  //               : 'Money Added To Wallet';
-  //       String type = amount >= 0 ? 'credit' : 'debit';
+      return false;
+    } catch (e) {
+      print('Error checking payment transaction: $e');
+      return false;
+    }
+  }
 
-  //       // Calculate opening balance from transactions before the selected month
-  //       if (transactionDate.isBefore(startOfMonth)) {
-  //         priorBalance += amount;
-  //       }
+  Future<Payment?> _getPaymentData(WalletTransaction transaction) async {
+    try {
+      if (transaction.paymentEntryId == null ||
+          transaction.paymentEntryId!.isEmpty) {
+        return null;
+      }
 
-  //       // Include transactions for the selected month
-  //       if (data['date']?.startsWith(selectedYearMonth) ?? false) {
-  //         tempTransactions.add(
-  //           WalletTransaction(
-  //             id: row['keyid'],
-  //             date: date,
-  //             amount: amount,
-  //             description: description,
-  //             type: type,
-  //           ),
-  //         );
-  //         totalAmount += amount;
-  //       }
-  //     }
+      List<Map<String, dynamic>> paymentsList = await DatabaseHelper()
+          .getAllData("TABLE_ACCOUNTS");
+      List<Map<String, dynamic>> accountSettings = await DatabaseHelper()
+          .getAllData("TABLE_ACCOUNTSETTINGS");
 
-  //     setState(() {
-  //       transactions = tempTransactions;
-  //       openingBalance =
-  //           priorBalance; // Set opening balance as sum of prior transactions
-  //       closingBalance = openingBalance + totalAmount;
-  //     });
-  //   } catch (e) {
-  //     print('Error loading wallet data: $e');
-  //     if (mounted) {
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         SnackBar(content: Text('Error loading wallet data: $e')),
-  //       );
-  //     }
-  //   }
-  // }
+      Map<String, String> setupIdToAccountName = {};
+      for (var account in accountSettings) {
+        try {
+          Map<String, dynamic> accountData = jsonDecode(account["data"]);
+          String setupId = account['keyid'].toString();
+          String accountName = accountData['Accountname'].toString();
+          setupIdToAccountName[setupId] = accountName;
+        } catch (e) {
+          print('Error parsing account settings: $e');
+        }
+      }
+
+      Map<String, dynamic>? debitEntry = paymentsList.firstWhere(
+        (payment) =>
+            payment['ACCOUNTS_VoucherType'] == 1 &&
+            payment['ACCOUNTS_entryid'].toString() ==
+                transaction.paymentEntryId &&
+            payment['ACCOUNTS_type'] == 'debit',
+        orElse: () => {},
+      );
+
+      if (debitEntry.isNotEmpty) {
+        String debitSetupId = debitEntry['ACCOUNTS_setupid'].toString();
+        String accountName =
+            setupIdToAccountName[debitSetupId] ?? 'Unknown Account';
+
+        String paymentMode = transaction.paymentMethod ?? 'Wallet';
+        try {
+          var creditEntry = paymentsList.firstWhere(
+            (entry) =>
+                entry['ACCOUNTS_VoucherType'] == 1 &&
+                entry['ACCOUNTS_type'] == 'credit' &&
+                entry['ACCOUNTS_entryid'].toString() ==
+                    transaction.paymentEntryId,
+            orElse: () => {},
+          );
+          if (creditEntry.isNotEmpty) {
+            String creditSetupId = creditEntry['ACCOUNTS_setupid'].toString();
+            paymentMode =
+                setupIdToAccountName[creditSetupId] ??
+                transaction.paymentMethod ??
+                'Wallet';
+          }
+        } catch (e) {
+          print('Error finding credit entry: $e');
+        }
+
+        return Payment(
+          id: int.parse(debitEntry['ACCOUNTS_entryid']),
+          date: debitEntry['ACCOUNTS_date'],
+          accountName: accountName,
+          amount: double.parse(debitEntry['ACCOUNTS_amount'].toString()),
+          paymentMode: paymentMode,
+          remarks: debitEntry['ACCOUNTS_remarks'] ?? '',
+        );
+      }
+
+      return null;
+    } catch (e) {
+      print('Error getting payment data: $e');
+      return null;
+    }
+  }
 
   void _showMonthYearPicker() {
     final yearMonthParts = selectedYearMonth.split('-');
@@ -195,6 +352,226 @@ class _WalletPageState extends State<WalletPage> {
     final month = int.parse(parts[1]);
     final monthName = DateFormat('MMMM').format(DateTime(2022, month));
     return '$monthName/$year';
+  }
+
+  void _deletePayment(int id) async {
+    try {
+      final db = await DatabaseHelper().database;
+
+      await db.delete(
+        "TABLE_ACCOUNTS",
+        where: "ACCOUNTS_VoucherType = ? AND ACCOUNTS_entryid = ?",
+        whereArgs: [1, id.toString()],
+      );
+
+      await db.delete(
+        "TABLE_WALLET",
+        where: "data LIKE ?",
+        whereArgs: ['%\"paymentEntryId\":\"$id\"%'],
+      );
+
+      final isBalanced = await DatabaseHelper().validateDoubleEntry();
+      if (!isBalanced) {
+        throw Exception('Double-entry accounting is unbalanced after deletion');
+      }
+
+      _loadWalletData();
+      _loadPayments();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Payment deleted successfully')),
+        );
+      }
+    } catch (e) {
+      print('Error deleting payment: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error deleting payment: $e')));
+      }
+    }
+  }
+
+  void _showEditDeleteDialog(WalletTransaction transaction) async {
+    bool isPayment = await _isPaymentTransaction(transaction);
+
+    if (isPayment) {
+      Payment? paymentData = await _getPaymentData(transaction);
+      if (paymentData != null) {
+        showDialog(
+          context: context,
+          builder:
+              (context) => AlertDialog(
+                title: const Text('Choose Action'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.edit),
+                      title: const Text('Edit'),
+                      onTap: () {
+                        Navigator.pop(context);
+                        _navigateToEditPayment(paymentData);
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.delete, color: Colors.red),
+                      title: const Text(
+                        'Delete',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                      onTap: () {
+                        Navigator.pop(context);
+                        _confirmDeletePayment(paymentData.id!);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error loading payment data')),
+        );
+      }
+    } else {
+      showDialog(
+        context: context,
+        builder:
+            (context) => AlertDialog(
+              title: const Text('Choose Action'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.edit),
+                    title: const Text('Edit'),
+                    onTap: () async {
+                      Navigator.pop(context);
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (context) => AddMoneyToWalletPage(
+                                transaction: transaction,
+                              ),
+                        ),
+                      );
+                      if (result == true) {
+                        _loadWalletData();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Transaction updated successfully'),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.delete, color: Colors.red),
+                    title: const Text(
+                      'Delete',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _confirmDeleteWalletTransaction(transaction.id!);
+                    },
+                  ),
+                ],
+              ),
+            ),
+      );
+    }
+  }
+
+  void _navigateToEditPayment(Payment payment) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddPaymentVoucherPage(payment: payment),
+      ),
+    );
+
+    if (result == true) {
+      _loadPayments();
+      _loadWalletData();
+    }
+  }
+
+  void _confirmDeletePayment(int id) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Confirm Delete'),
+            content: const Text(
+              'Are you sure you want to delete this payment?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _deletePayment(id);
+                },
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _confirmDeleteWalletTransaction(int id) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Confirm Delete'),
+            content: const Text(
+              'Are you sure you want to delete this transaction?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  try {
+                    await DatabaseHelper().deleteData('TABLE_WALLET', id);
+                    _loadWalletData();
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Transaction deleted successfully'),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Error deleting transaction: $e'),
+                        ),
+                      );
+                    }
+                  }
+                },
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+    );
   }
 
   @override
@@ -440,45 +817,6 @@ class _WalletPageState extends State<WalletPage> {
           style: TextStyle(color: textColor ?? Colors.black, fontSize: 12),
         ),
       ),
-    );
-  }
-
-  void _showEditDeleteDialog(WalletTransaction transaction) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  title: const Text('Edit'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder:
-                            (context) =>
-                                AddMoneyToWalletPage(transaction: transaction),
-                      ),
-                    ).then((_) => _loadWalletData());
-                  },
-                ),
-                ListTile(
-                  title: const Text('Delete'),
-                  onTap: () async {
-                    await DatabaseHelper().deleteData(
-                      'TABLE_WALLET',
-                      transaction.id!,
-                    );
-                    _loadWalletData();
-                    if (context.mounted) Navigator.pop(context);
-                  },
-                ),
-              ],
-            ),
-          ),
     );
   }
 }

@@ -39,13 +39,14 @@ class _SplashPageState extends State<SplashPage> {
   }
 
   void delayedFunction() async {
-    await Future.delayed(Duration(seconds: 3)); 
+    await Future.delayed(Duration(
+      
+      
+      seconds: 3)); 
 
     final prefs = await SharedPreferences.getInstance();
-   
      String? token =  await prefs.getString('token');
  
-
    if (token==null || token.toString().isEmpty)
    {
 
