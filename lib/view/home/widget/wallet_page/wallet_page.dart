@@ -22,6 +22,7 @@ class _WalletPageState extends State<WalletPage> {
   double closingBalance = 0.0;
   double total = 0;
   List<Payment> payments = [];
+  bool hasWalletMoney = false; // New condition flag
 
   @override
   void initState() {
@@ -32,6 +33,15 @@ class _WalletPageState extends State<WalletPage> {
 
   Future<void> _loadPayments() async {
     try {
+      // Check if there's money in wallet first
+      if (!hasWalletMoney) {
+        setState(() {
+          payments = [];
+          total = 0;
+        });
+        return;
+      }
+
       List<Map<String, dynamic>> paymentsList = await DatabaseHelper()
           .getAllData("TABLE_ACCOUNTS");
       List<Map<String, dynamic>> accountSettings = await DatabaseHelper()
@@ -162,6 +172,26 @@ class _WalletPageState extends State<WalletPage> {
             return data['date']?.startsWith(selectedYearMonth) ?? false;
           }).toList();
 
+      // Check if there's any wallet money (including only "Money Added To Wallet" transactions)
+      bool hasMoneyAddedTransactions = false;
+      for (var row in selectedMonthData) {
+        Map<String, dynamic> data = jsonDecode(row['data']);
+        String description = data['description'] ?? '';
+        double amount = double.tryParse(data['edtAmount'] ?? '0') ?? 0.0;
+
+        if (description == 'Money Added To Wallet' && amount > 0) {
+          hasMoneyAddedTransactions = true;
+          break;
+        }
+      }
+
+      // Also check if there's any positive opening balance
+      bool hasPositiveBalance = firstWalletAmount > 0 || runningBalance > 0;
+
+      setState(() {
+        hasWalletMoney = hasMoneyAddedTransactions || hasPositiveBalance;
+      });
+
       for (var row in selectedMonthData) {
         Map<String, dynamic> data = jsonDecode(row['data']);
         String date = data['date'] ?? '';
@@ -170,6 +200,11 @@ class _WalletPageState extends State<WalletPage> {
         String type = amount >= 0 ? 'credit' : 'debit';
         String? paymentMethod = data['paymentMethod'];
         String? paymentEntryId = data['paymentEntryId'];
+
+        // Only add payment transactions if there's wallet money
+        if (description != 'Money Added To Wallet' && !hasWalletMoney) {
+          continue;
+        }
 
         tempTransactions.add(
           WalletTransaction(
@@ -208,6 +243,9 @@ class _WalletPageState extends State<WalletPage> {
         openingBalance = firstWalletAmount;
         closingBalance = actualClosingBalance;
       });
+
+      // Load payments after wallet data is loaded
+      await _loadPayments();
     } catch (e) {
       print('Error loading wallet data: $e');
       if (mounted) {
@@ -641,6 +679,29 @@ class _WalletPageState extends State<WalletPage> {
               ],
             ),
           ),
+          // Show wallet status message
+          if (!hasWalletMoney)
+            Container(
+              padding: const EdgeInsets.all(16),
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.amber[100],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber[300]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info, color: Colors.amber[700]),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'No wallet money found. Payment transactions will not be displayed.',
+                      style: TextStyle(color: Colors.black87),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Expanded(
             child: Container(
               margin: const EdgeInsets.all(16),
@@ -680,13 +741,27 @@ class _WalletPageState extends State<WalletPage> {
                   Expanded(
                     child:
                         transactions.isEmpty
-                            ? const Center(
-                              child: Text(
-                                'No transactions for this month',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 16,
-                                ),
+                            ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.account_balance_wallet,
+                                    size: 64,
+                                    color: Colors.grey[400],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    hasWalletMoney
+                                        ? 'No transactions for this month'
+                                        : 'Add money to wallet first to see transactions',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 16,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
                               ),
                             )
                             : ListView.builder(
