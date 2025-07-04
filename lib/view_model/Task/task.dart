@@ -1,5 +1,3 @@
-
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
@@ -16,11 +14,10 @@ class Tasks extends StatefulWidget {
   State<Tasks> createState() => _SlidebleListState1();
 }
 
-final TextEditingController  task = TextEditingController();
+final TextEditingController task = TextEditingController();
 
 final TextEditingController emiamount = TextEditingController();
 final TextEditingController emiperiod = TextEditingController();
-
 
 DateTime selected_startDate = DateTime.now();
 DateTime selected_endDate = DateTime.now();
@@ -39,8 +36,6 @@ var items1 = [
   'Quarterly',
   'Half Yearly',
   'Yearly',
-
-
 ];
 final TextEditingController menuController = TextEditingController();
 
@@ -70,6 +65,7 @@ class _SlidebleListState1 extends State<Tasks> {
       });
     }
   }
+
   @override
   void dispose() {
     _timeController.dispose();
@@ -104,156 +100,149 @@ class _SlidebleListState1 extends State<Tasks> {
       appBar: AppBar(
         backgroundColor: Colors.teal,
 
-        leading: IconButton(onPressed: (){
-          Navigator.pop(context);
+        leading: IconButton(
+          onPressed: () {
+            Navigator.pop(context);
+          },
+          icon: Icon(Icons.arrow_back, color: Colors.white),
+        ),
 
-        }, icon: Icon(Icons.arrow_back, color: Colors.white,
-        )),
-
-        title: Text('Tasks',style: TextStyle(color: Colors.white)),
-
+        title: Text('Tasks', style: TextStyle(color: Colors.white)),
       ),
 
       body: Padding(
         padding: const EdgeInsets.all(10.0),
 
         child: Container(
+          height: MediaQuery.of(context).size.height,
+          width: MediaQuery.of(context).size.width,
+          // color: const Color.fromARGB(255, 255, 255, 255),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
 
-            height: MediaQuery.of(context).size.height,
-            width: MediaQuery.of(context).size.width,
-            // color: const Color.fromARGB(255, 255, 255, 255),
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 10),
 
-                children: [
+              TextFormField(
+                enabled: true,
+                controller: task,
 
-
-
-
-
-
-                  const SizedBox(height: 10),
-
-
-                  TextFormField(
-
-                    enabled: true,
-                    controller:task,
-
-                    decoration: InputDecoration(
-                      hintStyle: TextStyle(color: Colors.black,fontWeight: FontWeight.bold),
-
-
-                      //   hintStyle: (TextStyle(color: Colors.white)),
-                      enabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide(
-                            color: Colors.black),
-                      ),
-                      // focusedBorder: OutlineInputBorder(
-                      //   borderSide: BorderSide(
-                      //       color: const Color.fromARGB(255, 254, 255, 255), width: .5),
-                      //
-                      // ),
-                      hintText: "Tasks",
-
-
-
-
-                      fillColor: Colors.transparent,
-                      filled: true,
-                      //  prefixIcon: const Icon(Icons.password,color:Colors.white)
-
-                    ),
-                    validator:(value) {
-                      if (value == "") {
-                        return ' Tasks';
-                      }
-                      return null;
-                    },
-                    //    obscureText: true,
+                decoration: InputDecoration(
+                  hintStyle: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
                   ),
- SizedBox(height: 20,),
 
-                  Container(
-                    width: 380,
-                    height: 60,
-                    child: InkWell(
-                      onTap: () {
-                        selectDate(true);
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.black),
-                          borderRadius: BorderRadius.circular(6),
+                  //   hintStyle: (TextStyle(color: Colors.white)),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.black),
+                  ),
+                  // focusedBorder: OutlineInputBorder(
+                  //   borderSide: BorderSide(
+                  //       color: const Color.fromARGB(255, 254, 255, 255), width: .5),
+                  //
+                  // ),
+                  hintText: "Tasks",
+
+                  fillColor: Colors.transparent,
+                  filled: true,
+
+                  //  prefixIcon: const Icon(Icons.password,color:Colors.white)
+                ),
+                validator: (value) {
+                  if (value == "") {
+                    return ' Tasks';
+                  }
+                  return null;
+                },
+                //    obscureText: true,
+              ),
+              SizedBox(height: 20),
+
+              Container(
+                width: 380,
+                height: 60,
+                child: InkWell(
+                  onTap: () {
+                    selectDate(true);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.black),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          _getDisplayStartDate(),
+                          style: const TextStyle(fontSize: 18),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              _getDisplayStartDate(),
-                              style: const TextStyle(fontSize: 18),
-                            ),
-                            const Icon(Icons.calendar_today),
-                          ],
-                        ),
-                      ),
+                        const Icon(Icons.calendar_today),
+                      ],
                     ),
                   ),
-                  SizedBox(height: 20,),
-                  TextField(
-                    controller: _timeController,
-                    readOnly: true,
-                    decoration: InputDecoration(
-                      labelText: 'Select Time',
-                      suffixIcon: Icon(Icons.access_time),
-                      border: OutlineInputBorder(),
+                ),
+              ),
+              SizedBox(height: 20),
+              TextField(
+                controller: _timeController,
+                readOnly: true,
+                decoration: InputDecoration(
+                  labelText: 'Select Time',
+                  suffixIcon: Icon(Icons.access_time),
+                  border: OutlineInputBorder(),
+                ),
+                onTap: () => _selectTime(context),
+              ),
+              SizedBox(height: 20),
+
+              Container(
+                width: 380,
+                height: 60,
+                child: InkWell(
+                  onTap: () {
+                    selectDate(false);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.black),
+                      borderRadius: BorderRadius.circular(6),
                     ),
-                    onTap: () => _selectTime(context),
-                  ),
-                  SizedBox(height: 20,),
-
-                  Container(
-                    width: 380,
-                    height: 60,
-                    child: InkWell(
-                      onTap:() {
-                        selectDate(false);
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.black),
-                          borderRadius: BorderRadius.circular(6),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          _getDisplayEndDate(),
+                          style: const TextStyle(fontSize: 18),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              _getDisplayEndDate(),
-                              style: const TextStyle(fontSize: 18),
-                            ),
-                            const Icon(Icons.calendar_today),
-                          ],
-                        ),
-                      ),
+                        const Icon(Icons.calendar_today),
+                      ],
                     ),
                   ),
-                  SizedBox(height: 20,),
-               Container(
+                ),
+              ),
+              SizedBox(height: 20),
+              Container(
+                decoration: ShapeDecoration(
+                  shape: BeveledRectangleBorder(
+                    side: BorderSide(width: .5, style: BorderStyle.solid),
+                    borderRadius: BorderRadius.all(Radius.circular(0)),
+                  ),
+                ),
+                child: DropdownButton(
+                  isExpanded: true,
+                  // Initial Value
+                  value: dropdownvalu,
 
-                 decoration: ShapeDecoration(shape: BeveledRectangleBorder(side: BorderSide(width: .5,style: BorderStyle.solid),borderRadius: BorderRadius.all(Radius.circular(0)))),
-                 child: DropdownButton(
+                  // Down Arrow Icon
+                  icon: const Icon(Icons.keyboard_arrow_down),
 
-                      isExpanded: true,
-                      // Initial Value
-                      value: dropdownvalu,
-
-                      // Down Arrow Icon
-                      icon: const Icon(Icons.keyboard_arrow_down),
-
-                      // Array list of items
-                      items: items1.map((String items) {
+                  // Array list of items
+                  items:
+                      items1.map((String items) {
                         return DropdownMenuItem(
                           value: items,
                           child: Padding(
@@ -262,39 +251,39 @@ class _SlidebleListState1 extends State<Tasks> {
                           ),
                         );
                       }).toList(),
-                      // After selecting the desired option,it will
-                      // change button value to selected value
-                      onChanged: (String? newValue2) {
-                        setState(() {
-                          dropdownvalu = newValue2!;
-                          // _showTextBox = newValue2 == 'EMI';
-                        //  print("Value is..:$dropdownvalu");
-                        });
-                      },
-                    ),
-               ),
-                  const SizedBox(height:  50,),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 130.0),
-                    child: Column(
-                      children: [
-                        ElevatedButton(
+                  // After selecting the desired option,it will
+                  // change button value to selected value
+                  onChanged: (String? newValue2) {
+                    setState(() {
+                      dropdownvalu = newValue2!;
+                      // _showTextBox = newValue2 == 'EMI';
+                      //  print("Value is..:$dropdownvalu");
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(height: 50),
+              Padding(
+                padding: const EdgeInsets.only(left: 130.0),
+                child: Column(
+                  children: [
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor:
+                            Colors.teal, // background (button) color
+                        foregroundColor:
+                            Colors.white, // foreground (text) color
+                      ),
 
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.teal,// background (button) color
-                            foregroundColor: Colors.white, // foreground (text) color
-                          ),
-
-                          onPressed: () {
-
-                          },
-                          child: Text(
-                            "Save",
-                            style: TextStyle(color: const Color.fromARGB(255, 255, 255, 255)),
-                          ),
-                          //   color: const Color(0xFF1BC0C5),
+                      onPressed: () {},
+                      child: Text(
+                        "Save",
+                        style: TextStyle(
+                          color: const Color.fromARGB(255, 255, 255, 255),
                         ),
-
+                      ),
+                      //   color: const Color(0xFF1BC0C5),
+                    ),
 
                     //                       Padding(
                     //                         padding: const EdgeInsets.all(8.0),
@@ -322,40 +311,33 @@ class _SlidebleListState1 extends State<Tasks> {
                     //
                     //
 
-
-                        // ElevatedButton(
-                        //   onPressed: () async{
-                        //     var alterTable = await dbhelper.alterTable('accountstable','catogory');
-                        //     // alterTable();
-                        //     //   alterTable();
-                        //
-                        //     print("Value Altered : $alterTable()");
-                        //     //  clearText();
-                        //   },
-                        //
-                        //   child: Text(
-                        //     'Alter',
-                        //     style: TextStyle(color: Colors.blue, fontSize: 25),
-                        //   ),
-                        //
-                        // ),
-
-                      ],),
-                  ),
-
-
-                ]) ),
+                    // ElevatedButton(
+                    //   onPressed: () async{
+                    //     var alterTable = await dbhelper.alterTable('accountstable','catogory');
+                    //     // alterTable();
+                    //     //   alterTable();
+                    //
+                    //     print("Value Altered : $alterTable()");
+                    //     //  clearText();
+                    //   },
+                    //
+                    //   child: Text(
+                    //     'Alter',
+                    //     style: TextStyle(color: Colors.blue, fontSize: 25),
+                    //   ),
+                    //
+                    // ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-
-
-
-
     );
-
-
   }
-
 }
+
 String _getDisplayStartDate() {
   return DateFormat('dd/MM/yyyy').format(selected_startDate);
 }

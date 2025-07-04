@@ -95,7 +95,6 @@ class _AddMoneyToWalletPageState extends State<AddMoneyToWalletPage> {
 
     try {
       if (isEditMode) {
-        // Update existing transaction (implement update logic in DatabaseHelper)
         Map<String, dynamic> transactionData = {
           "date": transaction.date,
           "edtAmount": transaction.amount.toString(),

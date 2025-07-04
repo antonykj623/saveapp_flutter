@@ -33,6 +33,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.13"
+  blurry_modal_progress_hud:
+    dependency: "direct main"
+    description:
+      name: blurry_modal_progress_hud
+      sha256: f3b176830f026bbe0f477029c785b1c3a842f2bb4393da05cc7ef7eb0587f25c
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.1"
   boolean_selector:
     dependency: transitive
     description:
@@ -997,6 +1005,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.1"
+  widget_loading:
+    dependency: "direct main"
+    description:
+      name: widget_loading
+      sha256: "797d894117797ec040f8991f7fb58d7e205e1972dc3b9968f3dd24d044d5e4ca"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.3"
   win32:
     dependency: transitive
     description:

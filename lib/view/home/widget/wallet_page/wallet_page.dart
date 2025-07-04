@@ -22,7 +22,7 @@ class _WalletPageState extends State<WalletPage> {
   double closingBalance = 0.0;
   double total = 0;
   List<Payment> payments = [];
-  bool hasWalletMoney = false; // New condition flag
+  bool hasWalletMoney = false;
 
   @override
   void initState() {
@@ -127,12 +127,16 @@ class _WalletPageState extends State<WalletPage> {
     try {
       var walletData = await DatabaseHelper().getWalletData();
       List<WalletTransaction> tempTransactions = [];
-      double totalAmount = 0.0;
 
       final yearMonthParts = selectedYearMonth.split('-');
       final selectedYear = int.parse(yearMonthParts[0]);
       final selectedMonth = int.parse(yearMonthParts[1]);
       final startOfMonth = DateTime(selectedYear, selectedMonth, 1);
+      final endOfMonth = DateTime(
+        selectedYear,
+        selectedMonth + 1,
+        1,
+      ).subtract(Duration(days: 1));
 
       var sortedData = walletData.toList();
       sortedData.sort((a, b) {
@@ -143,38 +147,24 @@ class _WalletPageState extends State<WalletPage> {
         ).compareTo(DateTime.parse(dataB['date'] ?? '1970-01-01'));
       });
 
-      double firstWalletAmount = 0.0;
-      DateTime? firstTransactionDate;
-
-      if (sortedData.isNotEmpty) {
-        Map<String, dynamic> firstData = jsonDecode(sortedData[0]['data']);
-        firstWalletAmount =
-            double.tryParse(firstData['edtAmount'] ?? '0') ?? 0.0;
-        firstTransactionDate = DateTime.parse(
-          firstData['date'] ?? '1970-01-01',
-        );
-      }
-
-      double runningBalance = 0.0;
-      for (var row in sortedData.skip(1)) {
+      // Calculate opening balance - only from wallet money transactions (not payments)
+      double calculatedOpeningBalance = 0.0;
+      for (var row in sortedData) {
         Map<String, dynamic> data = jsonDecode(row['data']);
         DateTime transactionDate = DateTime.parse(data['date'] ?? '1970-01-01');
         double amount = double.tryParse(data['edtAmount'] ?? '0') ?? 0.0;
+        String description = data['description'] ?? '';
 
-        if (transactionDate.isBefore(startOfMonth)) {
-          runningBalance += amount;
+        // Only count actual wallet money additions for opening balance
+        if (transactionDate.isBefore(startOfMonth) &&
+            description == 'Money Added To Wallet') {
+          calculatedOpeningBalance += amount;
         }
       }
 
-      var selectedMonthData =
-          sortedData.where((row) {
-            Map<String, dynamic> data = jsonDecode(row['data']);
-            return data['date']?.startsWith(selectedYearMonth) ?? false;
-          }).toList();
-
-      // Check if there's any wallet money (including only "Money Added To Wallet" transactions)
+      // Check if there are any "Money Added To Wallet" transactions
       bool hasMoneyAddedTransactions = false;
-      for (var row in selectedMonthData) {
+      for (var row in sortedData) {
         Map<String, dynamic> data = jsonDecode(row['data']);
         String description = data['description'] ?? '';
         double amount = double.tryParse(data['edtAmount'] ?? '0') ?? 0.0;
@@ -185,13 +175,19 @@ class _WalletPageState extends State<WalletPage> {
         }
       }
 
-      // Also check if there's any positive opening balance
-      bool hasPositiveBalance = firstWalletAmount > 0 || runningBalance > 0;
-
       setState(() {
-        hasWalletMoney = hasMoneyAddedTransactions || hasPositiveBalance;
+        hasWalletMoney = hasMoneyAddedTransactions;
+        openingBalance = calculatedOpeningBalance;
       });
 
+      // Filter transactions for selected month
+      var selectedMonthData =
+          sortedData.where((row) {
+            Map<String, dynamic> data = jsonDecode(row['data']);
+            return data['date']?.startsWith(selectedYearMonth) ?? false;
+          }).toList();
+
+      // Add transactions to display
       for (var row in selectedMonthData) {
         Map<String, dynamic> data = jsonDecode(row['data']);
         String date = data['date'] ?? '';
@@ -201,7 +197,7 @@ class _WalletPageState extends State<WalletPage> {
         String? paymentMethod = data['paymentMethod'];
         String? paymentEntryId = data['paymentEntryId'];
 
-        // Only add payment transactions if there's wallet money
+        // Only show payment transactions if there's actual wallet money
         if (description != 'Money Added To Wallet' && !hasWalletMoney) {
           continue;
         }
@@ -217,34 +213,29 @@ class _WalletPageState extends State<WalletPage> {
             paymentEntryId: paymentEntryId,
           ),
         );
-
-        totalAmount += amount;
       }
 
-      double actualClosingBalance = 0.0;
-      DateTime endOfMonth = DateTime(
-        selectedYear,
-        selectedMonth + 1,
-        1,
-      ).subtract(Duration(days: 1));
-
+      double calculatedClosingBalance = 0.0;
       for (var row in sortedData) {
         Map<String, dynamic> data = jsonDecode(row['data']);
         DateTime transactionDate = DateTime.parse(data['date'] ?? '1970-01-01');
         double amount = double.tryParse(data['edtAmount'] ?? '0') ?? 0.0;
+        String description = data['description'] ?? '';
 
         if (!transactionDate.isAfter(endOfMonth)) {
-          actualClosingBalance += amount;
+          if (description == 'Money Added To Wallet') {
+            calculatedClosingBalance += amount;
+          } else if (hasWalletMoney && amount < 0) {
+            calculatedClosingBalance += amount; 
+          }
         }
       }
 
       setState(() {
         transactions = tempTransactions;
-        openingBalance = firstWalletAmount;
-        closingBalance = actualClosingBalance;
+        closingBalance = calculatedClosingBalance;
       });
 
-      // Load payments after wallet data is loaded
       await _loadPayments();
     } catch (e) {
       print('Error loading wallet data: $e');
@@ -695,7 +686,7 @@ class _WalletPageState extends State<WalletPage> {
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
-                      'No wallet money found. Payment transactions will not be displayed.',
+                      'No wallet money found. Add money to wallet to see payment transactions.',
                       style: TextStyle(color: Colors.black87),
                     ),
                   ),

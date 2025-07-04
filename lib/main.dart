@@ -16,13 +16,13 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp( 
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'SAVE App',
       theme: ThemeData(primarySwatch: Colors.teal),
       home: SplashPage(),
     );
-  } 
+  }
 }
 
 class SplashPage extends StatefulWidget {
@@ -39,30 +39,30 @@ class _SplashPageState extends State<SplashPage> {
   }
 
   void delayedFunction() async {
-    await Future.delayed(Duration(
-      
-      
-      seconds: 3)); 
+    await Future.delayed(Duration(seconds: 3));
 
     final prefs = await SharedPreferences.getInstance();
-     String? token =  await prefs.getString('token');
- 
-   if (token==null || token.toString().isEmpty)
-   {
+    String? token = await prefs.getString('token');
 
-Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => LoginScreen()));
-
-   }
-   else{
-Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => SaveApp()));
-
-   }
- 
- 
+    if (token == null || token.toString().isEmpty) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => LoginScreen()),
+      );
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => SaveApp()),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(body: Center(child: Image.asset("assets/Invoice.jpg")));
+
+    return Scaffold(body: Center(child:
+  
+    
+     Image.asset("assets/Invoice.jpg")));
   }
 }
