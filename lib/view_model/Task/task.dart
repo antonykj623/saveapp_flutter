@@ -20,7 +20,7 @@ final TextEditingController emiamount = TextEditingController();
 final TextEditingController emiperiod = TextEditingController();
 
 DateTime selected_startDate = DateTime.now();
-DateTime selected_endDate = DateTime.now();
+DateTime selected_endDate = DateTime.now();    
 String getCurrentMonthYear() {
   final now = DateTime.now();
   final formatter = DateFormat('MMM/yyyy'); // e.g., May/2025
@@ -77,13 +77,11 @@ class _SlidebleListState1 extends State<Tasks> {
     void selectDate(bool isStart) {
       showDatePicker(
         context: context,
-        //initialDate: isStart ? selected_startDate : selected_endDate,
         firstDate: DateTime(2000),
         lastDate: DateTime(2100),
       ).then((pickedDate) {
         if (pickedDate != null) {
           setState(() {
-            // selectedYearMonth = DateFormat('yyyy-MM').format(pickedDate);
             if (isStart) {
               selected_startDate = pickedDate;
             } else {
@@ -96,7 +94,6 @@ class _SlidebleListState1 extends State<Tasks> {
     }
 
     return Scaffold(
-      // appBar: AppBar(title: const Text('Add Account Setup')),
       appBar: AppBar(
         backgroundColor: Colors.teal,
 

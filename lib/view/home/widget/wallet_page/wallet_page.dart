@@ -147,23 +147,10 @@ class _WalletPageState extends State<WalletPage> {
         ).compareTo(DateTime.parse(dataB['date'] ?? '1970-01-01'));
       });
 
-      // Calculate opening balance - only from wallet money transactions (not payments)
-      double calculatedOpeningBalance = 0.0;
-      for (var row in sortedData) {
-        Map<String, dynamic> data = jsonDecode(row['data']);
-        DateTime transactionDate = DateTime.parse(data['date'] ?? '1970-01-01');
-        double amount = double.tryParse(data['edtAmount'] ?? '0') ?? 0.0;
-        String description = data['description'] ?? '';
-
-        // Only count actual wallet money additions for opening balance
-        if (transactionDate.isBefore(startOfMonth) &&
-            description == 'Money Added To Wallet') {
-          calculatedOpeningBalance += amount;
-        }
-      }
-
       // Check if there are any "Money Added To Wallet" transactions
       bool hasMoneyAddedTransactions = false;
+      DateTime? firstWalletTransactionDate;
+
       for (var row in sortedData) {
         Map<String, dynamic> data = jsonDecode(row['data']);
         String description = data['description'] ?? '';
@@ -171,7 +158,63 @@ class _WalletPageState extends State<WalletPage> {
 
         if (description == 'Money Added To Wallet' && amount > 0) {
           hasMoneyAddedTransactions = true;
-          break;
+          DateTime transactionDate = DateTime.parse(
+            data['date'] ?? '1970-01-01',
+          );
+          if (firstWalletTransactionDate == null ||
+              transactionDate.isBefore(firstWalletTransactionDate)) {
+            firstWalletTransactionDate = transactionDate;
+          }
+        }
+      }
+
+      // Calculate opening balance - includes all transactions up to (and including) the start of selected month
+      double calculatedOpeningBalance = 0.0;
+
+      if (hasMoneyAddedTransactions && firstWalletTransactionDate != null) {
+        for (var row in sortedData) {
+          Map<String, dynamic> data = jsonDecode(row['data']);
+          DateTime transactionDate = DateTime.parse(
+            data['date'] ?? '1970-01-01',
+          );
+          double amount = double.tryParse(data['edtAmount'] ?? '0') ?? 0.0;
+          String description = data['description'] ?? '';
+
+          // Include all transactions before the selected month (including the first wallet transaction)
+          if (transactionDate.isBefore(startOfMonth)) {
+            if (description == 'Money Added To Wallet') {
+              calculatedOpeningBalance += amount;
+            } else if (amount < 0) {
+              // Include payment deductions that happened before selected month
+              calculatedOpeningBalance += amount;
+            }
+          }
+        }
+
+        // Special case: If the selected month contains the first wallet transaction,
+        // the opening balance should include that first transaction
+        if (firstWalletTransactionDate.isAfter(
+              startOfMonth.subtract(Duration(days: 1)),
+            ) &&
+            firstWalletTransactionDate.isBefore(
+              endOfMonth.add(Duration(days: 1)),
+            )) {
+          // Find the first wallet transaction amount
+          for (var row in sortedData) {
+            Map<String, dynamic> data = jsonDecode(row['data']);
+            DateTime transactionDate = DateTime.parse(
+              data['date'] ?? '1970-01-01',
+            );
+            double amount = double.tryParse(data['edtAmount'] ?? '0') ?? 0.0;
+            String description = data['description'] ?? '';
+
+            if (transactionDate.isAtSameMomentAs(firstWalletTransactionDate) &&
+                description == 'Money Added To Wallet') {
+              calculatedOpeningBalance =
+                  amount; // Set opening balance to first wallet amount
+              break;
+            }
+          }
         }
       }
 
@@ -197,7 +240,6 @@ class _WalletPageState extends State<WalletPage> {
         String? paymentMethod = data['paymentMethod'];
         String? paymentEntryId = data['paymentEntryId'];
 
-        // Only show payment transactions if there's actual wallet money
         if (description != 'Money Added To Wallet' && !hasWalletMoney) {
           continue;
         }
@@ -215,18 +257,26 @@ class _WalletPageState extends State<WalletPage> {
         );
       }
 
+      // Calculate closing balance - all transactions from first wallet transaction to end of selected month
       double calculatedClosingBalance = 0.0;
-      for (var row in sortedData) {
-        Map<String, dynamic> data = jsonDecode(row['data']);
-        DateTime transactionDate = DateTime.parse(data['date'] ?? '1970-01-01');
-        double amount = double.tryParse(data['edtAmount'] ?? '0') ?? 0.0;
-        String description = data['description'] ?? '';
 
-        if (!transactionDate.isAfter(endOfMonth)) {
-          if (description == 'Money Added To Wallet') {
-            calculatedClosingBalance += amount;
-          } else if (hasWalletMoney && amount < 0) {
-            calculatedClosingBalance += amount; 
+      if (hasMoneyAddedTransactions && firstWalletTransactionDate != null) {
+        for (var row in sortedData) {
+          Map<String, dynamic> data = jsonDecode(row['data']);
+          DateTime transactionDate = DateTime.parse(
+            data['date'] ?? '1970-01-01',
+          );
+          double amount = double.tryParse(data['edtAmount'] ?? '0') ?? 0.0;
+          String description = data['description'] ?? '';
+
+          // Include all transactions from first wallet transaction to end of selected month
+          if (!transactionDate.isAfter(endOfMonth) &&
+              !transactionDate.isBefore(firstWalletTransactionDate)) {
+            if (description == 'Money Added To Wallet') {
+              calculatedClosingBalance += amount;
+            } else if (amount < 0) {
+              calculatedClosingBalance += amount;
+            }
           }
         }
       }
@@ -680,6 +730,7 @@ class _WalletPageState extends State<WalletPage> {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.amber[300]!),
               ),
+
               child: Row(
                 children: [
                   Icon(Icons.info, color: Colors.amber[700]),
