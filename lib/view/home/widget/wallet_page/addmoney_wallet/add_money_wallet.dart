@@ -17,6 +17,7 @@ class _AddMoneyToWalletPageState extends State<AddMoneyToWalletPage> {
   final TextEditingController _amountController = TextEditingController();
   DateTime selectedDate = DateTime.now();
   bool isEditMode = false;
+  bool isLoading = false;
   final _formKey = GlobalKey<FormState>();
 
   @override
@@ -36,106 +37,141 @@ class _AddMoneyToWalletPageState extends State<AddMoneyToWalletPage> {
   }
 
   Future<void> _selectDate() async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: selectedDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Colors.teal,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: Colors.black,
+    try {
+      final DateTime? picked = await showDatePicker(
+        context: context,
+        initialDate: selectedDate,
+        firstDate: DateTime(2020),
+        lastDate: DateTime.now().add(const Duration(days: 365)),
+        builder: (BuildContext context, Widget? child) {
+          return Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: const ColorScheme.light(
+                primary: Colors.teal,
+                onPrimary: Colors.white,
+                surface: Colors.white,
+                onSurface: Colors.black,
+              ),
             ),
-          ),
-          child: child!,
-        );
-      },
-    );
+            child: child!,
+          );
+        },
+      );
 
-    if (picked != null && picked != selectedDate) {
-      setState(() {
-        selectedDate = picked;
-      });
+      if (picked != null && picked != selectedDate && mounted) {
+        setState(() {
+          selectedDate = picked;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error selecting date: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   Future<void> _saveTransaction() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
     if (_amountController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter an amount'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter an amount'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
       return;
     }
 
     final double amount = double.tryParse(_amountController.text) ?? 0.0;
     if (amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a valid amount'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter a valid amount'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
       return;
     }
 
-    final transaction = WalletTransaction(
-      id: isEditMode ? widget.transaction!.id : null,
-      date: DateFormat('yyyy-MM-dd').format(selectedDate),
-      amount: amount,
-      description: 'Money Added To Wallet',
-      type: 'credit',
-    );
+    if (isLoading) return;
+
+    setState(() {
+      isLoading = true;
+    });
 
     try {
+      final transaction = WalletTransaction(
+        id: isEditMode ? widget.transaction!.id : null,
+        date: DateFormat('yyyy-MM-dd').format(selectedDate),
+        amount: amount,
+        description: 'Money Added To Wallet',
+        type: 'credit',
+      );
+
+      // Extract month and year from selected date
+      int selectedMonth = selectedDate.month;
+      int selectedYear = selectedDate.year;
+      String monthYear = DateFormat('yyyy-MM').format(selectedDate);
+
       if (isEditMode) {
         Map<String, dynamic> transactionData = {
           "date": transaction.date,
+          "month_selected": selectedMonth,
+          "yearselected": selectedYear,
+          "month_year": monthYear,
           "edtAmount": transaction.amount.toString(),
           "description": transaction.description,
+          "type": transaction.type,
         };
         await DatabaseHelper().updateData('TABLE_WALLET', {
           "data": jsonEncode(transactionData),
         }, transaction.id!);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Transaction updated successfully'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
       } else {
-        // Add new transaction
         Map<String, dynamic> transactionData = {
           "date": transaction.date,
-          "month_selected": selectedDate.month,
-          "yearselected": selectedDate.year,
+          "month_selected": selectedMonth,
+          "yearselected": selectedYear,
+          "month_year": monthYear,
           "edtAmount": transaction.amount.toString(),
           "description": transaction.description,
+          "type": transaction.type,
         };
         await DatabaseHelper().addData(
           'TABLE_WALLET',
           jsonEncode(transactionData),
         );
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Money added to wallet successfully'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
       }
 
       if (mounted) {
-        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isEditMode
+                  ? 'Transaction updated successfully'
+                  : 'Money added to wallet successfully',
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+
+      await Future.delayed(const Duration(seconds: 2));
+
+      if (mounted) {
+        Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
@@ -146,16 +182,26 @@ class _AddMoneyToWalletPageState extends State<AddMoneyToWalletPage> {
           ),
         );
       }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
   Future<void> _deleteTransaction() async {
-    if (!isEditMode || widget.transaction?.id == null) return;
+    if (!isEditMode || widget.transaction?.id == null || isLoading) return;
+
+    setState(() {
+      isLoading = true;
+    });
 
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder:
-          (context) => AlertDialog(
+          (BuildContext context) => AlertDialog(
             title: const Text('Confirm Delete'),
             content: const Text(
               'Are you sure you want to delete this transaction?',
@@ -174,20 +220,27 @@ class _AddMoneyToWalletPageState extends State<AddMoneyToWalletPage> {
           ),
     );
 
-    if (confirmed == true) {
+    if (confirmed == true && mounted) {
       try {
         await DatabaseHelper().deleteData(
           'TABLE_WALLET',
           widget.transaction!.id!,
         );
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Transaction deleted successfully'),
               backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
             ),
           );
-          Navigator.pop(context);
+        }
+
+        await Future.delayed(const Duration(seconds: 2));
+
+        if (mounted) {
+          Navigator.pop(context, true);
         }
       } catch (e) {
         if (mounted) {
@@ -198,6 +251,18 @@ class _AddMoneyToWalletPageState extends State<AddMoneyToWalletPage> {
             ),
           );
         }
+      } finally {
+        if (mounted) {
+          setState(() {
+            isLoading = false;
+          });
+        }
+      }
+    } else {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
       }
     }
   }
@@ -209,7 +274,7 @@ class _AddMoneyToWalletPageState extends State<AddMoneyToWalletPage> {
       appBar: AppBar(
         backgroundColor: Colors.teal,
         title: Text(
-          isEditMode ? 'Edit Wallet Transaction' : 'Add money to wallet',
+          isEditMode ? 'Edit Wallet Transaction' : 'Add Money to Wallet',
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -217,7 +282,7 @@ class _AddMoneyToWalletPageState extends State<AddMoneyToWalletPage> {
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+          onPressed: isLoading ? null : () => Navigator.pop(context),
         ),
         elevation: 0,
       ),
@@ -226,9 +291,20 @@ class _AddMoneyToWalletPageState extends State<AddMoneyToWalletPage> {
         child: Form(
           key: _formKey,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Date Selection Section
+              const Text(
+                'Date',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 8),
               InkWell(
-                onTap: _selectDate,
+                onTap: isLoading ? null : _selectDate,
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -248,7 +324,7 @@ class _AddMoneyToWalletPageState extends State<AddMoneyToWalletPage> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        DateFormat('dd-M-yyyy').format(selectedDate),
+                        DateFormat('dd-MM-yyyy').format(selectedDate),
                         style: const TextStyle(
                           fontSize: 16,
                           color: Colors.black87,
@@ -259,7 +335,18 @@ class _AddMoneyToWalletPageState extends State<AddMoneyToWalletPage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
+
+              // Amount Section
+              const Text(
+                'Amount',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 8),
               Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -279,7 +366,7 @@ class _AddMoneyToWalletPageState extends State<AddMoneyToWalletPage> {
                     decimal: true,
                   ),
                   decoration: InputDecoration(
-                    hintText: 'Amount',
+                    hintText: 'Enter amount',
                     hintStyle: TextStyle(color: Colors.grey[500]),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -297,21 +384,32 @@ class _AddMoneyToWalletPageState extends State<AddMoneyToWalletPage> {
                       ),
                     ),
                     contentPadding: const EdgeInsets.all(16),
+                    prefixIcon: Icon(
+                      Icons.currency_rupee,
+                      color: Colors.grey[600],
+                    ),
                   ),
+                  enabled: !isLoading,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter amount';
+                    }
+                    final amount = double.tryParse(value);
+                    if (amount == null || amount <= 0) {
+                      return 'Please enter a valid amount';
                     }
                     return null;
                   },
                 ),
               ),
               const Spacer(),
+
+              // Action Buttons
               Row(
                 children: [
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _saveTransaction,
+                      onPressed: isLoading ? null : _saveTransaction,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.teal,
                         foregroundColor: Colors.white,
@@ -321,22 +419,27 @@ class _AddMoneyToWalletPageState extends State<AddMoneyToWalletPage> {
                         ),
                         elevation: 2,
                       ),
-                      child: Text(
-                        isEditMode ? 'Update' : 'Save',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      child:
+                          isLoading
+                              ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
+                              : Text(
+                                isEditMode ? 'Update' : 'Save',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                     ),
                   ),
                   if (isEditMode) ...[
                     const SizedBox(width: 16),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: _deleteTransaction,
+                        onPressed: isLoading ? null : _deleteTransaction,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.teal,
+                          backgroundColor: Colors.red,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(

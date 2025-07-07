@@ -59,10 +59,6 @@ class _SplashPageState extends State<SplashPage> {
 
   @override
   Widget build(BuildContext context) {
-
-    return Scaffold(body: Center(child:
-  
-    
-     Image.asset("assets/Invoice.jpg")));
+    return Scaffold(body: Center(child: Image.asset("assets/Invoice.jpg")));
   }
 }

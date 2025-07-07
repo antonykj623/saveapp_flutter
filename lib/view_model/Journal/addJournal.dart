@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:new_project_2025/view/home/widget/payment_page/databasehelper/data_base_helper.dart';
 import 'package:new_project_2025/view/home/widget/payment_page/payment_class/payment_class.dart';
+import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
+import 'package:new_project_2025/view_model/AccountSet_up/Add_Acount.dart';
 
 class AddJournal extends StatefulWidget {
   final Payment? payment;
@@ -15,55 +17,72 @@ class AddJournal extends StatefulWidget {
 class _AddJournalPageState extends State<AddJournal> {
   final _formKey = GlobalKey<FormState>();
   late DateTime selectedDate;
-  String? selectedAccount;
-  final TextEditingController _creditController = TextEditingController();
-  String paymentMode = 'Cash';
-  String? selectedCashOption;
-  final TextEditingController _debitController = TextEditingController();
-  var dropdownvalu1 = 'Asset Account';
-  var items1 = [
-    'Asset Account',
-    'Bank',
-    'Cash',
-    'Credit Card',
-    'Customers',
-    'Expense Account',
-    'Income Account',
-    'Insurance',
-    'Investment',
-    'Liability Account',
-  ];
-  final List<String> accounts = [
-    'Agriculture Expenses',
-    'Agriculture Income',
-    'Household Expenses',
-    'Salary Income',
-    'Miscellaneous',
-  ];
-
-  final List<String> cashOptions = [
-    'Cash',
-    'Bank - HDFC',
-    'Bank - SBI',
-    'Bank - ICICI',
-  ];
+  String? selectedDebitAccount;
+  String? selectedCreditAccount;
+  final TextEditingController _amountController = TextEditingController();
+  final TextEditingController _remarksController = TextEditingController();
+  List<String> allAccounts = [];
 
   @override
   void initState() {
     super.initState();
+    _loadAccounts();
+
     if (widget.payment != null) {
-      selectedDate = DateFormat('yyyy-MM-dd').parse(widget.payment!.date);
-      selectedAccount = widget.payment!.accountName;
-      _creditController.text = widget.payment!.amount.toString();
-      paymentMode = widget.payment!.paymentMode;
-      selectedCashOption =
-      widget.payment!.paymentMode == 'Bank'
-          ? cashOptions[1]
-          : cashOptions[0];
-      _debitController.text = widget.payment!.remarks ?? '';
+      try {
+        selectedDate = DateFormat('yyyy-MM-dd').parse(widget.payment!.date);
+      } catch (e) {
+        selectedDate = DateTime.now();
+      }
+      selectedDebitAccount = widget.payment!.accountName;
+      selectedCreditAccount =
+          widget.payment!.paymentMode; // Assuming stored as credit account
+      _amountController.text = widget.payment!.amount.toString();
+      _remarksController.text = widget.payment!.remarks ?? '';
     } else {
       selectedDate = DateTime.now();
-      selectedCashOption = cashOptions[0];
+    }
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _remarksController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadAccounts() async {
+    try {
+      List<Map<String, dynamic>> accounts = await DatabaseHelper().getAllData(
+        "TABLE_ACCOUNTSETTINGS",
+      );
+      List<String> tempAccounts = [];
+
+      for (var account in accounts) {
+        try {
+          Map<String, dynamic> accountData = jsonDecode(account["data"]);
+          String accountType =
+              accountData['Accounttype'].toString().toLowerCase();
+          String accountName = accountData['Accountname'].toString();
+
+          if (accountType != 'customers') {
+            tempAccounts.add(accountName);
+          }
+        } catch (e) {
+          print('Error parsing account data: $e');
+        }
+      }
+
+      setState(() {
+        allAccounts = tempAccounts;
+      });
+    } catch (e) {
+      print('Error loading accounts: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading accounts: $e')));
+      }
     }
   }
 
@@ -81,25 +100,176 @@ class _AddJournalPageState extends State<AddJournal> {
     }
   }
 
-  void _savePayment() async {
-    if (_formKey.currentState!.validate()) {
-      final payment = Payment(
-        id: widget.payment?.id,
-        date: DateFormat('yyyy-MM-dd').format(selectedDate),
-        accountName: selectedAccount!,
-        amount: double.parse(_creditController.text),
-        paymentMode: paymentMode,
-        remarks: _debitController.text,
+  Future<String> getNextSetupId(String name) async {
+    try {
+      final db = await DatabaseHelper().database;
+      final List<Map<String, dynamic>> allRows = await db.query(
+        'TABLE_ACCOUNTSETTINGS',
       );
 
-      if (widget.payment == null) {
-        await DatabaseHelper.instance.insertPayment(payment);
-      } else {
-        await DatabaseHelper.instance.updatePayment(payment);
+      for (var row in allRows) {
+        Map<String, dynamic> dat = jsonDecode(row["data"]);
+        if (dat['Accountname'].toString().toLowerCase() == name.toLowerCase()) {
+          return row['keyid'].toString();
+        }
+      }
+      return '0';
+    } catch (e) {
+      print('Error getting setup ID for $name: $e');
+      return '0';
+    }
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'jan',
+      'feb',
+      'mar',
+      'apr',
+      'may',
+      'jun',
+      'jul',
+      'aug',
+      'sep',
+      'oct',
+      'nov',
+      'dec',
+    ];
+    return months[month - 1];
+  }
+
+  Future<void> _saveDoubleEntryAccounts() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (selectedDebitAccount == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a debit account')),
+      );
+      return;
+    }
+    if (selectedCreditAccount == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a credit account')),
+      );
+      return;
+    }
+
+    try {
+      final db = await DatabaseHelper().database;
+      final dateString =
+          "${selectedDate.day}/${selectedDate.month}/${selectedDate.year}";
+      final monthString = _getMonthName(selectedDate.month);
+      final yearString = selectedDate.year.toString();
+
+      final debitSetupId = await getNextSetupId(selectedDebitAccount!);
+      final creditSetupId = await getNextSetupId(selectedCreditAccount!);
+
+      if (debitSetupId == '0' || creditSetupId == '0') {
+        throw Exception(
+          'Invalid account selected: $selectedDebitAccount or $selectedCreditAccount',
+        );
       }
 
-      if (context.mounted) {
-        Navigator.pop(context);
+      final double amount = double.parse(_amountController.text);
+
+      if (widget.payment != null) {
+        String entryId = widget.payment!.id.toString();
+        // Update debit entry
+        await db.update(
+          "TABLE_ACCOUNTS",
+          {
+            "ACCOUNTS_date": dateString,
+            "ACCOUNTS_setupid": debitSetupId,
+            "ACCOUNTS_amount": _amountController.text,
+            "ACCOUNTS_remarks": _remarksController.text,
+            "ACCOUNTS_year": yearString,
+            "ACCOUNTS_month": monthString,
+            "ACCOUNTS_cashbanktype":
+                '0', // Journal entries may not use cash/bank type
+          },
+          where:
+              "ACCOUNTS_VoucherType = ? AND ACCOUNTS_entryid = ? AND ACCOUNTS_type = ?",
+          whereArgs: [3, entryId, 'debit'],
+        );
+
+        // Update credit entry
+        await db.update(
+          "TABLE_ACCOUNTS",
+          {
+            "ACCOUNTS_date": dateString,
+            "ACCOUNTS_setupid": creditSetupId,
+            "ACCOUNTS_amount": _amountController.text,
+            "ACCOUNTS_remarks": _remarksController.text,
+            "ACCOUNTS_year": yearString,
+            "ACCOUNTS_month": monthString,
+            "ACCOUNTS_cashbanktype": '0',
+          },
+          where:
+              "ACCOUNTS_VoucherType = ? AND ACCOUNTS_entryid = ? AND ACCOUNTS_type = ?",
+          whereArgs: [3, entryId, 'credit'],
+        );
+      } else {
+        // Insert new debit entry
+        Map<String, dynamic> debitEntry = {
+          'ACCOUNTS_VoucherType': 3, // Journal voucher type
+          'ACCOUNTS_entryid': 0,
+          'ACCOUNTS_date': dateString,
+          'ACCOUNTS_setupid': debitSetupId,
+          'ACCOUNTS_amount': _amountController.text,
+          'ACCOUNTS_type': 'debit',
+          'ACCOUNTS_remarks': _remarksController.text,
+          'ACCOUNTS_year': yearString,
+          'ACCOUNTS_month': monthString,
+          'ACCOUNTS_cashbanktype': '0',
+          'ACCOUNTS_billId': '',
+          'ACCOUNTS_billVoucherNumber': '',
+        };
+
+        final debitId = await db.insert("TABLE_ACCOUNTS", debitEntry);
+
+        // Insert new credit entry
+        Map<String, dynamic> creditEntry = {
+          'ACCOUNTS_VoucherType': 3,
+          'ACCOUNTS_entryid': debitId.toString(),
+          'ACCOUNTS_date': dateString,
+          'ACCOUNTS_setupid': creditSetupId,
+          'ACCOUNTS_amount': _amountController.text,
+          'ACCOUNTS_type': 'credit',
+          'ACCOUNTS_remarks': _remarksController.text,
+          'ACCOUNTS_year': yearString,
+          'ACCOUNTS_month': monthString,
+          'ACCOUNTS_cashbanktype': '0',
+          'ACCOUNTS_billId': '',
+          'ACCOUNTS_billVoucherNumber': '',
+        };
+
+        await db.insert("TABLE_ACCOUNTS", creditEntry);
+
+        // Update debit entry with entryId
+        await db.update(
+          "TABLE_ACCOUNTS",
+          {"ACCOUNTS_entryid": debitId},
+          where: "ACCOUNTS_id = ?",
+          whereArgs: [debitId],
+        );
+      }
+
+      final isBalanced = await DatabaseHelper().validateDoubleEntry();
+      if (!isBalanced) {
+        throw Exception('Double-entry accounting is unbalanced');
+      }
+
+      if (mounted) {
+        Navigator.pop(context, true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Journal entry saved successfully')),
+        );
+      }
+    } catch (e) {
+      print('Error saving journal entry: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving journal entry: $e')),
+        );
       }
     }
   }
@@ -110,12 +280,13 @@ class _AddJournalPageState extends State<AddJournal> {
       appBar: AppBar(
         backgroundColor: Colors.teal,
         leading: IconButton(
-          onPressed: () {
-            Navigator.pop(context);
-          },
+          onPressed: () => Navigator.pop(context),
           icon: const Icon(Icons.arrow_back, color: Colors.white),
         ),
-        title: const Text('Add Journal', style: TextStyle(color: Colors.white)),
+        title: Text(
+          widget.payment != null ? 'Edit Journal Entry' : 'Add Journal Entry',
+          style: const TextStyle(color: Colors.white),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -124,6 +295,7 @@ class _AddJournalPageState extends State<AddJournal> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Date Picker
               InkWell(
                 onTap: () => _selectDate(context),
                 child: Container(
@@ -145,6 +317,7 @@ class _AddJournalPageState extends State<AddJournal> {
                 ),
               ),
               const SizedBox(height: 25),
+              // Debit Account
               Row(
                 children: [
                   Expanded(
@@ -160,95 +333,88 @@ class _AddJournalPageState extends State<AddJournal> {
                             border: InputBorder.none,
                           ),
                           hint: const Text('Select Debit Account'),
-                          value: selectedAccount,
+                          value: selectedDebitAccount,
                           isExpanded: true,
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Please select an account';
+                              return 'Please select a debit account';
                             }
                             return null;
                           },
                           onChanged: (String? newValue) {
                             setState(() {
-                              selectedAccount = newValue;
+                              selectedDebitAccount = newValue;
                             });
                           },
                           items:
-                          accounts.map<DropdownMenuItem<String>>((
-                              String value,
+                              allAccounts.map<DropdownMenuItem<String>>((
+                                String value,
                               ) {
-                            return DropdownMenuItem<String>(
-                              value: value,
-                              child: Text(value),
-                            );
-                          }).toList(),
+                                return DropdownMenuItem<String>(
+                                  value: value,
+                                  child: Text(value),
+                                );
+                              }).toList(),
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 16),
-
-                  Container(
-
-
-                    child: FloatingActionButton(
-                      backgroundColor: Colors.red,
-                      tooltip: 'Increment',
-                      shape:   const CircleBorder(),
-                      onPressed: (){
-                   //     Navigator.push(context,MaterialPageRoute(builder:(context)=>AddBill( )));
-
-
-                      },
-                      child: const Icon(Icons.add, color: Colors.white, size: 25),
-                    ),
-
-
-                  ),
-                ],
-              ),
-
-
-
-              const SizedBox(height: 25),
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: TextFormField(
-                        controller: _creditController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          hintText: 'Amount',
+                  FloatingActionButton(
+                    backgroundColor: Colors.red,
+                    tooltip: 'Add Account',
+                    shape: const CircleBorder(),
+                    mini: true,
+                    onPressed: () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const Addaccountsdet(),
                         ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Select Credit Account';
-                          }
-                          if (double.tryParse(value) == null) {
-                            return 'Please enter a valid number';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
+                      );
+                      if (result == true) {
+                        await _loadAccounts();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Account added successfully'),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    child: const Icon(Icons.add, color: Colors.white, size: 25),
                   ),
-
-
                 ],
               ),
-
-
               const SizedBox(height: 25),
-
-
-
+              // Amount
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: TextFormField(
+                  controller: _amountController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintText: 'Amount',
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter an amount';
+                    }
+                    if (double.tryParse(value) == null) {
+                      return 'Please enter a valid number';
+                    }
+                    return null;
+                  },
+                ),
+              ),
+              const SizedBox(height: 25),
+              // Credit Account
               Row(
                 children: [
                   Expanded(
@@ -264,56 +430,62 @@ class _AddJournalPageState extends State<AddJournal> {
                             border: InputBorder.none,
                           ),
                           hint: const Text('Select Credit Account'),
-                          value: selectedAccount,
+                          value: selectedCreditAccount,
                           isExpanded: true,
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Please select an account';
+                              return 'Please select a credit account';
                             }
                             return null;
                           },
                           onChanged: (String? newValue) {
                             setState(() {
-                              selectedAccount = newValue;
+                              selectedCreditAccount = newValue;
                             });
                           },
                           items:
-                          accounts.map<DropdownMenuItem<String>>((
-                              String value,
+                              allAccounts.map<DropdownMenuItem<String>>((
+                                String value,
                               ) {
-                            return DropdownMenuItem<String>(
-                              value: value,
-                              child: Text(value),
-                            );
-                          }).toList(),
+                                return DropdownMenuItem<String>(
+                                  value: value,
+                                  child: Text(value),
+                                );
+                              }).toList(),
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 16),
-
-                  Container(
-
-
-                    child: FloatingActionButton(
-                      backgroundColor: Colors.red,
-                      tooltip: 'Increment',
-                      shape:   const CircleBorder(),
-                      onPressed: (){
-                        //     Navigator.push(context,MaterialPageRoute(builder:(context)=>AddBill( )));
-
-
-                      },
-                      child: const Icon(Icons.add, color: Colors.white, size: 25),
-                    ),
-
-
+                  FloatingActionButton(
+                    backgroundColor: Colors.red,
+                    tooltip: 'Add Account',
+                    shape: const CircleBorder(),
+                    mini: true,
+                    onPressed: () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const Addaccountsdet(),
+                        ),
+                      );
+                      if (result == true) {
+                        await _loadAccounts();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Account added successfully'),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    child: const Icon(Icons.add, color: Colors.white, size: 25),
                   ),
                 ],
               ),
-
-
               const SizedBox(height: 25),
+              // Remarks
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
@@ -321,7 +493,7 @@ class _AddJournalPageState extends State<AddJournal> {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: TextFormField(
-                //  controller: _debitController,
+                  controller: _remarksController,
                   maxLines: 3,
                   decoration: const InputDecoration(
                     border: InputBorder.none,
@@ -330,6 +502,7 @@ class _AddJournalPageState extends State<AddJournal> {
                 ),
               ),
               const SizedBox(height: 50),
+              // Save Button
               Center(
                 child: Container(
                   width: 200,
@@ -342,15 +515,13 @@ class _AddJournalPageState extends State<AddJournal> {
                       ],
                     ),
                   ),
-
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
-                    onPressed: _savePayment,
-
+                    onPressed: _saveDoubleEntryAccounts,
                     child: const Text(
                       'Save',
                       style: TextStyle(color: Colors.white, fontSize: 16),
