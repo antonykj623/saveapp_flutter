@@ -21,7 +21,7 @@ class MyApp extends StatelessWidget {
       title: 'SAVE App',
       theme: ThemeData(primarySwatch: Colors.teal),
       home: SplashPage(),
-    );
+    ); 
   }
 }
 

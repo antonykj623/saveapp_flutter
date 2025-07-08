@@ -36,7 +36,7 @@ class _AddJournalPageState extends State<AddJournal> {
       }
       selectedDebitAccount = widget.payment!.accountName;
       selectedCreditAccount =
-          widget.payment!.paymentMode; // Assuming stored as credit account
+          widget.payment!.paymentMode; 
       _amountController.text = widget.payment!.amount.toString();
       _remarksController.text = widget.payment!.remarks ?? '';
     } else {
@@ -188,7 +188,7 @@ class _AddJournalPageState extends State<AddJournal> {
           },
           where:
               "ACCOUNTS_VoucherType = ? AND ACCOUNTS_entryid = ? AND ACCOUNTS_type = ?",
-          whereArgs: [3, entryId, 'debit'],
+          whereArgs: [4, entryId, 'debit'],
         );
 
         // Update credit entry
@@ -205,12 +205,12 @@ class _AddJournalPageState extends State<AddJournal> {
           },
           where:
               "ACCOUNTS_VoucherType = ? AND ACCOUNTS_entryid = ? AND ACCOUNTS_type = ?",
-          whereArgs: [3, entryId, 'credit'],
+          whereArgs: [4, entryId, 'credit'],
         );
       } else {
         // Insert new debit entry
         Map<String, dynamic> debitEntry = {
-          'ACCOUNTS_VoucherType': 3, // Journal voucher type
+          'ACCOUNTS_VoucherType': 4, // Journal voucher type
           'ACCOUNTS_entryid': 0,
           'ACCOUNTS_date': dateString,
           'ACCOUNTS_setupid': debitSetupId,
@@ -228,7 +228,7 @@ class _AddJournalPageState extends State<AddJournal> {
 
         // Insert new credit entry
         Map<String, dynamic> creditEntry = {
-          'ACCOUNTS_VoucherType': 3,
+          'ACCOUNTS_VoucherType': 4,
           'ACCOUNTS_entryid': debitId.toString(),
           'ACCOUNTS_date': dateString,
           'ACCOUNTS_setupid': creditSetupId,
