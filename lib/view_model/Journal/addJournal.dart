@@ -1,14 +1,14 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:new_project_2025/view/home/widget/payment_page/payment_class/payment_class.dart';
 import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 import 'package:new_project_2025/view_model/AccountSet_up/Add_Acount.dart';
+import 'package:new_project_2025/view_model/Journal/Journel_class_model_class.dart';
 
 class AddJournal extends StatefulWidget {
-  final Payment? payment;
+  final JournalEntry? journalEntry;
 
-  const AddJournal({super.key, this.payment});
+  const AddJournal({super.key, this.journalEntry});
 
   @override
   State<AddJournal> createState() => _AddJournalPageState();
@@ -28,17 +28,16 @@ class _AddJournalPageState extends State<AddJournal> {
     super.initState();
     _loadAccounts();
 
-    if (widget.payment != null) {
+    if (widget.journalEntry != null) {
       try {
-        selectedDate = DateFormat('yyyy-MM-dd').parse(widget.payment!.date);
+        selectedDate = DateFormat('yyyy-MM-dd').parse(widget.journalEntry!.date);
       } catch (e) {
         selectedDate = DateTime.now();
       }
-      selectedDebitAccount = widget.payment!.accountName;
-      selectedCreditAccount =
-          widget.payment!.paymentMode; 
-      _amountController.text = widget.payment!.amount.toString();
-      _remarksController.text = widget.payment!.remarks ?? '';
+      selectedDebitAccount = widget.journalEntry!.debitAccount;
+      selectedCreditAccount = widget.journalEntry!.creditAccount;
+      _amountController.text = widget.journalEntry!.amount.toString();
+      _remarksController.text = widget.journalEntry!.remarks ?? '';
     } else {
       selectedDate = DateTime.now();
     }
@@ -138,7 +137,7 @@ class _AddJournalPageState extends State<AddJournal> {
     return months[month - 1];
   }
 
-  Future<void> _saveDoubleEntryAccounts() async {
+  Future<void> _saveJournalEntry() async {
     if (!_formKey.currentState!.validate()) return;
     if (selectedDebitAccount == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -171,8 +170,8 @@ class _AddJournalPageState extends State<AddJournal> {
 
       final double amount = double.parse(_amountController.text);
 
-      if (widget.payment != null) {
-        String entryId = widget.payment!.id.toString();
+      if (widget.journalEntry != null) {
+        String entryId = widget.journalEntry!.entryId.toString();
         // Update debit entry
         await db.update(
           "TABLE_ACCOUNTS",
@@ -183,8 +182,7 @@ class _AddJournalPageState extends State<AddJournal> {
             "ACCOUNTS_remarks": _remarksController.text,
             "ACCOUNTS_year": yearString,
             "ACCOUNTS_month": monthString,
-            "ACCOUNTS_cashbanktype":
-                '0', // Journal entries may not use cash/bank type
+            "ACCOUNTS_cashbanktype": '0',
           },
           where:
               "ACCOUNTS_VoucherType = ? AND ACCOUNTS_entryid = ? AND ACCOUNTS_type = ?",
@@ -284,7 +282,7 @@ class _AddJournalPageState extends State<AddJournal> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
         ),
         title: Text(
-          widget.payment != null ? 'Edit Journal Entry' : 'Add Journal Entry',
+          widget.journalEntry != null ? 'Edit Journal Entry' : 'Add Journal Entry',
           style: const TextStyle(color: Colors.white),
         ),
       ),
@@ -521,7 +519,7 @@ class _AddJournalPageState extends State<AddJournal> {
                       shadowColor: Colors.transparent,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
-                    onPressed: _saveDoubleEntryAccounts,
+                    onPressed: _saveJournalEntry,
                     child: const Text(
                       'Save',
                       style: TextStyle(color: Colors.white, fontSize: 16),

@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:new_project_2025/view/home/widget/payment_page/payment_class/payment_class.dart';
 import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 import 'package:new_project_2025/view_model/Journal/addJournal.dart';
+import 'package:new_project_2025/view_model/Journal/Journel_class_model_class.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,12 +61,12 @@ class _JournalPageState extends State<Journal> {
       final month = monthYear[0].toLowerCase();
       final year = monthYear[1];
 
-      // Fetch journal entries with VoucherType = 3
+      // Fetch journal entries with VoucherType = 4 (corrected from 3)
       final List<Map<String, dynamic>> debitEntries = await db.query(
         'TABLE_ACCOUNTS',
         where:
             "ACCOUNTS_VoucherType = ? AND ACCOUNTS_month = ? AND ACCOUNTS_year = ? AND ACCOUNTS_type = ?",
-        whereArgs: [3, month, year, 'debit'],
+        whereArgs: [4, month, year, 'debit'],
       );
 
       List<Map<String, dynamic>> entries = [];
@@ -76,7 +76,7 @@ class _JournalPageState extends State<Journal> {
           'TABLE_ACCOUNTS',
           where:
               "ACCOUNTS_VoucherType = ? AND ACCOUNTS_entryid = ? AND ACCOUNTS_type = ?",
-          whereArgs: [3, entryId, 'credit'],
+          whereArgs: [4, entryId, 'credit'],
         );
 
         if (creditEntry.isNotEmpty) {
@@ -175,15 +175,14 @@ class _JournalPageState extends State<Journal> {
                   DropdownButton<String>(
                     value: selectedMonth,
                     isExpanded: true,
-                    items:
-                        months
-                            .map(
-                              (month) => DropdownMenuItem(
-                                value: month,
-                                child: Text(month),
-                              ),
-                            )
-                            .toList(),
+                    items: months
+                        .map(
+                          (month) => DropdownMenuItem(
+                            value: month,
+                            child: Text(month),
+                          ),
+                        )
+                        .toList(),
                     onChanged: (value) {
                       setStateSB(() {
                         selectedMonth = value!;
@@ -194,15 +193,14 @@ class _JournalPageState extends State<Journal> {
                   DropdownButton<String>(
                     value: selectedYear,
                     isExpanded: true,
-                    items:
-                        years
-                            .map(
-                              (year) => DropdownMenuItem(
-                                value: year,
-                                child: Text(year),
-                              ),
-                            )
-                            .toList(),
+                    items: years
+                        .map(
+                          (year) => DropdownMenuItem(
+                            value: year,
+                            child: Text(year),
+                          ),
+                        )
+                        .toList(),
                     onChanged: (value) {
                       setStateSB(() {
                         selectedYear = value!;
@@ -244,22 +242,24 @@ class _JournalPageState extends State<Journal> {
 
   void _editItem(int index) async {
     final entry = journalEntries[index];
+    
+    // Create JournalEntry object for editing
+    final journalEntry = JournalEntry(
+      entryId: int.parse(entry['entryId']),
+      date: entry['date'],
+      debitAccount: entry['debitAccount'],
+      creditAccount: entry['creditAccount'],
+      amount: double.parse(entry['amount']),
+      remarks: entry['remarks'],
+    );
+
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder:
-            (context) => AddJournal(
-              payment: Payment(
-                id: int.parse(entry['entryId']),
-                date: entry['date'],
-                accountName: entry['debitAccount'],
-                amount: double.parse(entry['amount']),
-                paymentMode: entry['creditAccount'],
-                remarks: entry['remarks'],
-              ),
-            ),
+        builder: (context) => AddJournal(journalEntry: journalEntry),
       ),
     );
+    
     if (result == true) {
       _loadJournalEntries();
     }
@@ -269,58 +269,56 @@ class _JournalPageState extends State<Journal> {
     final entryId = journalEntries[index]['entryId'];
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Confirm Delete'),
-            content: const Text(
-              'Are you sure you want to delete this journal entry?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () async {
-                  try {
-                    final db = await DatabaseHelper().database;
-                    await db.delete(
-                      'TABLE_ACCOUNTS',
-                      where:
-                          "ACCOUNTS_VoucherType = ? AND ACCOUNTS_entryid = ?",
-                      whereArgs: [3, entryId],
-                    );
-                    setState(() {
-                      journalEntries.removeAt(index);
-                      total = _calculateTotal(journalEntries);
-                    });
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Journal entry deleted successfully'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    print('Error deleting journal entry: $e');
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Error deleting journal entry: $e'),
-                        ),
-                      );
-                    }
-                  }
-                  Navigator.pop(context);
-                },
-                child: const Text(
-                  'Delete',
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Delete'),
+        content: const Text(
+          'Are you sure you want to delete this journal entry?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
           ),
+          TextButton(
+            onPressed: () async {
+              try {
+                final db = await DatabaseHelper().database;
+                await db.delete(
+                  'TABLE_ACCOUNTS',
+                  where: "ACCOUNTS_VoucherType = ? AND ACCOUNTS_entryid = ?",
+                  whereArgs: [4, entryId], // Changed to VoucherType 4
+                );
+                setState(() {
+                  journalEntries.removeAt(index);
+                  total = _calculateTotal(journalEntries);
+                });
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Journal entry deleted successfully'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              } catch (e) {
+                print('Error deleting journal entry: $e');
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error deleting journal entry: $e'),
+                    ),
+                  );
+                }
+              }
+              Navigator.pop(context);
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -400,29 +398,36 @@ class _JournalPageState extends State<Journal> {
                   ),
                   // Table Body
                   Expanded(
-                    child: ListView.builder(
-                      controller: _verticalScrollController,
-                      itemCount: journalEntries.length,
-                      itemBuilder: (context, index) {
-                        final item = journalEntries[index];
-                        return Container(
-                          decoration: const BoxDecoration(
-                            border: Border(
-                              bottom: BorderSide(color: Colors.black, width: 1),
+                    child: journalEntries.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'No journal entries found',
+                              style: TextStyle(fontSize: 16, color: Colors.grey),
                             ),
+                          )
+                        : ListView.builder(
+                            controller: _verticalScrollController,
+                            itemCount: journalEntries.length,
+                            itemBuilder: (context, index) {
+                              final item = journalEntries[index];
+                              return Container(
+                                decoration: const BoxDecoration(
+                                  border: Border(
+                                    bottom: BorderSide(color: Colors.black, width: 1),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    _buildDataCell(item['date'], flex: 4),
+                                    _buildDataCell(item['debitAccount'], flex: 3),
+                                    _buildDataCell('₹${item['amount']}', flex: 2),
+                                    _buildDataCell(item['creditAccount'], flex: 3),
+                                    _buildActionCell(index, flex: 3),
+                                  ],
+                                ),
+                              );
+                            },
                           ),
-                          child: Row(
-                            children: [
-                              _buildDataCell(item['date'], flex: 4),
-                              _buildDataCell(item['debitAccount'], flex: 3),
-                              _buildDataCell(item['amount'], flex: 2),
-                              _buildDataCell(item['creditAccount'], flex: 3),
-                              _buildActionCell(index, flex: 3),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
                   ),
                 ],
               ),
@@ -454,7 +459,6 @@ class _JournalPageState extends State<Journal> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.add, color: Colors.white, size: 25),
-                  color: Colors.red,
                   onPressed: () async {
                     final result = await Navigator.push(
                       context,
@@ -503,9 +507,9 @@ class _JournalPageState extends State<Journal> {
     return Expanded(
       flex: flex,
       child: Container(
-        constraints: const BoxConstraints(minHeight: 120),
+        constraints: const BoxConstraints(minHeight: 80),
         alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         decoration: const BoxDecoration(
           border: Border(right: BorderSide(color: Colors.black)),
         ),
@@ -513,6 +517,8 @@ class _JournalPageState extends State<Journal> {
           text,
           style: const TextStyle(fontSize: 13),
           textAlign: TextAlign.center,
+          overflow: TextOverflow.ellipsis,
+          maxLines: 2,
         ),
       ),
     );
@@ -549,37 +555,36 @@ class _JournalPageState extends State<Journal> {
   void _handleEdit(int index) {
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Action'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.edit, color: Colors.blue),
-                  title: const Text('Edit'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _editItem(index);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.delete, color: Colors.red),
-                  title: const Text('Delete'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _deleteItem(index);
-                  },
-                ),
-              ],
+      builder: (context) => AlertDialog(
+        title: const Text('Action'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit, color: Colors.blue),
+              title: const Text('Edit'),
+              onTap: () {
+                Navigator.pop(context);
+                _editItem(index);
+              },
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-            ],
+            ListTile(
+              leading: const Icon(Icons.delete, color: Colors.red),
+              title: const Text('Delete'),
+              onTap: () {
+                Navigator.pop(context);
+                _deleteItem(index);
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
           ),
+        ],
+      ),
     );
   }
 }
