@@ -142,7 +142,7 @@ class _SlidebleListState1 extends State<Addaccountsdet1> {
                       setState(() {
                         dropdownvalu1 = newValue2!;
                         print("Account type selected: $dropdownvalu1");
-                      });
+                      }); 
                     },
                   ),
                 ),

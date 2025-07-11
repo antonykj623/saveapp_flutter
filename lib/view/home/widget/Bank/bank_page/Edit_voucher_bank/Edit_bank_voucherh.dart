@@ -81,16 +81,12 @@ class _AddEditVoucherScreenState extends State<AddEditVoucherScreen> {
       }
 
       setState(() {
-        // Set bank options
-        _debitOptions =
-            banks.isNotEmpty ? banks : ['Hdfc', 'SBI', 'ICICI', 'Axis'];
+        _debitOptions = banks.isNotEmpty ? banks : ['Hdfc', 'SBI', 'ICICI', 'Axis'];
 
-        // Set credit options - remove duplicates using Set
         Set<String> creditSet = {'Cash', 'Cheque', 'Online'};
         creditSet.addAll(cashAccounts);
         _creditOptions = creditSet.toList();
 
-        // Validate and set defaults if current selection is not in loaded options
         if (!_debitOptions.contains(_selectedDebit)) {
           _selectedDebit = _debitOptions.first;
         }
@@ -100,7 +96,6 @@ class _AddEditVoucherScreenState extends State<AddEditVoucherScreen> {
       });
     } catch (e) {
       print('Error loading accounts: $e');
-      // Ensure we have default values even if loading fails
       setState(() {
         _debitOptions = ['Hdfc', 'SBI', 'ICICI', 'Axis'];
         _creditOptions = ['Cash', 'Cheque', 'Online'];
@@ -386,7 +381,7 @@ class _AddEditVoucherScreenState extends State<AddEditVoucherScreen> {
                             borderRadius: BorderRadius.circular(25),
                           ),
                         ),
-                        child: Text('Delete'),
+                        child: Text("delete"),
                       ),
                     ),
                   ],
@@ -449,9 +444,8 @@ class _AddEditVoucherScreenState extends State<AddEditVoucherScreen> {
         final creditSetupId = await getNextSetupId(_selectedCredit);
 
         if (widget.voucher == null) {
-          // Create new voucher entries
           Map<String, dynamic> debitEntry = {
-            'ACCOUNTS_VoucherType': 5, // Bank voucher type
+            'ACCOUNTS_VoucherType': 5,
             'ACCOUNTS_entryid': 0,
             'ACCOUNTS_date': dateString,
             'ACCOUNTS_setupid': debitSetupId,
@@ -464,7 +458,7 @@ class _AddEditVoucherScreenState extends State<AddEditVoucherScreen> {
                     : _remarksController.text,
             'ACCOUNTS_year': yearString,
             'ACCOUNTS_month': monthString,
-            'ACCOUNTS_cashbanktype': '2', // Bank type
+            'ACCOUNTS_cashbanktype': '2',
             'ACCOUNTS_billId': '',
             'ACCOUNTS_billVoucherNumber': '',
           };
@@ -472,7 +466,7 @@ class _AddEditVoucherScreenState extends State<AddEditVoucherScreen> {
           final debitId = await db.insert("TABLE_ACCOUNTS", debitEntry);
 
           Map<String, dynamic> creditEntry = {
-            'ACCOUNTS_VoucherType': 5, // Bank voucher type
+            'ACCOUNTS_VoucherType': 5,
             'ACCOUNTS_entryid': debitId.toString(),
             'ACCOUNTS_date': dateString,
             'ACCOUNTS_setupid': creditSetupId,

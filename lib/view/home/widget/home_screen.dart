@@ -10,6 +10,7 @@ import 'package:new_project_2025/view/home/widget/More_page/More_page.dart';
 import 'package:new_project_2025/view/home/widget/Notification_page.dart';
 import 'package:new_project_2025/view/home/widget/Receipt/Receipt_screen.dart';
 import 'package:new_project_2025/view/home/widget/product_page.dart';
+import 'package:new_project_2025/view/home/widget/report_screen/report_screen.dart';
 import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 import 'package:new_project_2025/view/home/widget/save_DB/Main_budget_screen.dart';
 import 'package:new_project_2025/view/home/widget/insurance/insurance_database/Insurance_list_page/insurance_list_page.dart';
@@ -1004,90 +1005,3 @@ class FinancialData {
 
   FinancialData(this.month, this.income, this.expense);
 }
-
-class ReportScreen extends StatelessWidget {
-  const ReportScreen({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: Text('Report Screen')));
-  }
-}
-
-// class MoreScreen extends StatelessWidget {
-//   const MoreScreen({Key? key}) : super(key: key);
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return SingleChildScrollView(
-//       child: Column(
-//         crossAxisAlignment: CrossAxisAlignment.start,
-//         children: [
-//           Container(
-//             color: const Color(0xFFCFECEC),
-//             padding: const EdgeInsets.only(
-//               top: 40.0,
-//               left: 16.0,
-//               right: 16.0,
-//               bottom: 10.0,
-//             ),
-//             child: const Row(
-//               children: [
-//                 Text(
-//                   'More',
-//                   style: TextStyle(
-//                     color: Color(0xFF008080),
-//                     fontSize: 20,
-//                     fontWeight: FontWeight.w500,
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ),
-//           const Padding(
-//             padding: EdgeInsets.all(16.0),
-//             child: Text(
-//               'Additional Options',
-//               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-//             ),
-//           ),
-//           Container(
-//             margin: const EdgeInsets.symmetric(horizontal: 15),
-//             padding: const EdgeInsets.all(16),
-//             decoration: BoxDecoration(
-//               color: Colors.white,
-//               borderRadius: BorderRadius.circular(8),
-//               boxShadow: [
-//                 BoxShadow(
-//                   color: Colors.black.withOpacity(0.05),
-//                   blurRadius: 2,
-//                   offset: const Offset(0, 2),
-//                 ),
-//               ],
-//             ),
-//             child: Column(
-//               crossAxisAlignment: CrossAxisAlignment.start,
-//               children: [
-//                 ListTile(
-//                   leading: const Icon(Icons.info, color: Colors.teal),
-//                   title: const Text('About'),
-//                   onTap: () => debugPrint('About tapped'),
-//                 ),
-//                 ListTile(
-//                   leading: const Icon(Icons.support, color: Colors.teal),
-//                   title: const Text('Support'),
-//                   onTap: () => debugPrint('Support tapped'),
-//                 ),
-//                 ListTile(
-//                   leading: const Icon(Icons.logout, color: Colors.teal),
-//                   title: const Text('Logout'),
-//                   onTap: () => debugPrint('Logout tapped'),
-//                 ),
-//               ],
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }

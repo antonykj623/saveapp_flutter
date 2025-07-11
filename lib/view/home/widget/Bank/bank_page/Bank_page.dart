@@ -188,7 +188,6 @@ class _BankVoucherListScreenState extends State<BankVoucherListScreen> {
             ),
           ),
 
-          // Table Header
           Container(
             margin: EdgeInsets.symmetric(horizontal: 16),
             child: Table(
