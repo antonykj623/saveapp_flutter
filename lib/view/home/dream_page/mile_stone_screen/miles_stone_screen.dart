@@ -5,7 +5,7 @@ class MileStone {
   DateTime startDate;
   DateTime endDate;
   double amount;
-  bool isEmpty; // Track if this is an empty milestone
+  bool isEmpty; 
 
   MileStone({
     required this.startDate,
@@ -23,7 +23,7 @@ class AddMileStonePage extends StatefulWidget {
 class _AddMileStonePageState extends State<AddMileStonePage> {
   List<MileStone> milestones = [];
   int? selectedMilestoneIndex;
-  Set<int> expandedMilestones = {}; // Track which milestones are expanded
+  Set<int> expandedMilestones = {}; 
   TextEditingController amountController = TextEditingController();
 
   @override

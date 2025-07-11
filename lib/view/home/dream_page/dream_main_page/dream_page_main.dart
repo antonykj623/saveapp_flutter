@@ -28,7 +28,6 @@ class MyDreamScreen extends StatefulWidget {
 }
 
 class _MyDreamScreenState extends State<MyDreamScreen> {
-  // List to store all dreams
   List<Dream> dreams = [
     Dream(
       name: "Hhh",

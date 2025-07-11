@@ -1,15 +1,13 @@
 import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart';
 import 'package:quickalert/models/quickalert_type.dart';
 import 'package:quickalert/widgets/quickalert_dialog.dart';
-
 import '../../view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 
 class Addaccountsdet extends StatefulWidget {
-  const Addaccountsdet({super.key});
+  const Addaccountsdet({super.key,});
 
   @override
   State<Addaccountsdet> createState() => _SlidebleListState1();

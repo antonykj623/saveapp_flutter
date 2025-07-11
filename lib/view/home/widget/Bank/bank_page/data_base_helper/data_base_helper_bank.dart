@@ -1,102 +1,300 @@
-import 'package:flutter/material.dart';
-import 'package:new_project_2025/view/home/widget/Bank/bank_page/Bank_page.dart';
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
-import 'package:intl/intl.dart';
 
-void main() {
-  runApp(MyApp());
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
+import 'package:path/path.dart';
+import 'package:quickalert/models/quickalert_type.dart';
+import 'package:quickalert/widgets/quickalert_dialog.dart';
+
+
+class Addaccountsdet1 extends StatefulWidget {
+  const Addaccountsdet1({super.key, required String defaultAccountType,});
+
+  @override
+  State<Addaccountsdet1> createState() => _SlidebleListState1();
 }
 
-class MyApp extends StatelessWidget {
+class MenuItem {
+  final String label;
+  MenuItem(this.label);
+}
+
+class MenuItem1 {
+  final String label1;
+  MenuItem1(this.label1);  
+}
+
+var items1 = [
+  'Asset Account',
+  'Bank',
+  'Cash',
+  'Credit Card',
+  'Customers',
+  'Expense Account',
+  'Income Account',
+  'Insurance',
+  'Investment',
+  'Liability Account',
+];
+var items2 = ['Debit', 'Credit'];
+var items3 = ['2025', '2026', '2027', '2028', '2029', '2030'];
+
+final _formKey = GlobalKey<FormState>();
+final TextEditingController accountname = TextEditingController();
+final TextEditingController catogory = TextEditingController();
+final TextEditingController openingbalance = TextEditingController();
+var dropdownvalu = '2025';
+var dropdownvalu1 = 'Asset Account';
+var dropdownvalu2 = 'Debit';
+
+class _SlidebleListState1 extends State<Addaccountsdet1> {
+  String generateEntryId() {
+    return DateTime.now().millisecondsSinceEpoch.toString();
+  }
+
+  String getOpeningBalanceContraSetupId(String accountType) {
+    switch (accountType.toLowerCase()) {
+      case 'bank':
+      case 'cash':
+        return '2';
+      case 'asset account':
+      case 'investment':
+        return '2';
+      case 'liability account':
+      case 'credit card':
+        return '2';
+      case 'expense account':
+        return '2';
+      case 'income account':
+        return '2';
+      default:
+        return '2';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return 
-    MaterialApp(
-      title: 'Bank Voucher App',
-      theme: ThemeData(
-        primarySwatch: Colors.teal,
-        appBarTheme: AppBarTheme(
-          backgroundColor: Colors.teal,
-          foregroundColor: Colors.white,
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.teal,
+        leading: IconButton(
+          onPressed: () {
+            Navigator.pop(context);
+          },
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+        ),
+        title: const Text(
+          'Add Account Setup',
+          style: TextStyle(color: Colors.white),
         ),
       ),
-      home: BankVoucherListScreen(),
+      body: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Form(
+          key: _formKey,
+          child: Container(
+            height: 500,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                TextFormField(
+                  enabled: true,
+                  controller: accountname,
+                  decoration: InputDecoration(
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.black, width: 1.5),
+                    ),
+                    hintText: "Account name",
+                    hintStyle: TextStyle(
+                      color: const Color.fromARGB(255, 0, 0, 0),
+                    ),
+                    fillColor: const Color.fromARGB(0, 170, 30, 255),
+                    filled: true,
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter account name';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  decoration: ShapeDecoration(
+                    shape: BeveledRectangleBorder(
+                      side: BorderSide(width: .5, style: BorderStyle.solid),
+                      borderRadius: BorderRadius.all(Radius.circular(0)),
+                    ),
+                  ),
+                  child: DropdownButton(
+                    isExpanded: true,
+                    value: dropdownvalu1,
+                    icon: const Icon(Icons.keyboard_arrow_down),
+                    items:
+                        items1.map((String items) {
+                          return DropdownMenuItem(
+                            value: items,
+                            child: Text(items),
+                          );
+                        }).toList(),
+                    onChanged: (String? newValue2) {
+                      setState(() {
+                        dropdownvalu1 = newValue2!;
+                        print("Account type selected: $dropdownvalu1");
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  textAlign: TextAlign.end,
+                  enabled: true,
+                  controller: openingbalance,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    hintStyle: TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.black),
+                    ),
+                    hintText: "Enter Opening Balance",
+                    fillColor: Colors.transparent,
+                    filled: true,
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please add Opening Balance';
+                    }
+                    if (double.tryParse(value) == null) {
+                      return 'Please enter a valid number';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 20),
+                InputDecorator(
+                  decoration: InputDecoration(
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 20.0,
+                      vertical: 5.0,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(3.0),
+                    ),
+                  ),
+                  child: DropdownButton(
+                    isExpanded: true,
+                    value: dropdownvalu2,
+                    icon: const Icon(Icons.keyboard_arrow_down),
+                    items:
+                        items2.map((String items) {
+                          return DropdownMenuItem(
+                            value: items,
+                            child: Text(items),
+                          );
+                        }).toList(),
+                    onChanged: (String? newValue1) {
+                      setState(() {
+                        dropdownvalu2 = newValue1!;
+                        print("Account side selected: $dropdownvalu2");
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(height: 90),
+                Column(
+                  children: [
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.teal,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: () async {
+                        if (_formKey.currentState!.validate()) {
+                          try {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Processing Data')),
+                            );
+
+                            final accname = accountname.text;
+                            final catogory = dropdownvalu1;
+                            final openbalance = openingbalance.text;
+                            final type = dropdownvalu2;
+
+                            Map<String, dynamic> accountsetupData = {
+                              "Accountname": accname,
+                              "Accounttype": dropdownvalu1,
+                              "OpeningBalance": openbalance,
+                              "Type": type,
+                            };
+
+                            // Save to database
+                            await DatabaseHelper().addData(
+                              "TABLE_ACCOUNTSETTINGS",
+                              jsonEncode(accountsetupData),
+                            );
+
+                            print('account name is ...$accname');
+
+                            // Show success message
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Account "$accname" added successfully!',
+                                  ),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+
+                              // Clear form fields
+                              accountname.clear();
+                              openingbalance.clear();
+                              setState(() {
+                                dropdownvalu1 = 'Asset Account';
+                                dropdownvalu2 = 'Debit';
+                              });
+
+                              // Return true to indicate success and pop the page
+                              Navigator.pop(context, true);
+                            }
+                          } catch (e) {
+                            print('Error saving account: $e');
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Error saving account: $e'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        }
+                      },
+                      child: const Text(
+                        "Save",
+                        style: TextStyle(
+                          color: Color.fromARGB(255, 255, 255, 255),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
 
 
-class BankDatabase {
-  static final BankDatabase _instance = BankDatabase._internal();
-  static Database? _database;
 
-  BankDatabase._internal();
 
-  factory BankDatabase() => _instance;
-
-  Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDatabase();    
-    return _database!;
-  }
-
-  Future<Database> _initDatabase() async {
-    String path = join(await getDatabasesPath(), 'bank_voucher.db');
-    return await openDatabase(
-      path,
-      version: 1,
-      onCreate: _onCreate,
-    );
-  }
-
-  Future<void> _onCreate(Database db, int version) async {
-    await db.execute('''
-      CREATE TABLE vouchers(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        date TEXT NOT NULL,
-        debit TEXT NOT NULL,
-        amount REAL NOT NULL,
-        credit TEXT NOT NULL,
-        remarks TEXT
-      )
-    ''');
-  }
-
-  Future<int> insertVoucher(BankVoucher voucher) async {
-    final db = await database;
-    return await db.insert('vouchers', voucher.toMap());
-  }
-
-  Future<List<BankVoucher>> getVouchers() async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('vouchers');
-    return List.generate(maps.length, (i) {
-      return BankVoucher.fromMap(maps[i]);
-    });
-  }
-
-  Future<int> updateVoucher(BankVoucher voucher) async {
-    final db = await database;
-    return await db.update(
-      'vouchers',
-      voucher.toMap(),
-      where: 'id = ?',
-      whereArgs: [voucher.id],
-    );
-  }
-
-  Future<int> deleteVoucher(int id) async {
-    final db = await database;
-    return await db.delete(
-      'vouchers',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-  }
-}
-
-// Bank Voucher Model
 class BankVoucher {
   int? id;
   String date;

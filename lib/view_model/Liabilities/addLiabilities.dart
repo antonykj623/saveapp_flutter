@@ -17,9 +17,7 @@ class AddLiabilities extends StatefulWidget {
 
 
 class MenuItem {
-  // final int id;
   final String label;
-  // final IconData icon;
 
   MenuItem(this.label);
 }
@@ -31,20 +29,7 @@ class MenuItem1 {
 
   MenuItem1(this.label1);
 }
-// List<MenuItem> menuItems = [
-//   MenuItem('Asset Account'),
-//   MenuItem('Bank'),
-//   MenuItem('Cash'),
-//   MenuItem('Credit Card'),
-//   MenuItem('Customers'),
-//   MenuItem('Expense Account'),
-//   MenuItem('Income Account'),
-//   MenuItem('Insurance'),
-//   MenuItem('Investment'),
-//   MenuItem('Liability Account'),
-//
-//
-// ];
+
 var items1 = [
   'Non EMI',
   'EMI'

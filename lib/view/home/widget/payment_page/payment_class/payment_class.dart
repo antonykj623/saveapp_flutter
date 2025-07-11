@@ -60,7 +60,6 @@ class Payment {
     );
   }
 
-  // Convert to JSON string - Fixed formatting
   String toJson() {
     return jsonEncode({
       "id": id,
@@ -72,19 +71,16 @@ class Payment {
     });
   }
 
-  // Create Payment from JSON string
   factory Payment.fromJson(String jsonString) {
     final Map<String, dynamic> json = jsonDecode(jsonString);
     return Payment.fromMap(json);
   }
 
-  // Override toString for debugging
   @override
   String toString() {
     return 'Payment(id: $id, date: $date, accountName: $accountName, amount: $amount, paymentMode: $paymentMode, remarks: $remarks)';
   }
 
-  // Override equality operator
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -109,7 +105,6 @@ class Payment {
         remarks.hashCode;
   }
 
-  // Validation method
   bool isValid() {
     return date.isNotEmpty &&
         accountName.isNotEmpty &&
@@ -117,10 +112,8 @@ class Payment {
         paymentMode.isNotEmpty;
   }
 
-  // Get formatted amount as string
   String get formattedAmount => amount.toStringAsFixed(2);
 
-  // Get formatted date
   String get formattedDate {
     try {
       final DateTime dateTime = DateFormat('yyyy-MM-dd').parse(date);

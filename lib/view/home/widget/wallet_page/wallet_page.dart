@@ -33,7 +33,6 @@ class _WalletPageState extends State<WalletPage> {
 
   Future<void> _loadPayments() async {
     try {
-      // Check if there's money in wallet first
       if (!hasWalletMoney) {
         setState(() {
           payments = [];

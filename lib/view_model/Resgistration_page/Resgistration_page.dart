@@ -49,7 +49,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     super.initState();
     fetchCountryData();
 
-//    apidata.getApiResponse("getCountry.php");
+
   }
 
   final _formKey = GlobalKey<FormState>();
@@ -91,7 +91,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
     final Map<String, dynamic> jsonResponse = json.decode(response);
 
-    // Access the 'data' key from the JSON response
     final List<dynamic> data = jsonResponse['data'];
     print("Datas are...$data");
 
@@ -125,7 +124,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
 
   void Registration() async {
-    var uuid = Uuid().v4(); // generates a random UUID
+    var uuid = Uuid().v4(); 
     String timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
 
     Map<String, String> regdata = {

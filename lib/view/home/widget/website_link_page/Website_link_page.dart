@@ -292,7 +292,6 @@ class _WebLinkCardState extends State<WebLinkCard> {
   }
 }
 
-// Sample implementation of AddEditWebLinkPage
 class AddEditWebLinkPage extends StatefulWidget {
   final WebLink? webLink;
   final bool isEdit;
@@ -345,7 +344,7 @@ class _AddEditWebLinkPageState extends State<AddEditWebLinkPage> {
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
-            Navigator.pop(context); // Correct: Returns to WebLinksListPage
+            Navigator.pop(context); 
           },
         ),
         title: Text(
@@ -423,7 +422,7 @@ class _AddEditWebLinkPageState extends State<AddEditWebLinkPage> {
                     onPressed: () {
                       Navigator.pop(
                         context,
-                      ); // Correct: Returns to WebLinksListPage
+                      ); 
                     },
                     child: Text('Cancel'),
                     style: OutlinedButton.styleFrom(

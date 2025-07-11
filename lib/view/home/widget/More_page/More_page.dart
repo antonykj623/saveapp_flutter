@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:new_project_2025/view/home/widget/home_screen.dart';
 
 class More extends StatefulWidget {
   const More({super.key});
@@ -11,7 +12,7 @@ class _MoreState extends State<More> {
   final List<String> item = [
     "How to use",
     "Help on Whatsapp",
-    "mail Us",
+    "Mail Us",
     "About Us",
     'Privacy Policy',
     "Terms and Conditions For Use",
@@ -34,13 +35,48 @@ class _MoreState extends State<More> {
             return _buildReportItem1(
               title: item[index],
               onTap: () {
-                print("${item[index]} tapped");
+                _navigateToScreen(context, item[index]);
               },
             );
           },
         ),
       ),
     );
+  }
+
+  void _navigateToScreen(BuildContext context, String title) {
+    // You can match title and navigate to different screens
+    Widget screen;
+    switch (title) {
+      // case "How to use":
+      //   screen = const HowToUseScreen();
+      //   break;
+      // case "Help on Whatsapp":
+      //   screen = const HelpOnWhatsappScreen();
+      //   break;
+      // case "Mail Us":
+      //   screen = const MailUsScreen();
+      //   break;
+      // case "About Us":
+      //   screen = const AboutUsScreen();
+      //   break;
+      // case "Privacy Policy":
+      //   screen = const PrivacyPolicyScreen();
+      //   break;
+      // case "Terms and Conditions For Use":
+      //   screen = const TermsScreen();
+      //   break;
+      // case "FeedBack":
+      //   screen = const FeedbackScreen();
+      //   break;
+      // case "Share":
+      //   screen = const ShareScreen();
+      //   break;
+      default:
+        screen = SaveApp();
+    }
+
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
   }
 
   Widget _buildReportItem1({

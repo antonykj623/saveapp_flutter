@@ -1,3 +1,4 @@
+import 'package:animated_notch_bottom_bar/animated_notch_bottom_bar/animated_notch_bottom_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:carousel_slider/carousel_slider.dart';
@@ -5,8 +6,10 @@ import 'package:new_project_2025/view/home/dream_page/dream_main_page/dream_page
 import 'package:new_project_2025/view/home/widget/CashBank/Receipt_class/receipt_class.dart';
 import 'package:new_project_2025/view/home/widget/Bank/bank_page/Bank_page.dart';
 import 'package:new_project_2025/view/home/widget/Emergency_numbers_screen/Emergency_screen.dart';
+import 'package:new_project_2025/view/home/widget/More_page/More_page.dart';
 import 'package:new_project_2025/view/home/widget/Notification_page.dart';
 import 'package:new_project_2025/view/home/widget/Receipt/Receipt_screen.dart';
+import 'package:new_project_2025/view/home/widget/product_page.dart';
 import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 import 'package:new_project_2025/view/home/widget/save_DB/Main_budget_screen.dart';
 import 'package:new_project_2025/view/home/widget/insurance/insurance_database/Insurance_list_page/insurance_list_page.dart';
@@ -43,8 +46,6 @@ import 'investment/model_class1/model_class.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:new_project_2025/view/home/dream_page/dream_class/db_class.dart';
 
-
-
 class SaveApp extends StatefulWidget {
   const SaveApp({Key? key}) : super(key: key);
 
@@ -53,8 +54,10 @@ class SaveApp extends StatefulWidget {
 }
 
 class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
+  late NotchBottomBarController _notchController;
+
   int _currentIndex = 0;
-  late PageController _pageController;
+  PageController _pageController = PageController(initialPage: 0);
   int _currentCarouselIndex = 0;
   late AnimationController _animationController;
   String selectedYear = '2025';
@@ -72,7 +75,8 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(initialPage: 0);
+    // Remove this line: _pageController = PageController(initialPage: 0);
+    _notchController = NotchBottomBarController(index: 0);
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 700),
@@ -89,6 +93,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
   void dispose() {
     _pageController.dispose();
     _animationController.dispose();
+    _notchController.dispose();
     super.dispose();
   }
 
@@ -96,6 +101,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
     setState(() {
       _currentIndex = index;
       _pageController.jumpToPage(index);
+      _notchController.index = index;
     });
   }
 
@@ -344,11 +350,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
             child: PageView(
               controller: _pageController,
               physics: const NeverScrollableScrollPhysics(),
-              children: [
-                _buildHomePage(),
-                const ReportScreen(),
-                const MoreScreen(),
-              ],
+              children: [_buildHomePage(), const ReportScreen(), More()],
             ),
           ),
           _buildBottomNavBar(),
@@ -651,32 +653,49 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
   }
 
   Widget _buildBottomNavBar() {
-    return Container(
-      color: const Color(0xFF008080),
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _buildNavItem(
-            Icons.home,
-            'Home',
-            _currentIndex == 0,
-            () => _changePage(0),
-          ),
-          _buildNavItem(
-            Icons.description_outlined,
-            'Report',
-            _currentIndex == 1,
-            () => _changePage(1),
-          ),
-          _buildNavItem(
-            Icons.more_horiz,
-            'More',
-            _currentIndex == 2,
-            () => _changePage(2),
-          ),
-        ],
+    return AnimatedNotchBottomBar(
+      durationInMilliSeconds: 300,
+      // textOverflow: TextOverflow.visible,
+      notchGradient: const LinearGradient(
+        begin: Alignment.topRight,
+        end: Alignment.bottomLeft,
+        colors: [Colors.black, Colors.green],
       ),
+      elevation: 2.0,
+
+      bottomBarWidth: 500,
+      notchBottomBarController: _notchController,
+      color: const Color(0xFF008080),
+      showLabel: true,
+      notchColor: Colors.white,
+      kIconSize: 24.0,
+      kBottomRadius: 40.0,
+      itemLabelStyle: const TextStyle(
+        fontSize: 14,
+        color: Colors.black54,
+        fontWeight: FontWeight.w500,
+      ),
+
+      bottomBarItems: [
+        const BottomBarItem(
+          inActiveItem: Icon(Icons.home, color: Colors.white),
+          activeItem: Icon(Icons.home, color: Colors.white),
+          itemLabel: 'Home',
+        ),
+        const BottomBarItem(
+          inActiveItem: Icon(Icons.description_outlined, color: Colors.white70),
+          activeItem: Icon(Icons.description_outlined, color: Colors.white),
+          itemLabel: 'Report',
+        ),
+        const BottomBarItem(
+          inActiveItem: Icon(Icons.more_horiz, color: Colors.white70),
+          activeItem: Icon(Icons.more_horiz, color: Colors.white),
+          itemLabel: 'More',
+        ),
+      ],
+      onTap: (index) {
+        _changePage(index);
+      },
     );
   }
 
@@ -995,80 +1014,80 @@ class ReportScreen extends StatelessWidget {
   }
 }
 
-class MoreScreen extends StatelessWidget {
-  const MoreScreen({Key? key}) : super(key: key);
+// class MoreScreen extends StatelessWidget {
+//   const MoreScreen({Key? key}) : super(key: key);
 
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            color: const Color(0xFFCFECEC),
-            padding: const EdgeInsets.only(
-              top: 40.0,
-              left: 16.0,
-              right: 16.0,
-              bottom: 10.0,
-            ),
-            child: const Row(
-              children: [
-                Text(
-                  'More',
-                  style: TextStyle(
-                    color: Color(0xFF008080),
-                    fontSize: 20,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text(
-              'Additional Options',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 15),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 2,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.info, color: Colors.teal),
-                  title: const Text('About'),
-                  onTap: () => debugPrint('About tapped'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.support, color: Colors.teal),
-                  title: const Text('Support'),
-                  onTap: () => debugPrint('Support tapped'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.logout, color: Colors.teal),
-                  title: const Text('Logout'),
-                  onTap: () => debugPrint('Logout tapped'),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+//   @override
+//   Widget build(BuildContext context) {
+//     return SingleChildScrollView(
+//       child: Column(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         children: [
+//           Container(
+//             color: const Color(0xFFCFECEC),
+//             padding: const EdgeInsets.only(
+//               top: 40.0,
+//               left: 16.0,
+//               right: 16.0,
+//               bottom: 10.0,
+//             ),
+//             child: const Row(
+//               children: [
+//                 Text(
+//                   'More',
+//                   style: TextStyle(
+//                     color: Color(0xFF008080),
+//                     fontSize: 20,
+//                     fontWeight: FontWeight.w500,
+//                   ),
+//                 ),
+//               ],
+//             ),
+//           ),
+//           const Padding(
+//             padding: EdgeInsets.all(16.0),
+//             child: Text(
+//               'Additional Options',
+//               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+//             ),
+//           ),
+//           Container(
+//             margin: const EdgeInsets.symmetric(horizontal: 15),
+//             padding: const EdgeInsets.all(16),
+//             decoration: BoxDecoration(
+//               color: Colors.white,
+//               borderRadius: BorderRadius.circular(8),
+//               boxShadow: [
+//                 BoxShadow(
+//                   color: Colors.black.withOpacity(0.05),
+//                   blurRadius: 2,
+//                   offset: const Offset(0, 2),
+//                 ),
+//               ],
+//             ),
+//             child: Column(
+//               crossAxisAlignment: CrossAxisAlignment.start,
+//               children: [
+//                 ListTile(
+//                   leading: const Icon(Icons.info, color: Colors.teal),
+//                   title: const Text('About'),
+//                   onTap: () => debugPrint('About tapped'),
+//                 ),
+//                 ListTile(
+//                   leading: const Icon(Icons.support, color: Colors.teal),
+//                   title: const Text('Support'),
+//                   onTap: () => debugPrint('Support tapped'),
+//                 ),
+//                 ListTile(
+//                   leading: const Icon(Icons.logout, color: Colors.teal),
+//                   title: const Text('Logout'),
+//                   onTap: () => debugPrint('Logout tapped'),
+//                 ),
+//               ],
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }

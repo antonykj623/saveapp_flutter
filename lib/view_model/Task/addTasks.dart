@@ -1,10 +1,8 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:new_project_2025/view/home/widget/wallet_page/wallet_transation_class/wallet_transtion_class.dart';
 import '../../view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
-
 
 class AddMoneyToWalletPage extends StatefulWidget {
   final WalletTransaction? transaction;
@@ -97,7 +95,7 @@ class _AddMoneyToWalletPageState extends State<AddMoneyToWalletPage> {
 
     try {
       if (isEditMode) {
-      //  await WalletDatabaseHelper.instance.updateWalletTransaction(transaction);
+        //  await WalletDatabaseHelper.instance.updateWalletTransaction(transaction);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -107,7 +105,7 @@ class _AddMoneyToWalletPageState extends State<AddMoneyToWalletPage> {
           );
         }
       } else {
-     //   await WalletDatabaseHelper.instance.insertWalletTransaction(transaction);
+        //   await WalletDatabaseHelper.instance.insertWalletTransaction(transaction);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -138,26 +136,29 @@ class _AddMoneyToWalletPageState extends State<AddMoneyToWalletPage> {
 
     final bool? confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirm Delete'),
-        content: const Text('Are you sure you want to delete this transaction?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Confirm Delete'),
+            content: const Text(
+              'Are you sure you want to delete this transaction?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('Delete'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
     );
 
     if (confirmed == true) {
       try {
-       // await WalletDatabaseHelper.instance.deleteWalletTransaction(widget.transaction!.id!);
+        // await WalletDatabaseHelper.instance.deleteWalletTransaction(widget.transaction!.id!);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -183,13 +184,15 @@ class _AddMoneyToWalletPageState extends State<AddMoneyToWalletPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         backgroundColor: Colors.teal,
         title: Text(
           isEditMode ? 'Edit Wallet Transaction' : 'Add money to wallet',
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -204,15 +207,48 @@ class _AddMoneyToWalletPageState extends State<AddMoneyToWalletPage> {
         child: Form(
           key: _formKey,
           child: Column(
-          children: [
-            // Date Picker
-            InkWell(
-              onTap: _selectDate,
-              child: Container(
-                padding: const EdgeInsets.all(16),
+            children: [
+              // Date Picker
+              InkWell(
+                onTap: _selectDate,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: Colors.grey[300]!),
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.1),
+                        spreadRadius: 1,
+                        blurRadius: 3,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        DateFormat('dd-M-yyyy').format(selectedDate),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      Icon(Icons.calendar_today, color: Colors.grey[600]),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Amount Input
+              Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  border: Border.all(color: Colors.grey[300]!),
                   borderRadius: BorderRadius.circular(8),
                   boxShadow: [
                     BoxShadow(
@@ -223,158 +259,99 @@ class _AddMoneyToWalletPageState extends State<AddMoneyToWalletPage> {
                     ),
                   ],
                 ),
-
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      DateFormat('dd-M-yyyy').format(selectedDate),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: Colors.black87,
+                child: TextFormField(
+                  controller: _amountController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Amount',
+                    hintStyle: TextStyle(color: Colors.grey[500]),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(
+                        color: Colors.teal,
+                        width: 2,
                       ),
                     ),
-                    Icon(Icons.calendar_today, color: Colors.grey[600]),
-                  ],
+                    contentPadding: const EdgeInsets.all(16),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter amount';
+                    }
+                    return null;
+                  },
                 ),
               ),
-            ),
 
-            const SizedBox(height: 16),
+              const Spacer(),
 
-            // Amount Input
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
-                    spreadRadius: 1,
-                    blurRadius: 3,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
-              child: TextFormField(
-                controller: _amountController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(
-                  hintText: 'Amount',
-                  hintStyle: TextStyle(color: Colors.grey[500]),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Colors.teal, width: 2),
-                  ),
-                  contentPadding: const EdgeInsets.all(16),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter amount';
-                  }
-                  return null;
-                },
-              ),
-            ),
-
-            const Spacer(),
-
-            // Action Buttons
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      if (_formKey.currentState!.validate()) {
-                        try {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Processing Data')),
-                          );
-
-                          final amnt = _amountController.text;
-
-
-                          Map<String, dynamic> amntsetupData = {
-                            "amount": amnt,
-
-                          };
-
-                          // Save to database
-                          await  DatabaseHelper().addData(
-                            "TABLE_WALLET",
-                            jsonEncode(amntsetupData),
-                          );
-
-
-
-
-                          // Show success message
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Account "$amnt" added successfully!',
-                                ),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-
-                            // Clear form fields
-                            _amountController.clear();
-
-                            setState(() {
-
-
-                            });
-
-                            // Return true to indicate success and pop the page
-                            Navigator.pop(context, true);
-                          }
-                        } catch (e) {
-                          print('Error saving account: $e');
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Error saving account: $e'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        }
-                      }
-                    },
-                    // _saveTransaction,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.teal,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(25),
-                      ),
-                      elevation: 2,
-                    ),
-                    child: Text(
-                      isEditMode ? 'Update' : 'Save',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-                if (isEditMode) ...[
-                  const SizedBox(width: 16),
+              // Action Buttons
+              Row(
+                children: [
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _deleteTransaction,
+                      onPressed: () async {
+                        if (_formKey.currentState!.validate()) {
+                          try {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Processing Data')),
+                            );
+
+                            final amnt = _amountController.text;
+
+                            Map<String, dynamic> amntsetupData = {
+                              "amount": amnt,
+                            };
+
+                            // Save to database
+                            await DatabaseHelper().addData(
+                              "TABLE_WALLET",
+                              jsonEncode(amntsetupData),
+                            );
+
+                            // Show success message
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Account "$amnt" added successfully!',
+                                  ),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+
+                              // Clear form fields
+                              _amountController.clear();
+
+                              setState(() {});
+
+                              // Return true to indicate success and pop the page
+                              Navigator.pop(context, true);
+                            }
+                          } catch (e) {
+                            print('Error saving account: $e');
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Error saving account: $e'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        }
+                      },
+                      // _saveTransaction,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.teal,
                         foregroundColor: Colors.white,
@@ -384,23 +361,46 @@ class _AddMoneyToWalletPageState extends State<AddMoneyToWalletPage> {
                         ),
                         elevation: 2,
                       ),
-                      child: const Text(
-                        'Delete',
-                        style: TextStyle(
+                      child: Text(
+                        isEditMode ? 'Update' : 'Save',
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
                   ),
+                  if (isEditMode) ...[
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _deleteTransaction,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.teal,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                          elevation: 2,
+                        ),
+                        child: const Text(
+                          'Delete',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
-              ],
-            ),
+              ),
 
-            const SizedBox(height: 20),
-          ],
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }

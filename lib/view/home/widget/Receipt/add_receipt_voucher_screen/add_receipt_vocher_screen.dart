@@ -225,7 +225,6 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
           whereArgs: [2, receiptId.toString(), 'debit'],
         );
 
-        // CREDIT: The cash/bank account giving the money (selectedCashOption)
         await db.update(
           "TABLE_ACCOUNTS",
           {
@@ -242,8 +241,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
           whereArgs: [2, receiptId.toString(), 'credit'],
         );
       } else {
-        // Create new receipt entries
-        // DEBIT: The account receiving the money (selectedAccount)
+      
         Map<String, dynamic> debitEntry = {
           'ACCOUNTS_VoucherType': 2,
           'ACCOUNTS_entryid': 0,
@@ -261,7 +259,6 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
 
         final debitId = await db.insert("TABLE_ACCOUNTS", debitEntry);
 
-        // CREDIT: The cash/bank account giving the money (selectedCashOption)
         Map<String, dynamic> creditEntry = {
           'ACCOUNTS_VoucherType': 2,
           'ACCOUNTS_entryid': debitId.toString(),

@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:image_picker/image_picker.dart';
-
 import 'addVisitingcard.dart';
 import 'test.dart';
 
@@ -31,21 +30,12 @@ class _VisitingCardFormState extends State<VisitingCard> {
 
   final List<dynamic> _images = [
     "assets/1.jpg",
-
-    "assets/2.jpg",
+    "asssets/2.jpg",
     "assets/3.jpg",
   ];
   int _currentIndex = 0;
   final picker = ImagePicker();
 
-  // Future<void> _pickImage() async {
-  //   final pickedFile = await picker.pickImage(source: ImageSource.camera);
-  //   if (pickedFile != null) {
-  //     setState(() {
-  //       _images.add(File(pickedFile.path) as String  );
-  //     });
-  //   }
-  // }
   final TextEditingController name = TextEditingController();
   final TextEditingController email = TextEditingController();
   final TextEditingController phone = TextEditingController();
