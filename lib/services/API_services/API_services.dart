@@ -15,7 +15,7 @@ class ApiHelper {
  
 Map<String, String> headers = {
   "Authorization":
-    (token!=null && token.toString().isEmpty)?token.toString():""  ,
+    (token!=null || token.toString().isEmpty)?token.toString():""  ,
   "Content-Type": "application/x-www-form-urlencoded", 
 };
 
@@ -45,7 +45,7 @@ Map<String, String> headers = {
  
 Map<String, String> headers = {
   "Authorization":
-    (token!=null && token.toString().isEmpty)?token.toString():""  ,
+    (token!=null || token.toString().isEmpty)?token.toString():""  ,
   "Content-Type": "application/x-www-form-urlencoded", 
 };
 

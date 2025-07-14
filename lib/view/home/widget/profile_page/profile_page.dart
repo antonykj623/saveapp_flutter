@@ -41,7 +41,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String imageUrl = "";
   String _token = "";
 
-  String? timestamp;// This will store the complete image URL
+  String? timestamp; // This will store the complete image URL
   final List<String> _languages = [
     "English",
     "Spanish",
@@ -56,39 +56,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
     String? countryid = prefs.getString('countryId');
     print("stateid is $stateid");
     print("Countryid is $countryid");
-
-
   }
+
   void profileUser() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-   _token = prefs.getString('token')!;
+    _token = prefs.getString('token')!;
 
     // String? stateid = prefs.getString('stateId');
     // String? countryid = prefs.getString('countryId');
 
     print("Token is $_token");
 
-     timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
-    String base64Image = "";
-    if (_profileImage != null) {
-      List<int> imageBytes = await _profileImage!.readAsBytes();
-      base64Image = base64Encode(imageBytes);
-    }
+    timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
+    // String base64Image = "";
+    // if (_profileImage != null) {
+    //   List<int> imageBytes = await _profileImage!.readAsBytes();
+    //   base64Image = base64Encode(imageBytes);
+    // }
 
     ApiHelper api = ApiHelper();
-    Map<String, String> logdata = {
-      "mobile": _phoneNumber,
-      "fullName": _nameController.text.trim(),
-      "emailId": _emailController.text.trim(),
-      "profileImage": base64Image,
-      "defaultLang": _selectedLanguage,
-      "timestamp": timestamp!,
-      "token": _token!,
-    };
+ 
 
     try {
       String logresponse = await api.postApiResponse(
-          "getUserDetails.php", logdata);
+        "getUserDetails.php",
+        {},
+      );
       debugPrint("Response1: $logresponse");
       var res = json.decode(logresponse);
       debugPrint("res is...$res");
@@ -149,39 +142,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
     //     print("Token or timestamp is null");
     //   }
     // }
-
   }
-
 
   void updateProfile() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? token = prefs.getString('token');
 
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Token not found. Please login again.')),
+      );
+      return;
+    }
 
-
-      if (token == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Token not found. Please login again.')),
-        );
-        return;
-      }
-
-
-      Map<String, String> profiledata = {
-
-        "name": _nameController.text.trim(),
-        "user_email": _emailController.text.trim(),
-        "language": _selectedLanguage,
-        "timestamp": timestamp!,
-        "country_id":countryid!,
-        "state_id":stateid!,
-        "token": token,
-      };
-
-
+    Map<String, String> profiledata = {
+      "name": _nameController.text.trim(),
+      "user_email": _emailController.text.trim(),
+      "language": _selectedLanguage,
+      "timestamp": timestamp!,
+      "country_id": countryid!,
+      "state_id": stateid!,
+      "token": token,
+    };
 
     try {
-      String response = await apidata.postApiResponse("UserProfileUpdate.php", profiledata);
+      String response = await apidata.postApiResponse(
+        "UserProfileUpdate.php",
+        profiledata,
+      );
       debugPrint("Update response: $response");
 
       var res = json.decode(response);
@@ -189,9 +177,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       debugPrint("Updated Profile Data: $res ");
 
       if (res['status'] == 1) {
-       // debugPrint("Updated Profile Data: ${res['data']}");
-
-
+        // debugPrint("Updated Profile Data: ${res['data']}");
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Profile updated successfully")),
@@ -203,31 +189,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     } catch (e) {
       print("Error updating profile: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Something went wrong")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Something went wrong")));
     }
   }
+
   Future<void> uploadProfilePicture(File imageFile) async {
-    final url = Uri.parse('https://mysaving.in/IntegraAccount/api/uploadUserProfile.php');
-    final token = 'qwertyuioplkjhgfvbnmlkjiou.OTc0NzQ5Nzk2Nw==.MjVkNTVhZDI4M2FhNDAwYWY0NjRjNzZkNzEzYzA3YWQ=.qwertyuioplkjhgfvbnmlkjiou';
+    final url = Uri.parse(
+      'https://mysaving.in/IntegraAccount/api/uploadUserProfile.php',
+    );
+    final token =
+        'qwertyuioplkjhgfvbnmlkjiou.OTc0NzQ5Nzk2Nw==.MjVkNTVhZDI4M2FhNDAwYWY0NjRjNzZkNzEzYzA3YWQ=.qwertyuioplkjhgfvbnmlkjiou';
     final timestamp = DateTime.now().toUtc().toIso8601String();
 
     print('File path: ${imageFile.path}');
     print('File exists: ${await imageFile.exists()}');
     print('File size: ${await imageFile.length()}');
 
-    final request = http.MultipartRequest('POST', url)
-      ..headers.addAll({
-        'Authorization': 'Bearer $token',
-        'x-timestamp': timestamp,
-      })
-      // ..files.add(await http.MultipartFile.fromPath('profile_image', imageFile.path));
-    ..files.add(await http.MultipartFile.fromPath(
-    'file', // <-- field name expected by PHP backend
-    imageFile.path,
-    filename: imageFile.path.split('/').last,
-    ));
+    final request =
+        http.MultipartRequest('POST', url)
+          ..headers.addAll({
+            'Authorization': 'Bearer $token',
+            'x-timestamp': timestamp,
+          })
+          // ..files.add(await http.MultipartFile.fromPath('profile_image', imageFile.path));
+          ..files.add(
+            await http.MultipartFile.fromPath(
+              'file', // <-- field name expected by PHP backend
+              imageFile.path,
+              filename: imageFile.path.split('/').last,
+            ),
+          );
 
     try {
       final streamedResponse = await request.send();
@@ -246,7 +239,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       print('Error uploading: $e');
     }
   }
-
 
   // Future<void> uploadProfilePicture(File imageFile) async {
   //   final url = Uri.parse('https://mysaving.in/IntegraAccount/api/uploadUserProfile.php');
@@ -344,19 +336,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           radius: 60,
                           backgroundColor: Colors.grey.shade300,
                           // Fixed: Proper image display logic
-                          backgroundImage: _profileImage != null
-                              ? FileImage(_profileImage!) // Show picked image
-                              : (imageUrl.isNotEmpty
-                              ? NetworkImage(imageUrl) // Show network image
-                              : const AssetImage(
-                              'assets/appbar.png') // Show default image
-                          ) as ImageProvider,
+                          backgroundImage:
+                              _profileImage != null
+                                  ? FileImage(
+                                    _profileImage!,
+                                  ) // Show picked image
+                                  : (imageUrl.isNotEmpty
+                                          ? NetworkImage(
+                                            imageUrl,
+                                          ) // Show network image
+                                          : const AssetImage(
+                                            'assets/appbar.png',
+                                          ) // Show default image
+                                          )
+                                      as ImageProvider,
                           // Add error handling for network images
-                          onBackgroundImageError: imageUrl.isNotEmpty
-                              ? (exception, stackTrace) {
-                            print('Error loading image: $exception');
-                          }
-                              : null,
+                          onBackgroundImageError:
+                              imageUrl.isNotEmpty
+                                  ? (exception, stackTrace) {
+                                    print('Error loading image: $exception');
+                                  }
+                                  : null,
                         ),
                         Positioned(
                           bottom: 0,
@@ -370,11 +370,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(
-
                                 Icons.edit,
                                 color: Colors.white,
                                 size: 18,
-
                               ),
                             ),
                           ),
@@ -404,7 +402,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                   // _buildTextField(controller: _nameController),
+                    // _buildTextField(controller: _nameController),
                     _buildTextField(
                       controller: _nameController,
                       label: "Full Name",
@@ -425,7 +423,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         if (value == null || value.trim().isEmpty) {
                           return "Please enter your email";
                         }
-                        if (!RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w]{2,4}$").hasMatch(value)) {
+                        if (!RegExp(
+                          r"^[\w-\.]+@([\w-]+\.)+[\w]{2,4}$",
+                        ).hasMatch(value)) {
                           return "Enter a valid email address";
                         }
                         return null;
@@ -450,17 +450,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             borderRadius: BorderRadius.circular(30),
                           ),
                         ),
-                        onPressed: () async{
+                        onPressed: () async {
+                          updateProfile();
+                        },
 
-                            updateProfile();
-
-                          },
-                          // ScaffoldMessenger.of(context).showSnackBar(
-                          //   const SnackBar(
-                          //     content: Text('Profile updated successfully'),
-                          //   ),
-                          // );
-
+                        // ScaffoldMessenger.of(context).showSnackBar(
+                        //   const SnackBar(
+                        //     content: Text('Profile updated successfully'),
+                        //   ),
+                        // );
                         child: const Text(
                           'Update',
                           style: TextStyle(
@@ -479,6 +477,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+
   Widget _buildTextField({
     required TextEditingController controller,
     String label = "Name",
@@ -497,7 +496,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         decoration: InputDecoration(
           labelText: label,
           labelStyle: const TextStyle(color: Colors.white),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
+          ),
           border: InputBorder.none,
         ),
         validator: validator,
@@ -558,6 +560,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+
   Widget _buildLanguageDropdown() {
     return FormField<String>(
       initialValue: _selectedLanguage,
@@ -590,15 +593,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       state.didChange(newValue); // Sync with form state
                     });
                   },
-                  items: _languages.map<DropdownMenuItem<String>>((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Text(value),
-                      ),
-                    );
-                  }).toList(),
+                  items:
+                      _languages.map<DropdownMenuItem<String>>((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Text(value),
+                          ),
+                        );
+                      }).toList(),
                 ),
               ),
             ),

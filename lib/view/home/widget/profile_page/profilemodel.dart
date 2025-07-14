@@ -64,7 +64,7 @@ class UserProfile {
   final String wTotalPts;
   final String wRedeemedPts;
   final String wBalancePts;
-final String token;
+  final String token;
   UserProfile({
     required this.id,
     required this.fullName,
@@ -149,7 +149,7 @@ final String token;
       wTotalPts: json['w_total_pts'],
       wRedeemedPts: json['w_redeemed_pts'],
       wBalancePts: json['w_balance_pts'],
-      token:json['token'],
+      token: json['token'],
     );
   }
 
@@ -193,7 +193,7 @@ final String token;
     'w_total_pts': wTotalPts,
     'w_redeemed_pts': wRedeemedPts,
     'w_balance_pts': wBalancePts,
-    token:token,
+    token: token,
   };
 }
 //new

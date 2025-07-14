@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:new_project_2025/view/home/widget/More_page/how_to_use/how_to_use_page.dart';
+import 'package:new_project_2025/view/home/widget/More_page/share_page/share_page.dart';
 import 'package:new_project_2025/view/home/widget/home_screen.dart';
 
 class More extends StatefulWidget {
@@ -44,16 +47,40 @@ class _MoreState extends State<More> {
     );
   }
 
+  Future<void> _launchWhatsApp() async {
+    const phoneNumber = "919846290789";
+
+    final Uri whatsappUri = Uri.parse("whatsapp://send?phone=$phoneNumber");
+    final Uri webUri = Uri.parse("https://wa.me/$phoneNumber");
+
+    try {
+      if (await canLaunchUrl(whatsappUri)) {
+        await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(webUri, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      try {
+        await launchUrl(webUri, mode: LaunchMode.externalApplication);
+      } catch (e) {
+        print("Error launching WhatsApp: $e");
+      }
+    }
+  }
+
   void _navigateToScreen(BuildContext context, String title) {
-    // You can match title and navigate to different screens
+
+    if (title == "Help on Whatsapp") {
+      _launchWhatsApp();
+      return;
+    }
+
+    // Navigate to other screens
     Widget screen;
     switch (title) {
-      // case "How to use":
-      //   screen = const HowToUseScreen();
-      //   break;
-      // case "Help on Whatsapp":
-      //   screen = const HelpOnWhatsappScreen();
-      //   break;
+      case "How to use":
+        screen = HowtouseScreen();
+        break;
       // case "Mail Us":
       //   screen = const MailUsScreen();
       //   break;
@@ -69,9 +96,9 @@ class _MoreState extends State<More> {
       // case "FeedBack":
       //   screen = const FeedbackScreen();
       //   break;
-      // case "Share":
-      //   screen = const ShareScreen();
-      //   break;
+      case "Share":
+        screen = const SharePage();
+        break;
       default:
         screen = SaveApp();
     }
