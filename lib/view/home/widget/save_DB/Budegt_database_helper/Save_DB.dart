@@ -1,17 +1,15 @@
 import 'dart:convert';
-import 'package:new_project_2025/model/receipt.dart';
-import 'package:new_project_2025/view/home/dream_page/model_dream_page/model_dream.dart';
-import 'package:new_project_2025/view/home/widget/payment_page/payment_class/payment_class.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'dart:typed_data';
-import 'package:flutter/material.dart';
-import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:new_project_2025/model/receipt.dart';
+import 'package:new_project_2025/view/home/dream_page/model_dream_page/model_dream.dart';
+import 'package:new_project_2025/view/home/widget/payment_page/payment_class/payment_class.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
-
   static Database? _database;
 
   DatabaseHelper._internal();
@@ -194,7 +192,10 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE TABLE_BUDGET (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
-        data TEXT
+        account_name TEXT,
+        year INTEGER,
+        month TEXT,
+        amount REAL
       )
     ''');
 
@@ -276,8 +277,125 @@ class DatabaseHelper {
         data TEXT
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE dreams_table (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        category TEXT,
+        investment TEXT,
+        targetAmount REAL,
+        savedAmount REAL,
+        targetDate TEXT,
+        notes TEXT
+      )
+    ''');
   }
 
+  // Budget-related methods
+  Future<int> insertBudget(Map<String, dynamic> budget) async {
+    final db = await database;
+    return await db.insert('TABLE_BUDGET', budget);
+  }
+
+  Future<List<Map<String, dynamic>>> getBudgets(
+    String accountName,
+    int year,
+  ) async {
+    final db = await database;
+    return await db.query(
+      'TABLE_BUDGET',
+      where: 'account_name = ? AND year = ?',
+      whereArgs: [accountName, year],
+    );
+  }
+
+  Future<int> updateBudget(int id, Map<String, dynamic> budget) async {
+    final db = await database;
+    return await db.update(
+      'TABLE_BUDGET',
+      budget,
+      where: 'keyid = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<int> deleteBudget(int id) async {
+    final db = await database;
+    return await db.delete('TABLE_BUDGET', where: 'keyid = ?', whereArgs: [id]);
+  }
+
+  // Account-related methods
+  Future<List<String>> getAccountNames() async {
+    final db = await database;
+    final result = await db.query('TABLE_ACCOUNTSETTINGS');
+    List<String> accountNames = [];
+    for (var row in result) {
+      try {
+        Map<String, dynamic> data = jsonDecode(row['data'] as String);
+        String accountName = data['Accountname'];
+        if (!accountNames.contains(accountName)) {
+          accountNames.add(accountName);
+        }
+      } catch (e) {
+        print('Error parsing account data: $e');
+      }
+    }
+    if (accountNames.isEmpty) {
+      return [
+        'Agriculture Expenses',
+        'Accounts for Children',
+        'Household Expenses',
+        'Transportation',
+        'Healthcare',
+        'Education',
+        'Savings',
+        'Entertainment',
+      ];
+    }
+    return accountNames;
+  }
+
+  Future<void> updateaccountdet(
+    String accountname,
+    String category,
+    String openingbalance,
+    String accountype,
+    String year,
+    String keyid,
+  ) async {
+    Database db = await database;
+    Map<String, dynamic> accountData = {
+      "Accountname": accountname,
+      "Accounttype": category,
+      "Amount": openingbalance,
+      "Type": accountype,
+      "year": year,
+    };
+    Map<String, dynamic> datatoupdate = {
+      "keyid": keyid,
+      "data": jsonEncode(accountData),
+    };
+    var res = await db.update(
+      'TABLE_ACCOUNTSETTINGS',
+      datatoupdate,
+      where: 'keyid = ?',
+      whereArgs: [keyid],
+    );
+    if (res == 1) {
+      print("Account updated successfully: $res");
+    } else {
+      print("Account update failed");
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> queryallacc() async {
+    Database db = await database;
+    var res = await db.query('TABLE_ACCOUNTSETTINGS');
+    return res.toList();
+  }
+
+  // General data operations
   Future<int> addData(String table, String data) async {
     int insertedId = 0;
     try {
@@ -290,63 +408,9 @@ class DatabaseHelper {
     return insertedId;
   }
 
-  Future<void> updateaccountdet(
-    String accountname,
-    String catogory,
-    String openingbalance,
-    String accountype,
-    String year,
-    String keyid,
-  ) async {
-    Database db = await database;
-
-    Map<String, dynamic> accountData = {
-      "Accountname": accountname,
-      "Accounttype": catogory,
-      "Amount": openingbalance,
-      "Type": accountype,
-      "year": year,
-    };
-
-    Map<String, dynamic> datatoupdata = {
-      "keyid": keyid,
-      "data": jsonEncode(accountData),
-    };
-
-    var res = await db.update(
-      'TABLE_ACCOUNTSETTINGS',
-      datatoupdata,
-      where: 'keyid = ?',
-      whereArgs: [keyid],
-    );
-
-    if (res == 1) {
-      print("Res is: $res.");
-      print("updatedRes is: $res.");
-    } else {
-      print("not updated");
-    }
-  }
-
-  Future<List<String>> getAccountNames() async {
-    final db = await database;
-    final result = await db.query('savedb', columns: ['DISTINCT account_name']);
-    return result.map((e) => e['account_name'] as String).toList();
-  }
-
   Future<int> insertData(String tableName, Map<String, dynamic> data) async {
     final db = await database;
     return await db.insert(tableName, data);
-  }
-
-  Future<List<Map<String, dynamic>>> queryallacc() async {
-    Database db = await database;
-    var res = await db.query('TABLE_ACCOUNTSETTINGS');
-
-    List<Map<String, dynamic>> s = res.toList();
-    print("queryallacc datas are: $s");
-
-    return s;
   }
 
   Future<List<Map<String, dynamic>>> getAllData(String tableName) async {
@@ -387,10 +451,10 @@ class DatabaseHelper {
     return await db.delete(tableName, where: 'keyid = ?', whereArgs: [id]);
   }
 
+  // Dream-related methods
   Future<List<Dream>> getAllDreams() async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query('dreams_table');
-
     return List.generate(maps.length, (i) {
       return Dream(
         name: maps[i]['name'],
@@ -415,9 +479,9 @@ class DatabaseHelper {
     }
   }
 
+  // Payment-related methods
   Future<int> insertPayment(Payment payment) async {
     final db = await database;
-
     Map<String, dynamic> paymentData = {
       "date": payment.date,
       "accountName": payment.accountName,
@@ -425,7 +489,6 @@ class DatabaseHelper {
       "paymentMode": payment.paymentMode,
       "remarks": payment.remarks,
     };
-
     return await db.insert('TABLE_PAYMENTVOUCHER', {
       'voucherdata': jsonEncode(paymentData),
     });
@@ -433,7 +496,6 @@ class DatabaseHelper {
 
   Future<int> updatePayment(Payment payment) async {
     final db = await database;
-
     Map<String, dynamic> paymentData = {
       "date": payment.date,
       "accountName": payment.accountName,
@@ -441,7 +503,6 @@ class DatabaseHelper {
       "paymentMode": payment.paymentMode,
       "remarks": payment.remarks,
     };
-
     return await db.update(
       'TABLE_PAYMENTVOUCHER',
       {'voucherdata': jsonEncode(paymentData)},
@@ -450,6 +511,45 @@ class DatabaseHelper {
     );
   }
 
+  Future<List<Payment>> getPaymentsByMonth(String yearMonth) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'TABLE_PAYMENTVOUCHER',
+    );
+    List<Payment> payments = [];
+    for (var map in maps) {
+      try {
+        Map<String, dynamic> paymentData = jsonDecode(map['voucherdata']);
+        String paymentDate = paymentData['date'];
+        if (paymentDate.startsWith(yearMonth)) {
+          payments.add(
+            Payment(
+              id: map['keyid'],
+              date: paymentData['date'],
+              accountName: paymentData['accountName'],
+              amount: double.parse(paymentData['amount'].toString()),
+              paymentMode: paymentData['paymentMode'],
+              remarks: paymentData['remarks'],
+            ),
+          );
+        }
+      } catch (e) {
+        print('Error parsing payment data: $e');
+      }
+    }
+    return payments;
+  }
+
+  Future<int> deletePayment(int id) async {
+    final db = await database;
+    return await db.delete(
+      'TABLE_PAYMENTVOUCHER',
+      where: 'keyid = ?',
+      whereArgs: [id],
+    );
+  }
+
+  // Receipt-related methods
   Future<int> insertReceipt(Receipt receipt) async {
     final db = await database;
     Map<String, dynamic> receiptData = {
@@ -488,7 +588,6 @@ class DatabaseHelper {
       where: 'receipt_data LIKE ?',
       whereArgs: ['%$yearMonth%'],
     );
-
     List<Receipt> receipts = [];
     for (var map in maps) {
       try {
@@ -512,67 +611,26 @@ class DatabaseHelper {
 
   Future<int> deleteReceipt(int id) async {
     final db = await database;
-    // Delete associated double-entry records from TABLE_ACCOUNTS
     await db.delete(
       'TABLE_ACCOUNTS',
       where: 'ACCOUNTS_entryid = ? AND ACCOUNTS_VoucherType = ?',
       whereArgs: [id.toString(), 2],
     );
-    // Delete the receipt from RECEIPT_table
     return await db.delete(
       'RECEIPT_table',
       where: 'keyid = ?',
       whereArgs: [id],
     );
   }
+
+  // Wallet-related methods
   Future<List<Map<String, dynamic>>> getWalletData() async {
     Database db = await database;
     var res = await db.query('TABLE_WALLET');
-
-    List<Map<String, dynamic>> s = res.toList();
-    print("Wallet datas are: $s");
- return s;
-}
-
-  Future<List<Payment>> getPaymentsByMonth(String yearMonth) async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'TABLE_PAYMENTVOUCHER',
-    );
-
-    List<Payment> payments = [];
-    for (var map in maps) {
-      try {
-        Map<String, dynamic> paymentData = jsonDecode(map['voucherdata']);
-        String paymentDate = paymentData['date'];
-        if (paymentDate.startsWith(yearMonth)) {
-          payments.add(
-            Payment(
-              id: map['keyid'],
-              date: paymentData['date'],
-              accountName: paymentData['accountName'],
-              amount: double.parse(paymentData['amount'].toString()),
-              paymentMode: paymentData['paymentMode'],
-              remarks: paymentData['remarks'],
-            ),
-          );
-        }
-      } catch (e) {
-        print('Error parsing payment data: $e');
-      }
-    }
-    return payments;
+    return res.toList();
   }
 
-  Future<int> deletePayment(int id) async {
-    final db = await database;
-    return await db.delete(
-      'TABLE_PAYMENTVOUCHER',
-      where: 'keyid = ?',
-      whereArgs: [id],
-    );
-  }
-
+  // Account entry methods
   Future<int> insertAccountEntry(Map<String, dynamic> accountData) async {
     final db = await database;
     return await db.insert('TABLE_ACCOUNTS', accountData);

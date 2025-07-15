@@ -34,7 +34,7 @@ class _BankVoucherListScreenState extends State<BankVoucherListScreen> {
       final List<Map<String, dynamic>> voucherMaps = await db.query(
         "TABLE_ACCOUNTS",
         where: "ACCOUNTS_VoucherType = ?",
-        whereArgs: [5], 
+        whereArgs: [5],
       );
 
       Map<String, List<Map<String, dynamic>>> groupedVouchers = {};
@@ -51,32 +51,51 @@ class _BankVoucherListScreenState extends State<BankVoucherListScreen> {
 
       for (var entry in groupedVouchers.entries) {
         if (entry.value.length >= 2) {
-          var debitEntry = entry.value.firstWhere(
-            (e) => e['ACCOUNTS_type'] == 'credit',
+          var bankEntry = entry.value.firstWhere(
+            (e) => e['ACCOUNTS_cashbanktype'] == '2', // Bank account
             orElse: () => entry.value.first,
           );
-          var creditEntry = entry.value.firstWhere(
-            (e) => e['ACCOUNTS_type'] == 'debit',
+          var cashEntry = entry.value.firstWhere(
+            (e) =>
+                e['ACCOUNTS_cashbanktype'] !=
+                '2', // Cash or other non-bank account
             orElse: () => entry.value.last,
           );
 
-          String debitAccountName = await _getAccountName(
-            debitEntry['ACCOUNTS_setupid'].toString(),
+          String bankAccountName = await _getAccountName(
+            bankEntry['ACCOUNTS_setupid'].toString(),
           );
-          String creditAccountName = await _getAccountName(
-            creditEntry['ACCOUNTS_setupid'].toString(),
+          String cashAccountName = await _getAccountName(
+            cashEntry['ACCOUNTS_setupid'].toString(),
           );
+
+          String transactionType;
+          String debitAccount;
+          String creditAccount;
+
+          if (bankEntry['ACCOUNTS_type'] == 'debit') {
+            transactionType = 'Deposit';
+            debitAccount = bankAccountName;
+            creditAccount = cashAccountName;
+          } else {
+            transactionType = 'Withdrawal';
+            debitAccount = cashAccountName;
+            creditAccount = bankAccountName;
+          }
 
           vouchers.add(
             BankVoucher(
               id: int.parse(entry.key),
-              date: _formatDateForParsing(debitEntry['ACCOUNTS_date']),
-              debit: debitAccountName,
-              credit: creditAccountName,
-              amount: double.parse(debitEntry['ACCOUNTS_amount'].toString()),
-              remarks: debitEntry['ACCOUNTS_remarks']?.toString() ?? '',
+              date: _formatDateForParsing(bankEntry['ACCOUNTS_date']),
+              debit: debitAccount,
+              credit: creditAccount,
+              amount: double.parse(bankEntry['ACCOUNTS_amount'].toString()),
+              remarks: bankEntry['ACCOUNTS_remarks']?.toString() ?? '',
+              transactionType: transactionType,
             ),
           );
+        } else {
+          print("Data not found for entryId: ${entry.key}");
         }
       }
 
@@ -95,9 +114,7 @@ class _BankVoucherListScreenState extends State<BankVoucherListScreen> {
 
   String _formatDateForParsing(String dateString) {
     try {
-      // Handle different date formats
       if (dateString.contains('/')) {
-        // Format: dd/MM/yyyy or d/M/yyyy
         List<String> parts = dateString.split('/');
         if (parts.length == 3) {
           String day = parts[0].padLeft(2, '0');
@@ -106,7 +123,6 @@ class _BankVoucherListScreenState extends State<BankVoucherListScreen> {
           return '$year-$month-$day';
         }
       } else if (dateString.contains('-')) {
-        // Already in correct format or needs conversion
         return dateString;
       }
       return DateTime.now().toIso8601String().split('T')[0];
@@ -154,24 +170,55 @@ class _BankVoucherListScreenState extends State<BankVoucherListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Bank Voucher'),
+        backgroundColor: Colors.teal,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.teal, Colors.tealAccent.shade700],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        title: const Text(
+          'Bank Vouchers',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          IconButton(icon: Icon(Icons.refresh), onPressed: _loadVouchers),
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: _loadVouchers,
+            tooltip: 'Refresh',
+          ),
         ],
+        elevation: 4,
+        shadowColor: Colors.teal.withOpacity(0.4),
       ),
       body: Column(
         children: [
           // Month/Year Picker
           Container(
-            margin: EdgeInsets.all(16),
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey),
-              borderRadius: BorderRadius.circular(4),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.2),
+                  spreadRadius: 2,
+                  blurRadius: 5,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: GestureDetector(
               onTap: _showMonthYearPicker,
@@ -180,28 +227,54 @@ class _BankVoucherListScreenState extends State<BankVoucherListScreen> {
                 children: [
                   Text(
                     _selectedMonth,
-                    style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.teal[800],
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                  Icon(Icons.calendar_today, color: Colors.grey[600]),
+                  Icon(Icons.calendar_today, color: Colors.teal[400], size: 20),
                 ],
               ),
             ),
           ),
 
+          // Table Header
           Container(
-            margin: EdgeInsets.symmetric(horizontal: 16),
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.teal[50],
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.2),
+                  spreadRadius: 2,
+                  blurRadius: 5,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
             child: Table(
-              border: TableBorder.all(color: Colors.grey),
-              columnWidths: {
-                0: FlexColumnWidth(2.0),
+              border: TableBorder.all(
+                color: Colors.teal[100]!,
+                width: 1,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              columnWidths: const {
+                0: FlexColumnWidth(1.5),
                 1: FlexColumnWidth(1.5),
-                2: FlexColumnWidth(1.5),
+                2: FlexColumnWidth(1.2),
                 3: FlexColumnWidth(1.5),
-                4: FlexColumnWidth(1.5),
+                4: FlexColumnWidth(1.0),
               },
               children: [
                 TableRow(
-                  decoration: BoxDecoration(color: Colors.grey[100]),
+                  decoration: BoxDecoration(
+                    color: Colors.teal[100],
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(12),
+                    ),
+                  ),
                   children: [
                     _buildTableHeaderCell('Date'),
                     _buildTableHeaderCell('Debit'),
@@ -218,36 +291,100 @@ class _BankVoucherListScreenState extends State<BankVoucherListScreen> {
           Expanded(
             child:
                 _isLoading
-                    ? Center(child: CircularProgressIndicator())
+                    ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.teal,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Loading Vouchers...',
+                            style: TextStyle(
+                              color: Colors.teal[800],
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
                     : _filteredVouchers.isEmpty
                     ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.inbox, size: 64, color: Colors.grey[400]),
-                          SizedBox(height: 16),
+                          Icon(Icons.inbox, size: 80, color: Colors.teal[200]),
+                          const SizedBox(height: 16),
                           Text(
-                            'No vouchers found for ${_selectedMonth}',
-                            style: TextStyle(color: Colors.grey[600]),
+                            'No vouchers found for $_selectedMonth',
+                            style: TextStyle(
+                              color: Colors.teal[800],
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Add a new voucher to get started!',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 14,
+                            ),
                           ),
                         ],
                       ),
                     )
                     : Container(
-                      margin: EdgeInsets.symmetric(horizontal: 16),
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.2),
+                            spreadRadius: 2,
+                            blurRadius: 5,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
                       child: SingleChildScrollView(
                         child: Table(
-                          border: TableBorder.all(color: Colors.grey),
-                          columnWidths: {
-                            0: FlexColumnWidth(2.0),
+                          border: TableBorder.all(
+                            color: Colors.teal[100]!,
+                            width: 1,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          columnWidths: const {
+                            0: FlexColumnWidth(1.5),
                             1: FlexColumnWidth(1.5),
-                            2: FlexColumnWidth(1.5),
+                            2: FlexColumnWidth(1.2),
                             3: FlexColumnWidth(1.5),
-                            4: FlexColumnWidth(1.5),
+                            4: FlexColumnWidth(1.0),
                           },
                           children:
-                              _filteredVouchers.map((voucher) {
+                              _filteredVouchers.asMap().entries.map((entry) {
+                                int index = entry.key;
+                                BankVoucher voucher = entry.value;
                                 return TableRow(
+                                  decoration: BoxDecoration(
+                                    color:
+                                        index % 2 == 0
+                                            ? Colors.white
+                                            : Colors.teal[50],
+                                    borderRadius:
+                                        index == _filteredVouchers.length - 1
+                                            ? BorderRadius.vertical(
+                                              bottom: Radius.circular(12),
+                                            )
+                                            : null,
+                                  ),
                                   children: [
                                     _buildTableDataCell(
                                       _formatDisplayDate(voucher.date),
@@ -269,8 +406,10 @@ class _BankVoucherListScreenState extends State<BankVoucherListScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _navigateToAddScreen(),
-        backgroundColor: Colors.pink,
-        child: Icon(Icons.add, color: Colors.white),
+        backgroundColor: Colors.teal,
+        child: const Icon(Icons.add, color: Colors.white, size: 28),
+        elevation: 6,
+        tooltip: 'Add Voucher',
       ),
     );
   }
@@ -287,10 +426,14 @@ class _BankVoucherListScreenState extends State<BankVoucherListScreen> {
 
   Widget _buildTableHeaderCell(String text) {
     return Container(
-      padding: EdgeInsets.all(12),
+      padding: const EdgeInsets.all(12),
       child: Text(
         text,
-        style: TextStyle(fontWeight: FontWeight.bold),
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          color: Colors.teal[800],
+          fontSize: 14,
+        ),
         textAlign: TextAlign.center,
       ),
     );
@@ -298,23 +441,27 @@ class _BankVoucherListScreenState extends State<BankVoucherListScreen> {
 
   Widget _buildTableDataCell(String text) {
     return Container(
-      padding: EdgeInsets.all(12),
+      padding: const EdgeInsets.all(12),
       child: Text(
         text,
         textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 12),
+        style: const TextStyle(fontSize: 12, color: Colors.black87),
       ),
     );
   }
 
   Widget _buildTableActionCell(BankVoucher voucher) {
     return Container(
-      padding: EdgeInsets.all(8),
+      padding: const EdgeInsets.all(8),
       child: GestureDetector(
         onTap: () => _showActionDialog(voucher),
         child: Text(
           'Edit/\nDelete',
-          style: TextStyle(color: Colors.red, fontSize: 12),
+          style: TextStyle(
+            color: Colors.red[600],
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
           textAlign: TextAlign.center,
         ),
       ),
@@ -326,7 +473,16 @@ class _BankVoucherListScreenState extends State<BankVoucherListScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Choose Action'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          title: Text(
+            'Choose Action',
+            style: TextStyle(
+              color: Colors.teal[800],
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           content: Text('What would you like to do with this voucher?'),
           actions: [
             TextButton(
@@ -334,18 +490,18 @@ class _BankVoucherListScreenState extends State<BankVoucherListScreen> {
                 Navigator.pop(context);
                 _navigateToEditScreen(voucher);
               },
-              child: Text('Edit'),
+              child: Text('Edit', style: TextStyle(color: Colors.teal[700])),
             ),
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
                 _confirmDelete(voucher);
               },
-              child: Text('Delete', style: TextStyle(color: Colors.red)),
+              child: Text('Delete', style: TextStyle(color: Colors.red[600])),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Cancel'),
+              child: Text('Cancel', style: TextStyle(color: Colors.grey[600])),
             ),
           ],
         );
@@ -358,19 +514,28 @@ class _BankVoucherListScreenState extends State<BankVoucherListScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Confirm Delete'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          title: Text(
+            'Confirm Delete',
+            style: TextStyle(
+              color: Colors.teal[800],
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           content: Text('Are you sure you want to delete this voucher?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Cancel'),
+              child: Text('Cancel', style: TextStyle(color: Colors.grey[600])),
             ),
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
                 _deleteVoucher(voucher);
               },
-              child: Text('Delete', style: TextStyle(color: Colors.red)),
+              child: Text('Delete', style: TextStyle(color: Colors.red[600])),
             ),
           ],
         );
@@ -391,15 +556,23 @@ class _BankVoucherListScreenState extends State<BankVoucherListScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Bank voucher deleted successfully')),
+          SnackBar(
+            content: Text('Bank voucher deleted successfully'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
         );
       }
     } catch (e) {
       print('Error deleting voucher: $e');
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error deleting voucher: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting voucher: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
       }
     }
   }
@@ -411,6 +584,19 @@ class _BankVoucherListScreenState extends State<BankVoucherListScreen> {
       firstDate: DateTime(2000),
       lastDate: DateTime(2101),
       initialDatePickerMode: DatePickerMode.year,
+      builder: (context, child) {
+        return Theme(
+          data: ThemeData.light().copyWith(
+            colorScheme: ColorScheme.light(
+              primary: Colors.teal,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+            ),
+            dialogBackgroundColor: Colors.white,
+          ),
+          child: child!,
+        );
+      },
     );
 
     if (pickedDate != null) {

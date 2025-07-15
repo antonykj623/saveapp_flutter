@@ -15,7 +15,6 @@ class JournalEntry {
     this.remarks,
   });
 
-  // Convert from Map to JournalEntry
   factory JournalEntry.fromMap(Map<String, dynamic> map) {
     return JournalEntry(
       entryId: map['entryId'] ?? 0,
@@ -27,7 +26,6 @@ class JournalEntry {
     );
   }
 
-  // Convert from JournalEntry to Map
   Map<String, dynamic> toMap() {
     return {
       'entryId': entryId,
@@ -39,7 +37,6 @@ class JournalEntry {
     };
   }
 
-  // Create a copy of JournalEntry with updated fields
   JournalEntry copyWith({
     int? entryId,
     String? date,
