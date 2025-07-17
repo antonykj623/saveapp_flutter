@@ -23,6 +23,14 @@ class _MoreState extends State<More> {
     'Share',
   ];
 
+  // URLs for web pages
+  final Map<String, String> _webUrls = {
+    "About Us": "https://mysaveapp.com/web/about",
+    "Privacy Policy": "https://mysaveapp.com/web/privacy_policy",
+    "Terms and Conditions For Use":
+        "https://mysaveapp.com/web/terms_conditions",
+  };
+
   @override
   Widget build(BuildContext context) {
     final Size screenSize = MediaQuery.of(context).size;
@@ -49,29 +57,131 @@ class _MoreState extends State<More> {
 
   Future<void> _launchWhatsApp() async {
     const phoneNumber = "919846290789";
+    
+    // Try different WhatsApp URL formats
+    final List<String> whatsappUrls = [
+      "whatsapp://send?phone=$phoneNumber",
+      "https://wa.me/$phoneNumber",
+      "https://api.whatsapp.com/send?phone=$phoneNumber",
+    ];
 
-    final Uri whatsappUri = Uri.parse("whatsapp://send?phone=$phoneNumber");
-    final Uri webUri = Uri.parse("https://wa.me/$phoneNumber");
+    bool launched = false;
+    
+    for (String urlString in whatsappUrls) {
+      try {
+        final Uri uri = Uri.parse(urlString);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(
+            uri,
+            mode: LaunchMode.externalApplication,
+          );
+          launched = true;
+          break;
+        }
+      } catch (e) {
+        print("Failed to launch $urlString: $e");
+        continue;
+      }
+    }
 
+    if (!launched) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("WhatsApp is not installed or could not be opened"),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _launchWebUrl(String url) async {
     try {
-      if (await canLaunchUrl(whatsappUri)) {
-        await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
+      final Uri uri = Uri.parse(url);
+      
+      // First try to launch with platformDefault mode
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(
+          uri,
+          mode: LaunchMode.platformDefault,
+        );
       } else {
-        await launchUrl(webUri, mode: LaunchMode.externalApplication);
+        // If platformDefault fails, try externalApplication
+        await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
       }
     } catch (e) {
+      print("Error launching $url: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Could not open the page. Please check your internet connection."),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _launchEmail() async {
+    const String email = 'ramanpalissery@gmail.com';
+    const String subject = 'Support Request from Save App';
+    
+    // Try different email launch methods
+    final List<String> emailUrls = [
+      'mailto:$email?subject=${Uri.encodeComponent(subject)}',
+      'https://mail.google.com/mail/?view=cm&fs=1&to=$email&su=${Uri.encodeComponent(subject)}',
+    ];
+
+    bool launched = false;
+    
+    for (String urlString in emailUrls) {
       try {
-        await launchUrl(webUri, mode: LaunchMode.externalApplication);
+        final Uri uri = Uri.parse(urlString);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(
+            uri,
+            mode: LaunchMode.externalApplication,
+          );
+          launched = true;
+          break;
+        }
       } catch (e) {
-        print("Error launching WhatsApp: $e");
+        print("Failed to launch $urlString: $e");
+        continue;
+      }
+    }
+
+    if (!launched) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("No email client found. Please install an email app."),
+            duration: Duration(seconds: 3),
+          ),
+        );
       }
     }
   }
 
   void _navigateToScreen(BuildContext context, String title) {
+    // Check if the title corresponds to a web URL
+    if (_webUrls.containsKey(title)) {
+      _launchWebUrl(_webUrls[title]!);
+      return;
+    }
 
+    // Handle WhatsApp and Email separately
     if (title == "Help on Whatsapp") {
       _launchWhatsApp();
+      return;
+    }
+
+    if (title == "Mail Us") {
+      _launchEmail();
       return;
     }
 
@@ -81,21 +191,11 @@ class _MoreState extends State<More> {
       case "How to use":
         screen = HowtouseScreen();
         break;
-      // case "Mail Us":
-      //   screen = const MailUsScreen();
-      //   break;
-      // case "About Us":
-      //   screen = const AboutUsScreen();
-      //   break;
-      // case "Privacy Policy":
-      //   screen = const PrivacyPolicyScreen();
-      //   break;
-      // case "Terms and Conditions For Use":
-      //   screen = const TermsScreen();
-      //   break;
-      // case "FeedBack":
-      //   screen = const FeedbackScreen();
-      //   break;
+      case "FeedBack":
+        screen = const Scaffold(
+          body: Center(child: Text("Feedback Screen")),
+        ); // Placeholder
+        break;
       case "Share":
         screen = const SharePage();
         break;

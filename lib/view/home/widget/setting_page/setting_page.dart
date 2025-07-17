@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:new_project_2025/view/home/widget/profile_page/profile_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:new_project_2025/app/Modules/login/login_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -31,6 +33,49 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool appLockEnabled = false;
 
+  // Function to show logout confirmation dialog
+  Future<void> _showLogoutDialog() async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false, // Prevents closing dialog by tapping outside
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Logout'),
+          content: const Text('Are you sure you want to logout?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the dialog
+              },
+            ),
+            TextButton(
+              child: const Text('Logout', style: TextStyle(color: Colors.red)),
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the dialog
+                _handleLogout(); // Proceed with logout
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Function to handle logout
+  Future<void> _handleLogout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('token'); // Remove the token from SharedPreferences
+    print('Logout tapped, token removed');
+
+    // Navigate to LoginScreen and remove all previous routes
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => LoginScreen()),
+      (Route<dynamic> route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -44,8 +89,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         backgroundColor: const Color(0xFF00897B),
       ),
-      body: 
-      Container(
+      body: Container(
         color: Colors.white,
         height: double.infinity,
         child: ListView(
@@ -60,7 +104,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 );
               },
             ),
-
             _buildSettingItem(
               title: 'Bill Header',
               hasToggle: false,
@@ -112,10 +155,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             _buildSettingItem(
               title: 'Logout',
+
               hasToggle: false,
-              onTap: () {
-                print('Logout tapped');
-              },
+              onTap: _showLogoutDialog,
             ),
             _buildSettingItem(
               title: 'Delete Account',
@@ -150,7 +192,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           horizontal: 40,
           vertical: 10,
         ),
-
         title: Text(
           title,
           style: TextStyle(
