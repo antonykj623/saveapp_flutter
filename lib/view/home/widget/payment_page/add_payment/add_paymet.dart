@@ -697,7 +697,8 @@ class _SearchableAccountDialogState extends State<SearchableAccountDialog> {
       child: Container(
         height: 400,
         padding: const EdgeInsets.all(16),
-        child: Column(
+        child:
+         Column(
           children: [
             const Text(
               'Select Account',

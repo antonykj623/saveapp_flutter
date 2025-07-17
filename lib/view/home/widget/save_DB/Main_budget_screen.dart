@@ -27,8 +27,18 @@ class _BudgetScreenState extends State<BudgetScreen> {
   ];
   double totalAmount = 0.0;
   List<String> months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   @override
@@ -48,7 +58,10 @@ class _BudgetScreenState extends State<BudgetScreen> {
 
   Future<void> _loadBudgets() async {
     if (selectedAccount != null) {
-      final budgetList = await _dbHelper.getBudgets(selectedAccount!, selectedYear);
+      final budgetList = await _dbHelper.getBudgets(
+        selectedAccount!,
+        selectedYear,
+      );
       setState(() {
         budgets = budgetList.map((map) => BudgetClass.fromMap(map)).toList();
         _calculateTotal();
@@ -72,9 +85,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
     try {
       monthlyAmount = double.parse(_amountController.text);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please enter a valid amount')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Please enter a valid amount')));
       return;
     }
 
@@ -97,9 +110,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
 
     _loadBudgets();
     _amountController.clear();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Budget submitted successfully')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Budget submitted successfully')));
   }
 
   @override
@@ -130,22 +143,29 @@ class _BudgetScreenState extends State<BudgetScreen> {
                       child: DropdownButton<int>(
                         isExpanded: true,
                         value: selectedYear,
-                        items: [2024, 2025, 2026, 2027].map((year) {
-                          return DropdownMenuItem<int>(
-                            value: year,
-                            child: Text(
-                              year.toString(),
-                              style: TextStyle(fontSize: 16, color: Colors.black87),
-                            ),
-                          );
-                        }).toList(),
+                        items:
+                            [2024, 2025, 2026, 2027].map((year) {
+                              return DropdownMenuItem<int>(
+                                value: year,
+                                child: Text(
+                                  year.toString(),
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              );
+                            }).toList(),
                         onChanged: (value) {
                           setState(() {
                             selectedYear = value!;
                           });
                           _loadBudgets();
                         },
-                        hint: Text('Select Year', style: TextStyle(color: Colors.grey)),
+                        hint: Text(
+                          'Select Year',
+                          style: TextStyle(color: Colors.grey),
+                        ),
                         style: TextStyle(color: Colors.black87, fontSize: 16),
                         dropdownColor: Colors.white,
                         icon: Icon(Icons.arrow_drop_down, color: Colors.teal),
@@ -165,17 +185,24 @@ class _BudgetScreenState extends State<BudgetScreen> {
                       child: DropdownButton<String>(
                         isExpanded: true,
                         value: selectedAccount,
-                        hint: Text('Select An Account', style: TextStyle(color: Colors.grey)),
-                        items: accountNames.map((account) {
-                          return DropdownMenuItem<String>(
-                            value: account,
-                            child: Text(
-                              account,
-                              style: TextStyle(fontSize: 16, color: Colors.black87),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          );
-                        }).toList(),
+                        hint: Text(
+                          'Select An Account',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                        items:
+                            accountNames.map((account) {
+                              return DropdownMenuItem<String>(
+                                value: account,
+                                child: Text(
+                                  account,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.black87,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            }).toList(),
                         onChanged: (value) {
                           setState(() {
                             selectedAccount = value;
@@ -240,13 +267,19 @@ class _BudgetScreenState extends State<BudgetScreen> {
                           _buildTableCell('Action', isHeader: true),
                         ],
                       ),
-                      ...budgets.map((budget) => TableRow(
-                        children: [
-                          _buildTableCell(budget.month),
-                          _buildTableCell(budget.amount.toStringAsFixed(2)),
-                          _buildActionCell(budget),
-                        ],
-                      )).toList(),
+                      ...budgets
+                          .map(
+                            (budget) => TableRow(
+                              children: [
+                                _buildTableCell(budget.month),
+                                _buildTableCell(
+                                  budget.amount.toStringAsFixed(2),
+                                ),
+                                _buildActionCell(budget),
+                              ],
+                            ),
+                          )
+                          .toList(),
                     ],
                   ),
                 ),
@@ -292,7 +325,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => EditBudgetScreen(budget: budget, onUpdate: _loadBudgets),
+        builder:
+            (context) =>
+                EditBudgetScreen(budget: budget, onUpdate: _loadBudgets),
       ),
     );
   }

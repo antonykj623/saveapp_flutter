@@ -342,16 +342,7 @@ class DatabaseHelper {
       }
     }
     if (accountNames.isEmpty) {
-      return [
-        'Agriculture Expenses',
-        'Accounts for Children',
-        'Household Expenses',
-        'Transportation',
-        'Healthcare',
-        'Education',
-        'Savings',
-        'Entertainment',
-      ];
+      return [];
     }
     return accountNames;
   }

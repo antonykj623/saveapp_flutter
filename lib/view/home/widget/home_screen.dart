@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:new_project_2025/view/home/widget/More_page/More_page.dart';
 import 'package:new_project_2025/view/home/widget/insurance/insurance_database/Insurance_list_page/insurance_list_page.dart';
 import 'package:new_project_2025/view_model/Accountfiles/CashAccount.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
@@ -1382,22 +1383,4 @@ class FinancialData {
   final double expense;
 
   FinancialData(this.month, this.income, this.expense);
-}
-
-class More extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        'More Screen',
-        style: TextStyle(
-          color:
-              Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white
-                  : Colors.black,
-          fontSize: 20,
-        ),
-      ),
-    );
-  }
 }

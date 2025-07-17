@@ -60,9 +60,9 @@ class _EditBudgetScreenState extends State<EditBudgetScreen> {
     try {
       amount = double.parse(_amountController.text);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please enter a valid amount')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Please enter a valid amount')));
       return;
     }
 
@@ -75,18 +75,18 @@ class _EditBudgetScreenState extends State<EditBudgetScreen> {
 
     widget.onUpdate();
     Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Budget updated successfully')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Budget updated successfully')));
   }
 
   Future<void> _deleteBudget() async {
     await _dbHelper.deleteBudget(widget.budget.id!);
     widget.onUpdate();
     Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Budget deleted successfully')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Budget deleted successfully')));
   }
 
   @override
@@ -120,17 +120,24 @@ class _EditBudgetScreenState extends State<EditBudgetScreen> {
                 child: DropdownButton<String>(
                   isExpanded: true,
                   value: selectedAccount,
-                  hint: Text('Select An Account', style: TextStyle(color: Colors.grey)),
-                  items: accountNames.map((account) {
-                    return DropdownMenuItem<String>(
-                      value: account,
-                      child: Text(
-                        account,
-                        style: TextStyle(fontSize: 16, color: Colors.black87),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    );
-                  }).toList(),
+                  hint: Text(
+                    'Select An Account',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                  items:
+                      accountNames.map((account) {
+                        return DropdownMenuItem<String>(
+                          value: account,
+                          child: Text(
+                            account,
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.black87,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }).toList(),
                   onChanged: (value) {
                     setState(() {
                       selectedAccount = value;
@@ -169,16 +176,23 @@ class _EditBudgetScreenState extends State<EditBudgetScreen> {
                 child: DropdownButton<int>(
                   isExpanded: true,
                   value: selectedYear,
-                  hint: Text('Select Year', style: TextStyle(color: Colors.grey)),
-                  items: [2024, 2025, 2026, 2027].map((year) {
-                    return DropdownMenuItem<int>(
-                      value: year,
-                      child: Text(
-                        year.toString(),
-                        style: TextStyle(fontSize: 16, color: Colors.black87),
-                      ),
-                    );
-                  }).toList(),
+                  hint: Text(
+                    'Select Year',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                  items:
+                      [2024, 2025, 2026, 2027].map((year) {
+                        return DropdownMenuItem<int>(
+                          value: year,
+                          child: Text(
+                            year.toString(),
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        );
+                      }).toList(),
                   onChanged: (value) {
                     setState(() {
                       selectedYear = value!;
