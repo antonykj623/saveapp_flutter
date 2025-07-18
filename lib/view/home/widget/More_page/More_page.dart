@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:new_project_2025/view/home/widget/More_page/feedback/feed_back.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:new_project_2025/view/home/widget/More_page/how_to_use/how_to_use_page.dart';
 import 'package:new_project_2025/view/home/widget/More_page/share_page/share_page.dart';
+// Add this import
 import 'package:new_project_2025/view/home/widget/home_screen.dart';
 
 class More extends StatefulWidget {
@@ -57,8 +59,7 @@ class _MoreState extends State<More> {
 
   Future<void> _launchWhatsApp() async {
     const phoneNumber = "919846290789";
-    
-    // Try different WhatsApp URL formats
+
     final List<String> whatsappUrls = [
       "whatsapp://send?phone=$phoneNumber",
       "https://wa.me/$phoneNumber",
@@ -66,15 +67,12 @@ class _MoreState extends State<More> {
     ];
 
     bool launched = false;
-    
+
     for (String urlString in whatsappUrls) {
       try {
         final Uri uri = Uri.parse(urlString);
         if (await canLaunchUrl(uri)) {
-          await launchUrl(
-            uri,
-            mode: LaunchMode.externalApplication,
-          );
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
           launched = true;
           break;
         }
@@ -99,26 +97,22 @@ class _MoreState extends State<More> {
   Future<void> _launchWebUrl(String url) async {
     try {
       final Uri uri = Uri.parse(url);
-      
+
       // First try to launch with platformDefault mode
       if (await canLaunchUrl(uri)) {
-        await launchUrl(
-          uri,
-          mode: LaunchMode.platformDefault,
-        );
+        await launchUrl(uri, mode: LaunchMode.platformDefault);
       } else {
         // If platformDefault fails, try externalApplication
-        await launchUrl(
-          uri,
-          mode: LaunchMode.externalApplication,
-        );
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
       }
     } catch (e) {
       print("Error launching $url: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Could not open the page. Please check your internet connection."),
+            content: Text(
+              "Could not open the page. Please check your internet connection.",
+            ),
             duration: Duration(seconds: 3),
           ),
         );
@@ -129,23 +123,24 @@ class _MoreState extends State<More> {
   Future<void> _launchEmail() async {
     const String email = 'ramanpalissery@gmail.com';
     const String subject = 'Support Request from Save App';
-    
-    // Try different email launch methods
+
+    // Try different methods to open Gmail with the email pre-filled
     final List<String> emailUrls = [
+      // Standard mailto - this will open Gmail app if it's installed and set as default
       'mailto:$email?subject=${Uri.encodeComponent(subject)}',
+      // Gmail app intent for Android
+      'intent://compose?to=$email&subject=${Uri.encodeComponent(subject)}#Intent;scheme=mailto;package=com.google.android.gm;end',
+      // Gmail web interface
       'https://mail.google.com/mail/?view=cm&fs=1&to=$email&su=${Uri.encodeComponent(subject)}',
     ];
 
     bool launched = false;
-    
+
     for (String urlString in emailUrls) {
       try {
         final Uri uri = Uri.parse(urlString);
         if (await canLaunchUrl(uri)) {
-          await launchUrl(
-            uri,
-            mode: LaunchMode.externalApplication,
-          );
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
           launched = true;
           break;
         }
@@ -159,7 +154,9 @@ class _MoreState extends State<More> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("No email client found. Please install an email app."),
+            content: Text(
+              "Could not open Gmail. Please install Gmail app or check your email settings.",
+            ),
             duration: Duration(seconds: 3),
           ),
         );
@@ -192,9 +189,7 @@ class _MoreState extends State<More> {
         screen = HowtouseScreen();
         break;
       case "FeedBack":
-        screen = const Scaffold(
-          body: Center(child: Text("Feedback Screen")),
-        ); // Placeholder
+        screen = const FeedbackPage();
         break;
       case "Share":
         screen = const SharePage();
