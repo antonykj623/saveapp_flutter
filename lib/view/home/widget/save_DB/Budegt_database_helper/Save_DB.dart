@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:new_project_2025/view/home/widget/Emergency_numbers_screen/model_class_emergency.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'dart:typed_data';
@@ -24,10 +25,31 @@ class DatabaseHelper {
 
   Future<Database> _initDatabase() async {
     String path = join(await getDatabasesPath(), 'save.db');
-    return await openDatabase(path, version: 1, onCreate: _onCreate);
+    return await openDatabase(
+      path,
+      version: 2,
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
+    );
   }
 
   Future<void> _onCreate(Database db, int version) async {
+    await _createAllTables(db);
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS TABLE_EMERGENCY_CONTACTS (
+          keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+          data TEXT
+        )
+      ''');
+    }
+  }
+
+  Future<void> _createAllTables(Database db) async {
+    // All existing tables...
     await db.execute('''
       CREATE TABLE TABLE_TARGETCATEGORY (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -290,7 +312,188 @@ class DatabaseHelper {
         notes TEXT
       )
     ''');
+
+    // New Emergency Contacts Table
+    await db.execute('''
+      CREATE TABLE TABLE_EMERGENCY_CONTACTS (
+        keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+        data TEXT
+      )
+    ''');
+
+    // Insert default emergency contacts
+    await _insertDefaultEmergencyContacts(db);
   }
+
+  Future<void> _insertDefaultEmergencyContacts(Database db) async {
+    List<EmergencyContact> defaultContacts = [
+      EmergencyContact(
+        name: "Police",
+        phoneNumber: "100",
+        category: "Emergency Services",
+        isCustom: false,
+      ),
+      EmergencyContact(
+        name: "Fire Brigade",
+        phoneNumber: "101",
+        category: "Emergency Services",
+        isCustom: false,
+      ),
+      EmergencyContact(
+        name: "Ambulance",
+        phoneNumber: "102",
+        category: "Medical Emergency",
+        isCustom: false,
+      ),
+      EmergencyContact(
+        name: "Disaster Management Services",
+        phoneNumber: "108",
+        category: "Emergency Services",
+        isCustom: false,
+      ),
+      EmergencyContact(
+        name: "Women Helpline",
+        phoneNumber: "1091",
+        category: "Support Services",
+        isCustom: false,
+      ),
+      EmergencyContact(
+        name: "Women Helpline (Domestic Abuse)",
+        phoneNumber: "181",
+        category: "Support Services",
+        isCustom: false,
+      ),
+      EmergencyContact(
+        name: "Child Helpline",
+        phoneNumber: "1098",
+        category: "Support Services",
+        isCustom: false,
+      ),
+      EmergencyContact(
+        name: "Senior Citizen Helpline",
+        phoneNumber: "14567",
+        category: "Support Services",
+        isCustom: false,
+      ),
+    ];
+
+    for (EmergencyContact contact in defaultContacts) {
+      await db.insert('TABLE_EMERGENCY_CONTACTS', {
+        'data': jsonEncode(contact.toJson()),
+      });
+    }
+  }
+
+  // Emergency Contact CRUD Operations
+  Future<int> insertEmergencyContact(EmergencyContact contact) async {
+    try {
+      final db = await database;
+      return await db.insert('TABLE_EMERGENCY_CONTACTS', {
+        'data': jsonEncode(contact.toJson()),
+      });
+    } catch (e) {
+      print("Error inserting emergency contact: $e");
+      return 0;
+    }
+  }
+
+  Future<List<EmergencyContact>> getAllEmergencyContacts() async {
+    try {
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'TABLE_EMERGENCY_CONTACTS',
+      );
+      List<EmergencyContact> contacts = [];
+
+      for (var map in maps) {
+        try {
+          Map<String, dynamic> contactData = jsonDecode(map['data']);
+          contacts.add(
+            EmergencyContact.fromJson(contactData, id: map['keyid']),
+          );
+        } catch (e) {
+          print('Error parsing emergency contact data: $e');
+        }
+      }
+      return contacts;
+    } catch (e) {
+      print("Error getting emergency contacts: $e");
+      return [];
+    }
+  }
+
+  Future<List<EmergencyContact>> getEmergencyContactsByCategory(
+    String category,
+  ) async {
+    try {
+      final allContacts = await getAllEmergencyContacts();
+      return allContacts
+          .where((contact) => contact.category == category)
+          .toList();
+    } catch (e) {
+      print("Error getting emergency contacts by category: $e");
+      return [];
+    }
+  }
+
+  Future<int> updateEmergencyContact(EmergencyContact contact) async {
+    try {
+      final db = await database;
+      return await db.update(
+        'TABLE_EMERGENCY_CONTACTS',
+        {'data': jsonEncode(contact.toJson())},
+        where: 'keyid = ?',
+        whereArgs: [contact.id],
+      );
+    } catch (e) {
+      print("Error updating emergency contact: $e");
+      return 0;
+    }
+  }
+
+  Future<int> deleteEmergencyContact(int id) async {
+    try {
+      final db = await database;
+      return await db.delete(
+        'TABLE_EMERGENCY_CONTACTS',
+        where: 'keyid = ?',
+        whereArgs: [id],
+      );
+    } catch (e) {
+      print("Error deleting emergency contact: $e");
+      return 0;
+    }
+  }
+
+  // Search emergency contacts
+  Future<List<EmergencyContact>> searchEmergencyContacts(String query) async {
+    try {
+      final allContacts = await getAllEmergencyContacts();
+      return allContacts
+          .where(
+            (contact) =>
+                contact.name.toLowerCase().contains(query.toLowerCase()) ||
+                contact.phoneNumber.contains(query),
+          )
+          .toList();
+    } catch (e) {
+      print("Error searching emergency contacts: $e");
+      return [];
+    }
+  }
+
+  // Get emergency contacts count
+  Future<int> getEmergencyContactsCount() async {
+    try {
+      final contacts = await getAllEmergencyContacts();
+      return contacts.length;
+    } catch (e) {
+      print("Error getting emergency contacts count: $e");
+      return 0;
+    }
+  }
+
+  // All existing methods remain the same...
 
   // Budget-related methods
   Future<int> insertBudget(Map<String, dynamic> budget) async {

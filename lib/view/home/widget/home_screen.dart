@@ -354,9 +354,9 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                         dataSource: getChartData(),
                         xValueMapper: (FinancialData data, _) => data.month,
                         yValueMapper: (FinancialData data, _) => data.income,
-                        gradient: LinearGradient(
+                        gradient: const LinearGradient(
                           colors: [Color(0xFF4CAF50), Color(0xFF81C784)],
-                          // begin: Alignment.homosexuals,
+                          begin: Alignment.bottomCenter,
                           end: Alignment.topCenter,
                         ),
                         width: 0.4,
@@ -542,7 +542,6 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
               ),
             ),
             _buildBottomNavBar(),
-            if (!isDarkTheme) _buildAndroidNavBar(),
           ],
         ),
       ),
@@ -572,78 +571,106 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
         ],
       ),
       padding: const EdgeInsets.only(
-        top: 50.0,
-        left: 20.0,
-        right: 20.0,
-        bottom: 20.0,
+        top: 40.0, // Reduced top padding
+        left: 16.0,
+        right: 16.0,
+        bottom: 16.0,
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors:
-                    isDarkTheme
-                        ? [Colors.white, Colors.grey]
-                        : [Colors.teal.shade100, Colors.teal.shade300],
-              ),
-              borderRadius: BorderRadius.circular(25),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: const Icon(
-              Icons.account_balance_wallet,
-              color: Color(0xFF008080),
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 15),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                'My Personal App',
-                style: TextStyle(
-                  color: isDarkTheme ? Colors.white : const Color(0xFF008080),
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors:
+                        isDarkTheme
+                            ? [Colors.white, Colors.grey]
+                            : [Colors.teal.shade100, Colors.teal.shade300],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.account_balance_wallet,
+                  color: Color(0xFF008080),
+                  size: 20,
                 ),
               ),
-              Text(
-                'Your financial companion',
-                style: TextStyle(
-                  color:
-                      isDarkTheme
-                          ? Colors.white.withOpacity(0.8)
-                          : const Color(0xFF008080).withOpacity(0.8),
-                  fontSize: 12,
+              const SizedBox(width: 12),
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'My Personal App',
+                      style: TextStyle(
+                        color:
+                            isDarkTheme
+                                ? Colors.white
+                                : const Color(0xFF008080),
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      'Your financial companion',
+                      style: TextStyle(
+                        color:
+                            isDarkTheme
+                                ? Colors.white.withOpacity(0.8)
+                                : const Color(0xFF008080).withOpacity(0.8),
+                        fontSize: 12,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const Spacer(),
-          _buildAppBarButton(Icons.notifications_none, () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => NotificationScreen()),
-            );
-          }),
-          const SizedBox(width: 12),
-          _buildAppBarButton(Icons.settings, () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => SettingsScreen()),
-            );
-          }),
-          const SizedBox(width: 12),
-          _buildAppBarButton(Icons.brightness_6, _toggleTheme),
+          // Action buttons
+          Flexible(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: _buildAppBarButton(Icons.notifications_none, () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => NotificationScreen(),
+                      ),
+                    );
+                  }),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: _buildAppBarButton(Icons.settings, () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => SettingsScreen()),
+                    );
+                  }),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: _buildAppBarButton(Icons.brightness_6, _toggleTheme),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -656,7 +683,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
             isDarkTheme
                 ? Colors.white.withOpacity(0.15)
                 : Colors.teal.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color:
               isDarkTheme
@@ -668,9 +695,11 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
         icon: Icon(
           icon,
           color: isDarkTheme ? Colors.white : Colors.teal,
-          size: 24,
+          size: 20,
         ),
         onPressed: onPressed,
+        padding: const EdgeInsets.all(8),
+        constraints: const BoxConstraints(), // Remove default constraints
       ),
     );
   }
@@ -1062,10 +1091,12 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       color: const Color(0xFF008080),
       showLabel: true,
       notchColor: isDarkTheme ? Colors.white : Colors.teal.shade100,
+      bottomBarWidth: MediaQuery.of(context).size.width,
+      showShadow: true,
       kIconSize: 24.0,
-      kBottomRadius: 40.0,
+      kBottomRadius: 28.0,
       itemLabelStyle: TextStyle(
-        fontSize: 14,
+        fontSize: 12,
         color: isDarkTheme ? Colors.white : Colors.black54,
         fontWeight: FontWeight.w500,
       ),
@@ -1089,21 +1120,6 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       onTap: (index) {
         _changePage(index);
       },
-    );
-  }
-
-  Widget _buildAndroidNavBar() {
-    return Container(
-      height: 48,
-      color: Colors.black,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: const [
-          Icon(Icons.arrow_back, color: Colors.white),
-          Icon(Icons.circle_outlined, color: Colors.white),
-          Icon(Icons.crop_square, color: Colors.white),
-        ],
-      ),
     );
   }
 

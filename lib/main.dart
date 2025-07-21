@@ -37,27 +37,26 @@ class _SplashPageState extends State<SplashPage> {
     delayedFunction();
   }
 
-void delayedFunction() async {
-  await Future.delayed(Duration(seconds: 3));
+  void delayedFunction() async {
+    await Future.delayed(Duration(seconds: 3));
 
-  final prefs = await SharedPreferences.getInstance();
-  String? token = await prefs.getString('token');
-  
-  // Print token for debugging
-  debugPrint('Token in SplashPage: $token');
+    final prefs = await SharedPreferences.getInstance();
+    String? token = await prefs.getString('token');
 
-  if (token == null || token.isEmpty) {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => LoginScreen()),
-    );
-  } else {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => SaveApp()),
-    );
+    debugPrint('Token in SplashPage: $token');
+
+    if (token == null || token.isEmpty) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => LoginScreen()),
+      );
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => SaveApp()),
+      );
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {

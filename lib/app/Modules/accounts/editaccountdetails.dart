@@ -41,18 +41,13 @@ class MenuItem {
 }
 
 class MenuItem1 {
-  // final int id;
   final String label1;
-  // final IconData icon;
 
   MenuItem1(this.label1);
 }
 
 class MenuItem2 {
-  // final int id;
   final String label2;
-  // final IconData icon;
-
   MenuItem2(this.label2);
 }
 
@@ -115,7 +110,6 @@ class _SlidebleListState3 extends State<Editaccount> {
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
 
     print("keyid is :" + keyid);
@@ -155,15 +149,13 @@ class _SlidebleListState3 extends State<Editaccount> {
 
       openingbalance.text = obalance;
       print('openingbalance is ${obalance}');
-      //  menuController.text = value;
+   
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // print("sdfsdfsdfdsf"+'${global.accname}');
-    //    accountname.text = accname;
-    //TextEditingController accountname = TextEditingController(text: accname);
+
 
     return Scaffold(
       appBar: AppBar(title: const Text('Edit')),
@@ -337,50 +329,7 @@ class _SlidebleListState3 extends State<Editaccount> {
 
               const SizedBox(height: 20),
 
-              // Container(
-              //   decoration: ShapeDecoration(
-              //     shape: RoundedRectangleBorder(
-              //       side: BorderSide(width: .7, style: BorderStyle.solid),
-              //       borderRadius: BorderRadius.all(Radius.circular(0.0)),
-              //
-              //     ),
-              //   ),
-              //   child: DropdownButton(
-              //     menuWidth: 400,
-              //     value: selectedValue,
-              //     isExpanded: true,
-              //
-              //
-              //     icon:  Padding(
-              //       padding: const EdgeInsets.only(left: 200.0,right: 10),
-              //       child: Icon(Icons.keyboard_arrow_down),
-              //
-              //     ),
-              //     items: <String>['2025', '2026', '2027', '2028', '2029', '2030']
-              //
-              //         .map<DropdownMenuItem<String>>((String value) {
-              //
-              //
-              //       return DropdownMenuItem<String>(
-              //
-              //         value: value,
-              //         child: Text(value),
-              //
-              //       );
-              //     }).toList(),
-              //     // value: dropdownvalu,
-              //
-              //
-              //     onChanged: (values) {
-              //       setState(() {
-              //         dropdownvalu = values.toString();
-              //       });
-              //     },
-              //   ),
-              //
-              //
-              // ),
-              //
+             
               SizedBox(height: 70),
               Container(
                 child: ElevatedButton(

@@ -1,6 +1,6 @@
-// api_helper.dart
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:new_project_2025/view/home/widget/setting_page/app_update/app_update_class.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 String baseurl = "https://mysaving.in/IntegraAccount/api/";
@@ -52,20 +52,35 @@ class ApiHelper {
       );
     }
   }
+
+  // New method to check app version
+  Future<AppVersionModel> checkAppVersion() async {
+    final timestamp = DateTime.now().day.toString().padLeft(2, '0') + 
+                     '-' + DateTime.now().month.toString().padLeft(2, '0') + 
+                     '-' + DateTime.now().year.toString();
+    
+    try {
+      final response = await getApiResponse('getMobileAppVersion.php?timestamp=$timestamp');
+      final jsonData = json.decode(response);
+      return AppVersionModel.fromJson(jsonData);
+    } catch (e) {
+      throw Exception('Failed to check app version: $e');
+    }
+  }
   
-  // Basic feedback method with timestamp
+  // Existing methods...
   Future<String> getFeedback() async {
     final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
     return await getApiResponse('getFeedback.php?timestamp=$timestamp');
   }
   
-  // Enhanced feedback method with all parameters
   Future<String> getFeedbackWithFilters({
     String? timestamp,
     String? dateOrder,
     String? status,
   }) async {
-    final currentTimestamp = timestamp ?? DateTime.now().millisecondsSinceEpoch.toString();
+    final currentTimestamp =
+        timestamp ?? DateTime.now().millisecondsSinceEpoch.toString();
     
     String url = 'getFeedback.php?timestamp=$currentTimestamp';
     
@@ -80,31 +95,28 @@ class ApiHelper {
     return await getApiResponse(url);
   }
   
-  // Method to get feedback by date
   Future<String> getFeedbackByDate(String date) async {
     final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-    return await getApiResponse('getFeedback.php?timestamp=$timestamp&dateorder=$date');
+    return await getApiResponse(
+      'getFeedback.php?timestamp=$timestamp&dateorder=$date',
+    );
   }
   
-  // Method to get feedback by status
   Future<String> getFeedbackByStatus(String status) async {
     final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-    return await getApiResponse('getFeedback.php?timestamp=$timestamp&status=$status');
+    return await getApiResponse(
+      'getFeedback.php?timestamp=$timestamp&status=$status',
+    );
   }
   
-  // Method to get feedback with specific timestamp
   Future<String> getFeedbackWithTimestamp(String timestamp) async {
     return await getApiResponse('getFeedback.php?timestamp=$timestamp');
   }
   
-  // Method to add new feedback
   Future<String> addFeedback(String message) async {
     final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
     
-    final postData = {
-      'message': message,
-      'timestamp': timestamp,
-    };
+    final postData = {'message': message, 'timestamp': timestamp};
     
     return await postApiResponse('addFeedback.php', postData);
   }
