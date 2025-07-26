@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:new_project_2025/view/home/dream_page/dream_class/db_class.dart';
 import 'package:new_project_2025/view/home/widget/More_page/More_page.dart';
 import 'package:new_project_2025/view/home/widget/insurance/insurance_database/Insurance_list_page/insurance_list_page.dart';
 import 'package:new_project_2025/view_model/Accountfiles/CashAccount.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:animated_notch_bottom_bar/animated_notch_bottom_bar/animated_notch_bottom_bar.dart';
-
-// Placeholder imports for navigation (replace with actual paths)
 import 'package:new_project_2025/view/home/widget/Notification_page.dart';
 import 'package:new_project_2025/view/home/widget/setting_page/setting_page.dart'
     show SettingsScreen;
@@ -36,7 +35,25 @@ import 'package:new_project_2025/view/home/widget/website_link_page/Website_link
 import 'package:new_project_2025/view/home/widget/Emergency_numbers_screen/Emergency_screen.dart';
 import 'package:new_project_2025/view/home/dream_page/dream_main_page/dream_page_main.dart';
 import 'package:new_project_2025/view_model/VisitingCard/your businessCard.dart';
-import 'package:new_project_2025/view/home/dream_page/dream_class/db_class.dart';
+
+void main() {
+  runApp(MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Personal Finance App',
+      theme: ThemeData(
+        primarySwatch: Colors.teal,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+      ),
+      home: SaveApp(),
+      debugShowCheckedModeBanner: false,
+    );
+  }
+}
 
 class SaveApp extends StatefulWidget {
   const SaveApp({Key? key}) : super(key: key);
@@ -538,7 +555,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
               child: PageView(
                 controller: _pageController,
                 physics: const NeverScrollableScrollPhysics(),
-                children: [_buildHomePage(), const ReportScreen(), More()],
+                children: [_buildHomePage(), ReportScreen(), More()],
               ),
             ),
             _buildBottomNavBar(),
@@ -571,7 +588,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
         ],
       ),
       padding: const EdgeInsets.only(
-        top: 40.0, // Reduced top padding
+        top: 40.0,
         left: 16.0,
         right: 16.0,
         bottom: 16.0,
@@ -640,7 +657,6 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
               ),
             ],
           ),
-          // Action buttons
           Flexible(
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -699,7 +715,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
         ),
         onPressed: onPressed,
         padding: const EdgeInsets.all(8),
-        constraints: const BoxConstraints(), // Remove default constraints
+        constraints: const BoxConstraints(),
       ),
     );
   }
@@ -1086,40 +1102,132 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
   }
 
   Widget _buildBottomNavBar() {
-    return AnimatedNotchBottomBar(
-      notchBottomBarController: _notchController,
-      color: const Color(0xFF008080),
-      showLabel: true,
-      notchColor: isDarkTheme ? Colors.white : Colors.teal.shade100,
-      bottomBarWidth: MediaQuery.of(context).size.width,
-      showShadow: true,
-      kIconSize: 24.0,
-      kBottomRadius: 28.0,
-      itemLabelStyle: TextStyle(
-        fontSize: 12,
-        color: isDarkTheme ? Colors.white : Colors.black54,
-        fontWeight: FontWeight.w500,
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 30,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
-      bottomBarItems: [
-        const BottomBarItem(
-          inActiveItem: Icon(Icons.home, color: Colors.white70),
-          activeItem: Icon(Icons.home, color: Colors.white),
-          itemLabel: 'Home',
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(30),
+        child: AnimatedNotchBottomBar(
+          notchBottomBarController: _notchController,
+          color:
+              isDarkTheme
+                  ? const Color(0xFF1E1E2E).withOpacity(0.95)
+                  : Colors.white.withOpacity(0.95),
+          showLabel: true,
+          notchColor: Colors.transparent,
+          bottomBarWidth: MediaQuery.of(context).size.width - 40,
+          showShadow: false,
+          kIconSize: 28.0,
+          kBottomRadius: 30.0,
+          itemLabelStyle: TextStyle(
+            fontSize: 11,
+            color: isDarkTheme ? Colors.grey.shade300 : Colors.grey.shade700,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.5,
+          ),
+          bottomBarItems: [
+            BottomBarItem(
+              inActiveItem: _buildNavItem(
+                Icons.home_work_rounded,
+                false,
+                const Color(0xFF4FC3F7),
+              ),
+              activeItem: _buildNavItem(
+                Icons.home_work_rounded,
+                true,
+                const Color(0xFF4FC3F7),
+              ),
+              itemLabel: 'Home',
+            ),
+            BottomBarItem(
+              inActiveItem: _buildNavItem(
+                Icons.trending_up_rounded,
+                false,
+                const Color(0xFF66BB6A),
+              ),
+              activeItem: _buildNavItem(
+                Icons.trending_up_rounded,
+                true,
+                const Color(0xFF66BB6A),
+              ),
+              itemLabel: 'Reports',
+            ),
+            BottomBarItem(
+              inActiveItem: _buildNavItem(
+                Icons.explore_rounded,
+                false,
+                const Color(0xFFFF7043),
+              ),
+              activeItem: _buildNavItem(
+                Icons.explore_rounded,
+                true,
+                const Color(0xFFFF7043),
+              ),
+              itemLabel: 'Explore',
+            ),
+          ],
+          onTap: (index) {
+            HapticFeedback.selectionClick();
+            _changePage(index);
+          },
         ),
-        const BottomBarItem(
-          inActiveItem: Icon(Icons.description_outlined, color: Colors.white70),
-          activeItem: Icon(Icons.description_outlined, color: Colors.white),
-          itemLabel: 'Report',
+      ),
+    );
+  }
+
+  Widget _buildNavItem(IconData icon, bool isActive, Color color) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOutCubic,
+      padding: EdgeInsets.all(isActive ? 12 : 8),
+      decoration: BoxDecoration(
+        gradient:
+            isActive
+                ? LinearGradient(
+                  colors: [color.withOpacity(0.8), color],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+                : null,
+        borderRadius: BorderRadius.circular(isActive ? 20 : 12),
+        boxShadow:
+            isActive
+                ? [
+                  BoxShadow(
+                    color: color.withOpacity(0.4),
+                    blurRadius: 15,
+                    offset: const Offset(0, 6),
+                  ),
+                  BoxShadow(
+                    color: color.withOpacity(0.2),
+                    blurRadius: 25,
+                    offset: const Offset(0, 12),
+                  ),
+                ]
+                : null,
+      ),
+      child: AnimatedScale(
+        scale: isActive ? 1.1 : 1.0,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.bounceOut,
+        child: Icon(
+          icon,
+          color:
+              isActive
+                  ? Colors.white
+                  : (isDarkTheme ? Colors.grey.shade500 : Colors.grey.shade400),
+          size: isActive ? 26 : 24,
         ),
-        const BottomBarItem(
-          inActiveItem: Icon(Icons.more_horiz, color: Colors.white70),
-          activeItem: Icon(Icons.more_horiz, color: Colors.white),
-          itemLabel: 'More',
-        ),
-      ],
-      onTap: (index) {
-        _changePage(index);
-      },
+      ),
     );
   }
 

@@ -1,26 +1,25 @@
+import 'dart:convert';
 import 'dart:typed_data';
-import 'dart:ui' as ui;
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
+import 'package:new_project_2025/view_model/VisitingCard/addVisitingcard.dart';
 import 'package:new_project_2025/view_model/VisitingCard/visitingcard.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:path_provider/path_provider.dart';
+import '../../view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 
 class AddVisitingCard extends StatefulWidget {
   const AddVisitingCard({Key? key}) : super(key: key);
 
   @override
-  State<AddVisitingCard> createState() => _VisitingCardPageState();
+  State<AddVisitingCard> createState() => _AddVisitingCardState();
 }
 
-class _VisitingCardPageState extends State<AddVisitingCard>
+class _AddVisitingCardState extends State<AddVisitingCard>
     with TickerProviderStateMixin {
   late AnimationController _slideController;
   late AnimationController _fadeController;
   late Animation<Offset> _slideAnimation;
   late Animation<double> _fadeAnimation;
+  final DatabaseHelper _dbHelper = DatabaseHelper();
+  List<Map<String, dynamic>> cards = [];
 
   @override
   void initState() {
@@ -46,6 +45,22 @@ class _VisitingCardPageState extends State<AddVisitingCard>
 
     _slideController.forward();
     _fadeController.forward();
+
+    _loadCards();
+  }
+
+  Future<void> _loadCards() async {
+    try {
+      final loadedCards = await _dbHelper.getVisitingCards();
+      setState(() {
+        cards = loadedCards;
+      });
+    } catch (e) {
+      print("Error loading cards: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error loading cards: ${e.toString()}")),
+      );
+    }
   }
 
   @override
@@ -63,17 +78,12 @@ class _VisitingCardPageState extends State<AddVisitingCard>
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF667eea),
-              Color(0xFF764ba2),
-              Color(0xFFF093fb),
-            ],
+            colors: [Color(0xFF667eea), Color(0xFF764ba2), Color(0xFFF093fb)],
           ),
         ),
         child: SafeArea(
           child: Column(
             children: [
-              // Custom App Bar
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
@@ -82,7 +92,9 @@ class _VisitingCardPageState extends State<AddVisitingCard>
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white.withOpacity(0.3)),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.3),
+                        ),
                       ),
                       child: IconButton(
                         onPressed: () => Navigator.pop(context),
@@ -105,7 +117,9 @@ class _VisitingCardPageState extends State<AddVisitingCard>
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white.withOpacity(0.3)),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.3),
+                        ),
                       ),
                       child: IconButton(
                         onPressed: () {},
@@ -115,8 +129,6 @@ class _VisitingCardPageState extends State<AddVisitingCard>
                   ],
                 ),
               ),
-
-              // Main Content
               Expanded(
                 child: Container(
                   margin: EdgeInsets.only(top: 20),
@@ -135,7 +147,6 @@ class _VisitingCardPageState extends State<AddVisitingCard>
                         padding: EdgeInsets.all(20),
                         child: Column(
                           children: [
-                            // Decorative handle
                             Container(
                               width: 50,
                               height: 4,
@@ -145,148 +156,154 @@ class _VisitingCardPageState extends State<AddVisitingCard>
                               ),
                             ),
                             SizedBox(height: 30),
-
-                            // Enhanced Card with glassmorphism effect
-                            Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Colors.white.withOpacity(0.9),
-                                    Colors.white.withOpacity(0.7),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: Colors.white.withOpacity(0.3),
-                                  width: 1,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 20,
-                                    offset: Offset(0, 10),
+                            if (cards.isEmpty)
+                              Center(
+                                child: Text(
+                                  "No visiting cards found. Add a new one!",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey[600],
                                   ),
-                                ],
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(20),
-                                child: Container(
-                                  padding: EdgeInsets.all(20),
-                                  child: Row(
-                                    children: [
-                                      // Enhanced Image section
-                                      Hero(
-                                        tag: 'profile_image',
-                                        child: Container(
-                                          width: 100,
-                                          height: 100,
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(15),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black.withOpacity(0.2),
-                                                blurRadius: 10,
-                                                offset: Offset(0, 5),
-                                              ),
-                                            ],
-                                            image: DecorationImage(
-                                              image: AssetImage('assets/1.jpg'),
-                                              fit: BoxFit.cover,
-                                            ),
-                                          ),
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              borderRadius: BorderRadius.circular(15),
-                                              gradient: LinearGradient(
-                                                begin: Alignment.topCenter,
-                                                end: Alignment.bottomCenter,
-                                                colors: [
-                                                  Colors.transparent,
-                                                  Colors.black.withOpacity(0.1),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      SizedBox(width: 20),
-
-                                      // Enhanced Info section
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            _buildInfoRow(Icons.person, "Antony", Color(0xFF667eea)),
-                                            SizedBox(height: 8),
-                                            _buildInfoRow(Icons.phone, "7575757373", Color(0xFF764ba2)),
-                                            SizedBox(height: 8),
-                                            _buildInfoRow(Icons.web, "www.google.com", Color(0xFFF093fb)),
-                                            SizedBox(height: 8),
-                                            _buildInfoRow(Icons.work, "Mobile App Developer", Color(0xFF667eea)),
-                                            SizedBox(height: 15),
-
-                                            // Enhanced Delete Button
-                                            Align(
-                                              alignment: Alignment.centerRight,
-                                              child: Container(
-                                                decoration: BoxDecoration(
-                                                  gradient: LinearGradient(
-                                                    colors: [Colors.red[400]!, Colors.red[600]!],
-                                                  ),
-                                                  borderRadius: BorderRadius.circular(20),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: Colors.red.withOpacity(0.3),
-                                                      blurRadius: 8,
-                                                      offset: Offset(0, 4),
-                                                    ),
-                                                  ],
-                                                ),
-                                                child: Material(
-                                                  color: Colors.transparent,
-                                                  child: InkWell(
-                                                    borderRadius: BorderRadius.circular(20),
-                                                    onTap: () => _showDeleteDialog(),
-                                                    child: Padding(
-                                                      padding: EdgeInsets.symmetric(
-                                                        horizontal: 16,
-                                                        vertical: 8,
-                                                      ),
-                                                      child: Row(
-                                                        mainAxisSize: MainAxisSize.min,
-                                                        children: [
-                                                          Icon(Icons.delete_outline, 
-                                                               color: Colors.white, size: 16),
-                                                          SizedBox(width: 4),
-                                                          Text(
-                                                            "Delete",
-                                                            style: TextStyle(
-                                                              color: Colors.white,
-                                                              fontWeight: FontWeight.w600,
-                                                              fontSize: 12,
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                ),
+                              )
+                            else
+                              ...cards.map((card) {
+                                final cardData =
+                                    card['parsed_data']
+                                        as Map<String, dynamic>? ??
+                                    {};
+                                final logoImage =
+                                    card['logoimage'] as Uint8List?;
+                                return Container(
+                                  margin: EdgeInsets.only(bottom: 20),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Colors.white.withOpacity(0.9),
+                                        Colors.white.withOpacity(0.7),
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.3),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 20,
+                                        offset: Offset(0, 10),
                                       ),
                                     ],
                                   ),
-                                ),
-                              ),
-                            ),
-
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: Container(
+                                      padding: EdgeInsets.all(20),
+                                      child: Row(
+                                        children: [
+                                          Hero(
+                                            tag:
+                                                'profile_image_${card['keyid']}',
+                                            child: Container(
+                                              width: 100,
+                                              height: 100,
+                                              decoration: BoxDecoration(
+                                                borderRadius:
+                                                    BorderRadius.circular(15),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black
+                                                        .withOpacity(0.2),
+                                                    blurRadius: 10,
+                                                    offset: Offset(0, 5),
+                                                  ),
+                                                ],
+                                                image: DecorationImage(
+                                                  image:
+                                                      logoImage != null
+                                                          ? MemoryImage(
+                                                            logoImage,
+                                                          )
+                                                          : AssetImage(
+                                                                'assets/placeholder_logo.png',
+                                                              )
+                                                              as ImageProvider,
+                                                  fit: BoxFit.cover,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          SizedBox(width: 20),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                _buildInfoRow(
+                                                  Icons.person,
+                                                  cardData['name'] ?? "Unknown",
+                                                  Color(0xFF667eea),
+                                                ),
+                                                SizedBox(height: 8),
+                                                _buildInfoRow(
+                                                  Icons.phone,
+                                                  cardData['phone'] ??
+                                                      "No Phone",
+                                                  Color(0xFF764ba2),
+                                                ),
+                                                SizedBox(height: 8),
+                                                _buildInfoRow(
+                                                  Icons.web,
+                                                  cardData['website'] ??
+                                                      "No Website",
+                                                  Color(0xFFF093fb),
+                                                ),
+                                                SizedBox(height: 8),
+                                                _buildInfoRow(
+                                                  Icons.work,
+                                                  cardData['designation'] ??
+                                                      "No Designation",
+                                                  Color(0xFF667eea),
+                                                ),
+                                                SizedBox(height: 15),
+                                                Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.end,
+                                                  children: [
+                                                    _buildActionButton(
+                                                      "Edit",
+                                                      Icons.edit,
+                                                      Colors.blue,
+                                                      () => _editCard(card),
+                                                    ),
+                                                    SizedBox(width: 10),
+                                                    _buildActionButton(
+                                                      "Delete",
+                                                      Icons.delete_outline,
+                                                      Colors.red,
+                                                      () => _showDeleteDialog(
+                                                        card['keyid'],
+                                                      ),
+                                                    ),
+                                                    SizedBox(width: 10),
+                                                    _buildActionButton(
+                                                      "View",
+                                                      Icons.visibility,
+                                                      Colors.green,
+                                                      () => _viewCard(card),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
                             SizedBox(height: 30),
-
-                            // Action buttons with animations
                             Row(
                               children: [
                                 Expanded(
@@ -294,16 +311,16 @@ class _VisitingCardPageState extends State<AddVisitingCard>
                                     "Share Card",
                                     Icons.share,
                                     Colors.blue,
-                                    () => _shareCard(),
+                                    _shareCard,
                                   ),
                                 ),
                                 SizedBox(width: 15),
                                 Expanded(
                                   child: _buildActionButton(
-                                    "Edit Card",
-                                    Icons.edit,
-                                    Colors.orange,
-                                    () => _editCard(),
+                                    "Add New Card",
+                                    Icons.add,
+                                    Colors.green,
+                                    _addNewCard,
                                   ),
                                 ),
                               ],
@@ -319,13 +336,9 @@ class _VisitingCardPageState extends State<AddVisitingCard>
           ),
         ),
       ),
-
-      // Enhanced Floating Action Button
       floatingActionButton: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
             colors: [Color(0xFF667eea), Color(0xFF764ba2)],
           ),
           borderRadius: BorderRadius.circular(25),
@@ -340,24 +353,7 @@ class _VisitingCardPageState extends State<AddVisitingCard>
         child: FloatingActionButton.extended(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          onPressed: () {
-            Navigator.push(
-              context,
-              PageRouteBuilder(
-                pageBuilder: (context, animation, secondaryAnimation) =>
-                    VisitingCard(),
-                transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                  return SlideTransition(
-                    position: Tween<Offset>(
-                      begin: Offset(0, 1),
-                      end: Offset.zero,
-                    ).animate(animation),
-                    child: child,
-                  );
-                },
-              ),
-            );
-          },
+          onPressed: _addNewCard,
           icon: Icon(Icons.add, color: Colors.white, size: 24),
           label: Text(
             "Add New Card",
@@ -400,12 +396,15 @@ class _VisitingCardPageState extends State<AddVisitingCard>
     );
   }
 
-  Widget _buildActionButton(String title, IconData icon, Color color, VoidCallback onTap) {
+  Widget _buildActionButton(
+    String title,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [color.withOpacity(0.8), color],
-        ),
+        gradient: LinearGradient(colors: [color.withOpacity(0.8), color]),
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
@@ -421,11 +420,12 @@ class _VisitingCardPageState extends State<AddVisitingCard>
           borderRadius: BorderRadius.circular(15),
           onTap: onTap,
           child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 15),
-            child: Column(
+            padding: EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, color: Colors.white, size: 24),
-                SizedBox(height: 8),
+                Icon(icon, color: Colors.white, size: 16),
+                SizedBox(width: 4),
                 Text(
                   title,
                   style: TextStyle(
@@ -442,12 +442,14 @@ class _VisitingCardPageState extends State<AddVisitingCard>
     );
   }
 
-  void _showDeleteDialog() {
+  void _showDeleteDialog(int id) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
           title: Text("Delete Card"),
           content: Text("Are you sure you want to delete this visiting card?"),
           actions: [
@@ -458,9 +460,10 @@ class _VisitingCardPageState extends State<AddVisitingCard>
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
               child: Text("Delete"),
-              onPressed: () {
+              onPressed: () async {
+                await _dbHelper.deleteVisitingCard(id);
                 Navigator.of(context).pop();
-                // Add delete functionality here
+                await _loadCards();
               },
             ),
           ],
@@ -470,17 +473,63 @@ class _VisitingCardPageState extends State<AddVisitingCard>
   }
 
   void _shareCard() {
-    // Add share functionality here
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Share functionality will be implemented")),
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text("Select a card to share")));
+  }
+
+  void _editCard(Map<String, dynamic> card) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (context) => VisitingCard(
+              cardData: card['parsed_data'] as Map<String, dynamic>?,
+              cardId: card['keyid'],
+              logoImage: card['logoimage'] as Uint8List?,
+              cardImage: card['cardimg'] as Uint8List?,
+            ),
+      ),
+    ).then((result) {
+      if (result == true) {
+        _loadCards();
+      }
+    });
+  }
+
+  void _viewCard(Map<String, dynamic> card) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (context) => VisitingCardPage(
+              imageUrl: card['cardimg'] != null ? 'memory' : 'assets/1.jpg',
+              cardData: card['parsed_data'] as Map<String, dynamic>?,
+              visitingCardId: card['keyid'],
+            ),
+      ),
     );
   }
 
-  void _editCard() {
-    // Add edit functionality here
+  void _addNewCard() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => VisitingCard()),
-    );
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => VisitingCard(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: Offset(0, 1),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          );
+        },
+      ),
+    ).then((result) {
+      if (result == true) {
+        _loadCards();
+      }
+    });
   }
 }

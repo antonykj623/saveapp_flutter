@@ -1,85 +1,43 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:image_picker/image_picker.dart';
-import 'addVisitingcard.dart';
-import 'test.dart';
+import 'package:new_project_2025/view_model/VisitingCard/addVisitingcard.dart';
+import '../../view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 
 class VisitingCard extends StatefulWidget {
-  const VisitingCard({super.key});
+  final Map<String, dynamic>? cardData;
+  final int? cardId;
+  final Uint8List? logoImage;
+  final Uint8List? cardImage;
+
+  const VisitingCard({
+    super.key,
+    this.cardData,
+    this.cardId,
+    this.logoImage,
+    this.cardImage,
+  });
 
   @override
   _VisitingCardFormState createState() => _VisitingCardFormState();
 }
 
-class _VisitingCardFormState extends State<VisitingCard>
-    with TickerProviderStateMixin {
+class _VisitingCardFormState extends State<VisitingCard> with TickerProviderStateMixin {
   File? _image;
   File? _logoImage;
   final ImagePicker _picker = ImagePicker();
+  final DatabaseHelper _dbHelper = DatabaseHelper();
 
   late AnimationController _animationController;
   late AnimationController _pulseController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _pulseAnimation;
 
-  @override
-  void initState() {
-    super.initState();
-    _animationController = AnimationController(
-      duration: Duration(milliseconds: 1000),
-      vsync: this,
-    );
-    _pulseController = AnimationController(
-      duration: Duration(milliseconds: 2000),
-      vsync: this,
-    );
-
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
-    );
-
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-
-    _animationController.forward();
-    _pulseController.repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    _pulseController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickImage({bool isLogo = false}) async {
-    final XFile? pickedFile = await _picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 85,
-    );
-
-    if (pickedFile != null) {
-      setState(() {
-        if (isLogo) {
-          _logoImage = File(pickedFile.path);
-        } else {
-          _image = File(pickedFile.path);
-          _images.add(File(pickedFile.path));
-        }
-      });
-    }
-  }
-
-  final List<dynamic> _images = [
-    "assets/1.jpg",
-    "assets/2.jpg",
-    "assets/3.jpg",
-  ];
+  List<dynamic> _images = [];
   int _currentIndex = 0;
 
-  // Form Controllers
   final TextEditingController name = TextEditingController();
   final TextEditingController email = TextEditingController();
   final TextEditingController phone = TextEditingController();
@@ -96,6 +54,124 @@ class _VisitingCardFormState extends State<VisitingCard>
   final TextEditingController companyaddress = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: Duration(milliseconds: 1000),
+      vsync: this,
+    );
+    _pulseController = AnimationController(
+      duration: Duration(milliseconds: 2000),
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    _animationController.forward();
+    _pulseController.repeat(reverse: true);
+
+    // Prefill form if editing
+    if (widget.cardData != null) {
+      name.text = widget.cardData!['name'] ?? '';
+      email.text = widget.cardData!['email'] ?? '';
+      phone.text = widget.cardData!['phone'] ?? '';
+      whatsapnumber.text = widget.cardData!['whatsapnumber'] ?? '';
+      landphone.text = widget.cardData!['landphone'] ?? '';
+      companyName.text = widget.cardData!['companyName'] ?? '';
+      desig.text = widget.cardData!['designation'] ?? '';
+      website.text = widget.cardData!['website'] ?? '';
+      saveapplink.text = widget.cardData!['saveapplink'] ?? '';
+      couponcode.text = widget.cardData!['couponcode'] ?? '';
+      fblink.text = widget.cardData!['fblink'] ?? '';
+      instalink.text = widget.cardData!['instalink'] ?? '';
+      youtubelink.text = widget.cardData!['youtubelink'] ?? '';
+      companyaddress.text = widget.cardData!['companyaddress'] ?? '';
+    }
+
+    _loadCarouselImages();
+  }
+
+  Future<void> _loadCarouselImages() async {
+    try {
+      final defaultImages = [
+        "assets/1.jpg",
+        "assets/2.jpg",
+        "assets/3.jpg",
+      ];
+      if (widget.cardId != null) {
+        final images = await _dbHelper.getCarouselImagesByVisitCardId(widget.cardId!);
+        setState(() {
+          _images = images.isNotEmpty
+              ? images.map((img) => img['image_data'] as Uint8List).toList()
+              : defaultImages;
+          _currentIndex = images.isNotEmpty && images.any((img) => img['is_selected'] == 1)
+              ? images.indexWhere((img) => img['is_selected'] == 1)
+              : 0;
+        });
+      } else {
+        setState(() {
+          _images = defaultImages;
+        });
+      }
+    } catch (e) {
+      print("Error loading carousel images: $e");
+      setState(() {
+        _images = ["assets/1.jpg", "assets/2.jpg", "assets/3.jpg"];
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _pulseController.dispose();
+    name.dispose();
+    email.dispose();
+    phone.dispose();
+    whatsapnumber.dispose();
+    landphone.dispose();
+    companyName.dispose();
+    desig.dispose();
+    website.dispose();
+    saveapplink.dispose();
+    couponcode.dispose();
+    fblink.dispose();
+    instalink.dispose();
+    youtubelink.dispose();
+    companyaddress.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImage({bool isLogo = false}) async {
+    final XFile? pickedFile = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
+
+    if (pickedFile != null) {
+      setState(() {
+        if (isLogo) {
+          _logoImage = File(pickedFile.path);
+        } else {
+          _image = File(pickedFile.path);
+          _images.add(_image);
+          _currentIndex = _images.length - 1;
+        }
+      });
+    }
+  }
+
+  Future<Uint8List?> _fileToBytes(File? file) async {
+    if (file == null) return null;
+    return await file.readAsBytes();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
@@ -109,7 +185,6 @@ class _VisitingCardFormState extends State<VisitingCard>
         child: SafeArea(
           child: Column(
             children: [
-              // Custom App Bar with Glassmorphism
               Container(
                 margin: EdgeInsets.all(16),
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -128,7 +203,7 @@ class _VisitingCardFormState extends State<VisitingCard>
                 child: Row(
                   children: [
                     GestureDetector(
-                      onTap: () => Navigator.pop(context),
+                      onTap: () => Navigator.pop(context, true),
                       child: Container(
                         padding: EdgeInsets.all(8),
                         decoration: BoxDecoration(
@@ -145,7 +220,7 @@ class _VisitingCardFormState extends State<VisitingCard>
                     SizedBox(width: 16),
                     Expanded(
                       child: Text(
-                        'Create Visiting Card',
+                        widget.cardId == null ? 'Create Visiting Card' : 'Edit Visiting Card',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 20,
@@ -158,8 +233,6 @@ class _VisitingCardFormState extends State<VisitingCard>
                   ],
                 ),
               ),
-
-              // Main Content
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
@@ -176,7 +249,6 @@ class _VisitingCardFormState extends State<VisitingCard>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Decorative handle
                           Center(
                             child: Container(
                               width: 50,
@@ -188,21 +260,11 @@ class _VisitingCardFormState extends State<VisitingCard>
                             ),
                           ),
                           SizedBox(height: 30),
-
-                          // Enhanced Background Carousel Section
-                          _buildSectionTitle(
-                            "Choose Background Template",
-                            Icons.palette,
-                          ),
+                          _buildSectionTitle("Choose Background Template", Icons.palette),
                           SizedBox(height: 15),
                           _buildCarouselSection(),
                           SizedBox(height: 30),
-
-                          // Personal Information Section
-                          _buildSectionTitle(
-                            "Personal Information",
-                            Icons.person,
-                          ),
+                          _buildSectionTitle("Personal Information", Icons.person),
                           SizedBox(height: 15),
                           _buildEnhancedTextField(
                             controller: name,
@@ -247,12 +309,7 @@ class _VisitingCardFormState extends State<VisitingCard>
                             color: Color(0xFFFF6B6B),
                           ),
                           SizedBox(height: 30),
-
-                          // Company Information Section
-                          _buildSectionTitle(
-                            "Company Information",
-                            Icons.business,
-                          ),
+                          _buildSectionTitle("Company Information", Icons.business),
                           SizedBox(height: 15),
                           _buildEnhancedTextField(
                             controller: companyName,
@@ -283,8 +340,6 @@ class _VisitingCardFormState extends State<VisitingCard>
                             maxLines: 3,
                           ),
                           SizedBox(height: 30),
-
-                          // Social Links Section
                           _buildSectionTitle("Social Media Links", Icons.share),
                           SizedBox(height: 15),
                           _buildEnhancedTextField(
@@ -316,12 +371,7 @@ class _VisitingCardFormState extends State<VisitingCard>
                             ],
                           ),
                           SizedBox(height: 30),
-
-                          // Additional Information Section
-                          _buildSectionTitle(
-                            "Additional Information",
-                            Icons.info_outline,
-                          ),
+                          _buildSectionTitle("Additional Information", Icons.info_outline),
                           SizedBox(height: 15),
                           _buildEnhancedTextField(
                             controller: saveapplink,
@@ -337,17 +387,10 @@ class _VisitingCardFormState extends State<VisitingCard>
                             color: Color(0xFFE67E22),
                           ),
                           SizedBox(height: 30),
-
-                          // Company Logo Section
-                          _buildSectionTitle(
-                            "Company Logo",
-                            Icons.business_center,
-                          ),
+                          _buildSectionTitle("Company Logo", Icons.business_center),
                           SizedBox(height: 15),
                           _buildLogoSection(),
                           SizedBox(height: 40),
-
-                          // Enhanced Submit Button
                           _buildSubmitButton(),
                           SizedBox(height: 20),
                         ],
@@ -369,9 +412,7 @@ class _VisitingCardFormState extends State<VisitingCard>
         Container(
           padding: EdgeInsets.all(8),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF667eea), Color(0xFF764ba2)],
-            ),
+            gradient: LinearGradient(colors: [Color(0xFF667eea), Color(0xFF764ba2)]),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(icon, color: Colors.white, size: 20),
@@ -409,42 +450,35 @@ class _VisitingCardFormState extends State<VisitingCard>
             child: Container(
               height: 200,
               child: CarouselSlider(
-                items:
-                    _images.map((img) {
-                      return Container(
-                        margin: EdgeInsets.symmetric(horizontal: 5),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(15),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 10,
-                              offset: Offset(0, 5),
-                            ),
-                          ],
-                          image: DecorationImage(
-                            image:
-                                img is String
-                                    ? AssetImage(img) as ImageProvider
-                                    : FileImage(img),
-                            fit: BoxFit.cover,
-                          ),
+                items: _images.map((img) {
+                  return Container(
+                    margin: EdgeInsets.symmetric(horizontal: 5),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(15),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 10,
+                          offset: Offset(0, 5),
                         ),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(15),
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.transparent,
-                                Colors.black.withOpacity(0.3),
-                              ],
-                            ),
-                          ),
+                      ],
+                      image: DecorationImage(
+                        image: img is String ? AssetImage(img) : MemoryImage(img as Uint8List),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(15),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Colors.transparent, Colors.black.withOpacity(0.3)],
                         ),
-                      );
-                    }).toList(),
+                      ),
+                    ),
+                  );
+                }).toList(),
                 options: CarouselOptions(
                   height: 200,
                   enlargeCenterPage: true,
@@ -464,8 +498,6 @@ class _VisitingCardFormState extends State<VisitingCard>
               ),
             ),
           ),
-
-          // Add Custom Image Button
           Positioned(
             bottom: 15,
             right: 15,
@@ -473,9 +505,7 @@ class _VisitingCardFormState extends State<VisitingCard>
               scale: _pulseAnimation,
               child: Container(
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.pink[400]!, Colors.pink[600]!],
-                  ),
+                  gradient: LinearGradient(colors: [Colors.pink[400]!, Colors.pink[600]!]),
                   borderRadius: BorderRadius.circular(25),
                   boxShadow: [
                     BoxShadow(
@@ -492,38 +522,28 @@ class _VisitingCardFormState extends State<VisitingCard>
                     onTap: () => _pickImage(),
                     child: Padding(
                       padding: EdgeInsets.all(12),
-                      child: Icon(
-                        Icons.add_photo_alternate,
-                        color: Colors.white,
-                        size: 24,
-                      ),
+                      child: Icon(Icons.add_photo_alternate, color: Colors.white, size: 24),
                     ),
                   ),
                 ),
               ),
             ),
           ),
-
-          // Carousel Indicators
           Positioned(
             bottom: 15,
             left: 20,
             child: Row(
-              children:
-                  _images.asMap().entries.map((entry) {
-                    return Container(
-                      width: _currentIndex == entry.key ? 12 : 8,
-                      height: 8,
-                      margin: EdgeInsets.symmetric(horizontal: 3),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(4),
-                        color:
-                            _currentIndex == entry.key
-                                ? Colors.white
-                                : Colors.white.withOpacity(0.5),
-                      ),
-                    );
-                  }).toList(),
+              children: _images.asMap().entries.map((entry) {
+                return Container(
+                  width: _currentIndex == entry.key ? 12 : 8,
+                  height: 8,
+                  margin: EdgeInsets.symmetric(horizontal: 3),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
+                    color: _currentIndex == entry.key ? Colors.white : Colors.white.withOpacity(0.5),
+                  ),
+                );
+              }).toList(),
             ),
           ),
         ],
@@ -596,11 +616,7 @@ class _VisitingCardFormState extends State<VisitingCard>
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: Colors.grey[300]!,
-              width: 2,
-              style: BorderStyle.solid,
-            ),
+            border: Border.all(color: Colors.grey[300]!, width: 2),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.1),
@@ -609,44 +625,38 @@ class _VisitingCardFormState extends State<VisitingCard>
               ),
             ],
           ),
-          child:
-              _logoImage != null
+          child: _logoImage != null
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: Image.file(_logoImage!, fit: BoxFit.cover),
+                )
+              : widget.logoImage != null
                   ? ClipRRect(
-                    borderRadius: BorderRadius.circular(18),
-                    child: Image.file(_logoImage!, fit: BoxFit.cover),
-                  )
+                      borderRadius: BorderRadius.circular(18),
+                      child: Image.memory(widget.logoImage!, fit: BoxFit.cover),
+                    )
                   : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(colors: [Color(0xFF667eea), Color(0xFF764ba2)]),
+                            borderRadius: BorderRadius.circular(50),
                           ),
-                          borderRadius: BorderRadius.circular(50),
+                          child: Icon(Icons.add_photo_alternate, color: Colors.white, size: 30),
                         ),
-                        child: Icon(
-                          Icons.add_photo_alternate,
-                          color: Colors.white,
-                          size: 30,
+                        SizedBox(height: 12),
+                        Text(
+                          "Add Company Logo",
+                          style: TextStyle(color: Colors.grey[600], fontSize: 14, fontWeight: FontWeight.w500),
                         ),
-                      ),
-                      SizedBox(height: 12),
-                      Text(
-                        "Add Company Logo",
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
+                        Text(
+                          "Tap to upload",
+                          style: TextStyle(color: Colors.grey[400], fontSize: 12),
                         ),
-                      ),
-                      Text(
-                        "Tap to upload",
-                        style: TextStyle(color: Colors.grey[400], fontSize: 12),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
         ),
       ),
     );
@@ -675,35 +685,121 @@ class _VisitingCardFormState extends State<VisitingCard>
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(28),
-          onTap: () {
-            String selectedImage = _images[_currentIndex].toString();
-            _showSuccessDialog();
+          onTap: () async {
+            final cardData = {
+              'name': name.text,
+              'email': email.text,
+              'phone': phone.text,
+              'whatsapnumber': whatsapnumber.text,
+              'landphone': landphone.text,
+              'companyName': companyName.text,
+              'designation': desig.text,
+              'website': website.text,
+              'companyaddress': companyaddress.text,
+              'fblink': fblink.text,
+              'instalink': instalink.text,
+              'youtubelink': youtubelink.text,
+              'saveapplink': saveapplink.text,
+              'couponcode': couponcode.text,
+            };
 
-            // Navigate after delay
-            Future.delayed(Duration(seconds: 2), () {
-              Navigator.push(
-                context,
-                PageRouteBuilder(
-                  pageBuilder:
-                      (context, animation, secondaryAnimation) =>
-                          VisitingCardPage(imageUrl: selectedImage),
-                  transitionsBuilder: (
-                    context,
-                    animation,
-                    secondaryAnimation,
-                    child,
-                  ) {
-                    return SlideTransition(
-                      position: Tween<Offset>(
-                        begin: Offset(1, 0),
-                        end: Offset.zero,
-                      ).animate(animation),
-                      child: child,
-                    );
-                  },
-                ),
+            try {
+              Uint8List? logoBytes = await _fileToBytes(_logoImage);
+              Uint8List? cardBytes = _image != null ? await _fileToBytes(_image) : widget.cardImage;
+
+              int visitingCardId = await _dbHelper.insertOrUpdateVisitingCard(
+                cardData: cardData,
+                logoImage: logoBytes ?? widget.logoImage,
+                cardImage: cardBytes,
+                id: widget.cardId,
+                selectedBackgroundId: _currentIndex,
               );
-            });
+
+              int finalVisitingCardId = widget.cardId ?? visitingCardId;
+
+              if (finalVisitingCardId > 0) {
+                final existingImages = await _dbHelper.getCarouselImagesByVisitCardId(finalVisitingCardId);
+                bool imageExists = false;
+                int? existingImageId;
+                int? carouselImageId;
+
+                if (_image != null) {
+                  Uint8List? carouselBytes = await _fileToBytes(_image);
+                  if (carouselBytes != null) {
+                    for (var img in existingImages) {
+                      if (img['image_order'] == _currentIndex) {
+                        imageExists = true;
+                        existingImageId = img['keyid'];
+                        break;
+                      }
+                    }
+
+                    if (imageExists && existingImageId != null) {
+                      await _dbHelper.updateCarouselImage(
+                        imageId: existingImageId,
+                        imageData: carouselBytes,
+                        order: _currentIndex,
+                        isSelected: true,
+                      );
+                    } else {
+                      carouselImageId = await _dbHelper.insertCarouselImage(
+                        imageData: carouselBytes,
+                        visitCardId: finalVisitingCardId,
+                        order: _currentIndex,
+                        isSelected: true,
+                      );
+                    }
+
+                    if (existingImageId != null || carouselImageId != null) {
+                      await _dbHelper.setSelectedCarouselImage(
+                        finalVisitingCardId,
+                        existingImageId ?? carouselImageId!,
+                      );
+                    }
+                  }
+                } else if (existingImages.isNotEmpty) {
+                  for (var img in existingImages) {
+                    if (img['image_order'] == _currentIndex) {
+                      await _dbHelper.setSelectedCarouselImage(
+                        finalVisitingCardId,
+                        img['keyid'],
+                      );
+                      break;
+                    }
+                  }
+                }
+
+                _showSuccessDialog();
+
+                Future.delayed(Duration(seconds: 2), () {
+                  Navigator.push(
+                    context,
+                    PageRouteBuilder(
+                      pageBuilder: (context, animation, secondaryAnimation) => VisitingCardPage(
+                        imageUrl: _images[_currentIndex] is String ? _images[_currentIndex] : 'memory',
+                        cardData: cardData,
+                        visitingCardId: finalVisitingCardId,
+                      ),
+                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                        return SlideTransition(
+                          position: Tween<Offset>(begin: Offset(1, 0), end: Offset.zero).animate(animation),
+                          child: child,
+                        );
+                      },
+                    ),
+                  );
+                });
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Failed to save visiting card"), backgroundColor: Colors.red),
+                );
+              }
+            } catch (e) {
+              print("Error saving visiting card: $e");
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text("Error occurred while saving: ${e.toString()}"), backgroundColor: Colors.red),
+              );
+            }
           },
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -711,7 +807,7 @@ class _VisitingCardFormState extends State<VisitingCard>
               Icon(Icons.rocket_launch, color: Colors.white, size: 24),
               SizedBox(width: 12),
               Text(
-                'Create Visiting Card',
+                widget.cardId == null ? 'Create Visiting Card' : 'Update Visiting Card',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 18,
@@ -752,9 +848,7 @@ class _VisitingCardFormState extends State<VisitingCard>
                 Container(
                   padding: EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Color(0xFF667eea), Color(0xFF764ba2)],
-                    ),
+                    gradient: LinearGradient(colors: [Color(0xFF667eea), Color(0xFF764ba2)]),
                     borderRadius: BorderRadius.circular(50),
                   ),
                   child: Icon(Icons.check, color: Colors.white, size: 40),
@@ -762,22 +856,16 @@ class _VisitingCardFormState extends State<VisitingCard>
                 SizedBox(height: 20),
                 Text(
                   'Success!',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey[800],
-                  ),
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.grey[800]),
                 ),
                 SizedBox(height: 10),
                 Text(
-                  'Your visiting card is being created...',
+                  widget.cardId == null ? 'Your visiting card is being created...' : 'Your visiting card is being updated...',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                 ),
                 SizedBox(height: 20),
-                CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF667eea)),
-                ),
+                CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF667eea))),
               ],
             ),
           ),

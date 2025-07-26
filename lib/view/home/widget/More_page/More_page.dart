@@ -23,6 +23,7 @@ class _MoreState extends State<More> {
     "Terms and Conditions For Use",
     "FeedBack",
     'Share',
+    'Cancellation and Refund policy',
   ];
 
   // URLs for web pages
@@ -31,6 +32,8 @@ class _MoreState extends State<More> {
     "Privacy Policy": "https://mysaveapp.com/web/privacy_policy",
     "Terms and Conditions For Use":
         "https://mysaveapp.com/web/terms_conditions",
+    "Cancellation and Refund policy":
+        "https://mysaveapp.com/web/cancellation_refund",
   };
 
   @override
