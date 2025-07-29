@@ -1,4 +1,5 @@
-import 'dart:typed_data';
+//import 'dart:typed_data';
+import 'dart:typed_data' show Uint8List, ByteData;
 import 'dart:ui' as ui;
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -24,7 +25,8 @@ class VisitingCardPage extends StatefulWidget {
   State<VisitingCardPage> createState() => _VisitingCardPageState();
 }
 
-class _VisitingCardPageState extends State<VisitingCardPage> with TickerProviderStateMixin {
+class _VisitingCardPageState extends State<VisitingCardPage>
+    with TickerProviderStateMixin {
   final GlobalKey _globalKey = GlobalKey();
   late AnimationController _animationController;
   late AnimationController _pulseController;
@@ -35,7 +37,9 @@ class _VisitingCardPageState extends State<VisitingCardPage> with TickerProvider
   final DatabaseHelper _dbHelper = DatabaseHelper();
   Map<String, dynamic>? visitingCardData;
   Uint8List? selectedImageData;
+  Uint8List? logoImageData; // Separate variable for logo image
   String qrData = '';
+  bool isLoading = true; // Track loading state
 
   @override
   void initState() {
@@ -67,24 +71,51 @@ class _VisitingCardPageState extends State<VisitingCardPage> with TickerProvider
 
   Future<void> _loadVisitingCardData() async {
     try {
+      setState(() {
+        isLoading = true;
+      });
+
       if (widget.cardData != null) {
         visitingCardData = widget.cardData;
+        logoImageData = visitingCardData!['logoimage'] as Uint8List?;
       } else if (widget.visitingCardId != null) {
-        final cardFromDb = await _dbHelper.getVisitingCardById(widget.visitingCardId!);
+        final cardFromDb = await _dbHelper.getVisitingCardById(
+          widget.visitingCardId!,
+        );
         if (cardFromDb != null) {
-          visitingCardData = cardFromDb['parsed_data'] as Map<String, dynamic>?;
+          visitingCardData = {
+            ...?cardFromDb['parsed_data'] as Map<String, dynamic>?,
+            'logoimage': cardFromDb['logoimage'] as Uint8List?,
+          };
+          logoImageData = cardFromDb['logoimage'] as Uint8List?;
         }
       } else {
         final cards = await _dbHelper.getVisitingCards();
         if (cards.isNotEmpty) {
-          visitingCardData = cards.first['parsed_data'] as Map<String, dynamic>?;
+          visitingCardData = {
+            ...?cards.first['parsed_data'] as Map<String, dynamic>?,
+            'logoimage': cards.first['logoimage'] as Uint8List?,
+          };
+          logoImageData = cards.first['logoimage'] as Uint8List?;
         }
       }
 
+      // Validate logoImageData
+      if (logoImageData != null && logoImageData!.isEmpty) {
+        print("Warning: logoimage is empty in database");
+        logoImageData = null;
+      }
+
       if (widget.visitingCardId != null) {
-        final selectedImage = await _dbHelper.getSelectedCarouselImage(widget.visitingCardId!);
+        final selectedImage = await _dbHelper.getSelectedCarouselImage(
+          widget.visitingCardId!,
+        );
         if (selectedImage != null && selectedImage['image_data'] != null) {
           selectedImageData = selectedImage['image_data'] as Uint8List;
+          if (selectedImageData!.isEmpty) {
+            print("Warning: selected carousel image is empty");
+            selectedImageData = null;
+          }
         }
       }
 
@@ -92,12 +123,17 @@ class _VisitingCardPageState extends State<VisitingCardPage> with TickerProvider
         _generateQRData();
       }
 
-      setState(() {});
+      setState(() {
+        isLoading = false;
+      });
     } catch (e) {
       print("Error loading visiting card data: $e");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error loading card data: ${e.toString()}")),
       );
+      setState(() {
+        isLoading = false;
+      });
     }
   }
 
@@ -150,9 +186,13 @@ class _VisitingCardPageState extends State<VisitingCardPage> with TickerProvider
 
   Future<void> _shareCard() async {
     try {
-      RenderRepaintBoundary boundary = _globalKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+      RenderRepaintBoundary boundary =
+          _globalKey.currentContext!.findRenderObject()
+              as RenderRepaintBoundary;
       ui.Image image = await boundary.toImage(pixelRatio: 3.0);
-      ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      ByteData? byteData = await image.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
       Uint8List pngBytes = byteData!.buffer.asUint8List();
 
       final directory = await getTemporaryDirectory();
@@ -213,116 +253,147 @@ class _VisitingCardPageState extends State<VisitingCardPage> with TickerProvider
             end: Alignment.bottomCenter,
           ),
         ),
-        child: AnimatedBuilder(
-          animation: _fadeAnimation,
-          builder: (context, child) {
-            return Transform.translate(
-              offset: Offset(0, _slideAnimation.value),
-              child: Opacity(
-                opacity: _fadeAnimation.value,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 20),
-                      RepaintBoundary(
-                        key: _globalKey,
-                        child: AnimatedBuilder(
-                          animation: _pulseAnimation,
-                          builder: (context, child) {
-                            return Transform.scale(
-                              scale: _pulseAnimation.value,
-                              child: Container(
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(25),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.3),
-                                      blurRadius: 20,
-                                      offset: const Offset(0, 10),
-                                    ),
-                                    BoxShadow(
-                                      color: Colors.white.withOpacity(0.1),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, -5),
-                                    ),
-                                  ],
-                                  image: selectedImageData != null
-                                      ? DecorationImage(
-                                          image: MemoryImage(selectedImageData!),
-                                          fit: BoxFit.cover,
-                                          opacity: 0.3,
-                                        )
-                                      : null,
-                                ),
-                                child: Card(
-                                  elevation: 0,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(25),
-                                  ),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(25),
-                                      gradient: const LinearGradient(
-                                        colors: [
-                                          Color(0xFF667eea),
-                                          Color(0xFF764ba2),
-                                          Color(0xFF667eea),
-                                        ],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      ),
-                                    ),
-                                    child: Stack(
-                                      children: [
-                                        Positioned.fill(
+        child:
+            isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : AnimatedBuilder(
+                  animation: _fadeAnimation,
+                  builder: (context, child) {
+                    return Transform.translate(
+                      offset: Offset(0, _slideAnimation.value),
+                      child: Opacity(
+                        opacity: _fadeAnimation.value,
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            children: [
+                              const SizedBox(height: 20),
+                              RepaintBoundary(
+                                key: _globalKey,
+                                child: AnimatedBuilder(
+                                  animation: _pulseAnimation,
+                                  builder: (context, child) {
+                                    return Transform.scale(
+                                      scale: _pulseAnimation.value,
+                                      child: Container(
+                                        width: double.infinity,
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(
+                                            25,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(
+                                                0.3,
+                                              ),
+                                              blurRadius: 20,
+                                              offset: const Offset(0, 10),
+                                            ),
+                                            BoxShadow(
+                                              color: Colors.white.withOpacity(
+                                                0.1,
+                                              ),
+                                              blurRadius: 10,
+                                              offset: const Offset(0, -5),
+                                            ),
+                                          ],
+                                          image:
+                                              selectedImageData != null
+                                                  ? DecorationImage(
+                                                    image: MemoryImage(
+                                                      selectedImageData!,
+                                                    ),
+                                                    fit: BoxFit.cover,
+                                                    opacity: 0.3,
+                                                  )
+                                                  : null,
+                                        ),
+                                        child: Card(
+                                          elevation: 0,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              25,
+                                            ),
+                                          ),
                                           child: Container(
                                             decoration: BoxDecoration(
-                                              borderRadius: BorderRadius.circular(25),
-                                              gradient: LinearGradient(
+                                              borderRadius:
+                                                  BorderRadius.circular(25),
+                                              gradient: const LinearGradient(
                                                 colors: [
-                                                  Colors.white.withOpacity(0.1),
-                                                  Colors.transparent,
-                                                  Colors.black.withOpacity(0.1),
+                                                  Color(0xFF667eea),
+                                                  Color(0xFF764ba2),
+                                                  Color(0xFF667eea),
                                                 ],
                                                 begin: Alignment.topLeft,
                                                 end: Alignment.bottomRight,
                                               ),
                                             ),
+                                            child: Stack(
+                                              children: [
+                                                Positioned.fill(
+                                                  child: Container(
+                                                    decoration: BoxDecoration(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            25,
+                                                          ),
+                                                      gradient: LinearGradient(
+                                                        colors: [
+                                                          Colors.white
+                                                              .withOpacity(0.1),
+                                                          Colors.transparent,
+                                                          Colors.black
+                                                              .withOpacity(0.1),
+                                                        ],
+                                                        begin:
+                                                            Alignment.topLeft,
+                                                        end:
+                                                            Alignment
+                                                                .bottomRight,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                Padding(
+                                                  padding: const EdgeInsets.all(
+                                                    24,
+                                                  ),
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      _buildHeaderSection(),
+                                                      const SizedBox(
+                                                        height: 30,
+                                                      ),
+                                                      _buildContactSection(),
+                                                      const SizedBox(
+                                                        height: 30,
+                                                      ),
+                                                      _buildSocialMediaSection(),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         ),
-                                        Padding(
-                                          padding: const EdgeInsets.all(24),
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              _buildHeaderSection(),
-                                              const SizedBox(height: 30),
-                                              _buildContactSection(),
-                                              const SizedBox(height: 30),
-                                              _buildSocialMediaSection(),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                                      ),
+                                    );
+                                  },
                                 ),
                               ),
-                            );
-                          },
+                              const SizedBox(height: 40),
+                              _buildShareButton(),
+                            ],
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 40),
-                      _buildShareButton(),
-                    ],
-                  ),
+                    );
+                  },
                 ),
-              ),
-            );
-          },
-        ),
       ),
     );
   }
@@ -337,7 +408,10 @@ class _VisitingCardPageState extends State<VisitingCardPage> with TickerProvider
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(20),
@@ -397,33 +471,58 @@ class _VisitingCardPageState extends State<VisitingCardPage> with TickerProvider
         Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withOpacity(0.3), width: 3),
+            border: Border.all(color: Colors.white.withOpacity(0.3), width: 4),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.2),
+                color: Colors.black.withOpacity(0.3),
                 blurRadius: 10,
                 offset: const Offset(0, 5),
               ),
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(17),
-            child: visitingCardData?['logoimage'] != null
-                ? Image.memory(
-                    visitingCardData!['logoimage'] as Uint8List,
-                    width: 80,
-                    height: 80,
-                    fit: BoxFit.cover,
-                  )
-                : Image.asset(
-                    'assets/placeholder_logo.png',
-                    width: 80,
-                    height: 80,
-                    fit: BoxFit.cover,
-                  ),
+            borderRadius: BorderRadius.circular(16),
+            child:
+                isLoading
+                    ? Container(
+                      width: 80,
+                      height: 80,
+                      color: Colors.grey[200],
+                      child: const Center(child: CircularProgressIndicator()),
+                    )
+                    : logoImageData != null && logoImageData!.isNotEmpty
+                    ? Image.memory(
+                      logoImageData!,
+                      width: 80,
+                      height: 80,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        print("Error loading logo image from memory: $error");
+                        return _buildDefaultLogoImage();
+                      },
+                    )
+                    : _buildDefaultLogoImage(),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildDefaultLogoImage() {
+    return Image.asset(
+      'assets/placeholder_logo.png',
+      width: 80,
+      height: 80,
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) {
+        print("Error loading placeholder logo: $error");
+        return Container(
+          width: 80,
+          height: 80,
+          color: Colors.grey[200],
+          child: const Icon(Icons.image_not_supported, color: Colors.red),
+        );
+      },
     );
   }
 
@@ -442,15 +541,30 @@ class _VisitingCardPageState extends State<VisitingCardPage> with TickerProvider
             child: Column(
               children: [
                 if (visitingCardData?['phone']?.isNotEmpty == true)
-                  _buildContactItem(Icons.phone_android, visitingCardData!['phone']),
+                  _buildContactItem(
+                    Icons.phone_android,
+                    visitingCardData!['phone'],
+                  ),
                 if (visitingCardData?['landphone']?.isNotEmpty == true)
-                  _buildContactItem(Icons.phone, visitingCardData!['landphone']),
+                  _buildContactItem(
+                    Icons.phone,
+                    visitingCardData!['landphone'],
+                  ),
                 if (visitingCardData?['whatsapnumber']?.isNotEmpty == true)
-                  _buildContactItem(Icons.chat, visitingCardData!['whatsapnumber']),
+                  _buildContactItem(
+                    Icons.chat,
+                    visitingCardData!['whatsapnumber'],
+                  ),
                 if (visitingCardData?['email']?.isNotEmpty == true)
-                  _buildContactItem(Icons.email_outlined, visitingCardData!['email']),
+                  _buildContactItem(
+                    Icons.email_outlined,
+                    visitingCardData!['email'],
+                  ),
                 if (visitingCardData?['website']?.isNotEmpty == true)
-                  _buildContactItem(Icons.language, visitingCardData!['website']),
+                  _buildContactItem(
+                    Icons.language,
+                    visitingCardData!['website'],
+                  ),
               ],
             ),
           ),
@@ -544,20 +658,42 @@ class _VisitingCardPageState extends State<VisitingCardPage> with TickerProvider
     List<Widget> socialButtons = [];
 
     if (visitingCardData?['fblink']?.isNotEmpty == true) {
-      socialButtons.add(_buildSocialButton(Icons.facebook, "Facebook", const Color(0xFF1877F2)));
+      socialButtons.add(
+        _buildSocialButton(Icons.facebook, "Facebook", const Color(0xFF1877F2)),
+      );
     }
     if (visitingCardData?['youtubelink']?.isNotEmpty == true) {
-      socialButtons.add(_buildSocialButton(Icons.play_circle_fill, "YouTube", const Color(0xFFFF0000)));
+      socialButtons.add(
+        _buildSocialButton(
+          Icons.play_circle_fill,
+          "YouTube",
+          const Color(0xFFFF0000),
+        ),
+      );
     }
     if (visitingCardData?['instalink']?.isNotEmpty == true) {
-      socialButtons.add(_buildSocialButton(Icons.camera_alt, "Instagram", const Color(0xFFE4405F)));
+      socialButtons.add(
+        _buildSocialButton(
+          Icons.camera_alt,
+          "Instagram",
+          const Color(0xFFE4405F),
+        ),
+      );
     }
 
     if (socialButtons.isEmpty) {
       socialButtons = [
         _buildSocialButton(Icons.facebook, "Facebook", const Color(0xFF1877F2)),
-        _buildSocialButton(Icons.play_circle_fill, "YouTube", const Color(0xFFFF0000)),
-        _buildSocialButton(Icons.camera_alt, "Instagram", const Color(0xFFE4405F)),
+        _buildSocialButton(
+          Icons.play_circle_fill,
+          "YouTube",
+          const Color(0xFFFF0000),
+        ),
+        _buildSocialButton(
+          Icons.camera_alt,
+          "Instagram",
+          const Color(0xFFE4405F),
+        ),
       ];
     }
 
@@ -610,7 +746,9 @@ class _VisitingCardPageState extends State<VisitingCardPage> with TickerProvider
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(30),
-        gradient: const LinearGradient(colors: [Color(0xFF667eea), Color(0xFF764ba2)]),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+        ),
         boxShadow: [
           BoxShadow(
             color: Color(0xFF667eea).withOpacity(0.4),
@@ -625,7 +763,9 @@ class _VisitingCardPageState extends State<VisitingCardPage> with TickerProvider
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
           padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
         ),
         child: const Row(
           mainAxisSize: MainAxisSize.min,

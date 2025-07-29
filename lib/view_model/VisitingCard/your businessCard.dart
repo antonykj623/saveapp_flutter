@@ -25,16 +25,16 @@ class _AddVisitingCardState extends State<AddVisitingCard>
   void initState() {
     super.initState();
     _slideController = AnimationController(
-      duration: Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 800),
       vsync: this,
     );
     _fadeController = AnimationController(
-      duration: Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
 
     _slideAnimation = Tween<Offset>(
-      begin: Offset(0, 0.3),
+      begin: const Offset(0, 0.3),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOut));
 
@@ -49,17 +49,180 @@ class _AddVisitingCardState extends State<AddVisitingCard>
     _loadCards();
   }
 
+  Future<ImageProvider> _getCardImage(Map<String, dynamic> card) async {
+    try {
+      // Check for cardimg in card data with proper null checking
+      if (card['cardimg'] != null &&
+          card['cardimg'] is Uint8List &&
+          (card['cardimg'] as Uint8List).isNotEmpty) {
+        return MemoryImage(card['cardimg'] as Uint8List);
+      }
+
+      // Check for selected carousel image in database
+      if (card['keyid'] != null && card['keyid'] is int) {
+        final selectedImage = await _dbHelper.getSelectedCarouselImage(
+          card['keyid'] as int,
+        );
+        if (selectedImage != null &&
+            selectedImage['image_data'] != null &&
+            selectedImage['image_data'] is Uint8List &&
+            (selectedImage['image_data'] as Uint8List).isNotEmpty) {
+          return MemoryImage(selectedImage['image_data'] as Uint8List);
+        }
+      }
+
+      // Check for logoimage with proper validation
+      final parsedData = card['parsed_data'];
+      Map<String, dynamic> cardData = {};
+
+      if (parsedData is Map<String, dynamic>) {
+        cardData = parsedData;
+      } else if (parsedData is String) {
+        try {
+          cardData = jsonDecode(parsedData) as Map<String, dynamic>;
+        } catch (e) {
+          print("Error parsing parsed_data JSON: $e");
+          cardData = {};
+        }
+      }
+
+      // Try logoimage from card data first
+      final logoImage = card['logoimage'];
+      if (logoImage != null && logoImage is Uint8List && logoImage.isNotEmpty) {
+        return MemoryImage(logoImage);
+      }
+
+      // Try logoimage from parsed data
+      final parsedLogoImage = cardData['logoimage'];
+      if (parsedLogoImage != null &&
+          parsedLogoImage is Uint8List &&
+          parsedLogoImage.isNotEmpty) {
+        return MemoryImage(parsedLogoImage);
+      }
+
+      // Fallback to placeholder
+      return const AssetImage('assets/placeholder_card.png');
+    } catch (e) {
+      print("Error in _getCardImage: $e");
+      return const AssetImage('assets/placeholder_card.png');
+    }
+  }
+
   Future<void> _loadCards() async {
     try {
       final loadedCards = await _dbHelper.getVisitingCards();
       setState(() {
-        cards = loadedCards;
+        cards =
+            loadedCards
+                .map((card) {
+                  try {
+                    // Ensure keyid is properly handled
+                    final keyid = card['keyid'];
+                    if (keyid == null) {
+                      print("Warning: Card found without keyid");
+                      return null;
+                    }
+
+                    // Handle parsed_data safely
+                    Map<String, dynamic> parsedData = {};
+                    final rawParsedData = card['parsed_data'];
+
+                    if (rawParsedData is Map<String, dynamic>) {
+                      parsedData = rawParsedData;
+                    } else if (rawParsedData is String &&
+                        rawParsedData.isNotEmpty) {
+                      try {
+                        parsedData =
+                            jsonDecode(rawParsedData) as Map<String, dynamic>;
+                      } catch (e) {
+                        print("Error parsing JSON for card $keyid: $e");
+                        // Try to parse from 'data' field as fallback
+                        final dataField = card['data'];
+                        if (dataField is String && dataField.isNotEmpty) {
+                          try {
+                            parsedData =
+                                jsonDecode(dataField) as Map<String, dynamic>;
+                          } catch (e2) {
+                            print(
+                              "Error parsing fallback data for card $keyid: $e2",
+                            );
+                            parsedData = {
+                              'name': 'Unknown Card',
+                              'error': 'Data parsing failed',
+                            };
+                          }
+                        } else {
+                          parsedData = {
+                            'name': 'Unknown Card',
+                            'error': 'No valid data found',
+                          };
+                        }
+                      }
+                    } else {
+                      // Try to get data from 'data' field
+                      final dataField = card['data'];
+                      if (dataField is String && dataField.isNotEmpty) {
+                        try {
+                          parsedData =
+                              jsonDecode(dataField) as Map<String, dynamic>;
+                        } catch (e) {
+                          print("Error parsing data field for card $keyid: $e");
+                          parsedData = {
+                            'name': 'Unknown Card',
+                            'error': 'Invalid data format',
+                          };
+                        }
+                      } else {
+                        parsedData = {
+                          'name': 'Unknown Card',
+                          'error': 'No data available',
+                        };
+                      }
+                    }
+
+                    // Validate essential fields and provide defaults
+                    if (parsedData['name'] == null ||
+                        parsedData['name'].toString().trim().isEmpty) {
+                      parsedData['name'] = 'Unnamed Card';
+                    }
+                    if (parsedData['phone'] == null) {
+                      parsedData['phone'] = '';
+                    }
+                    if (parsedData['email'] == null) {
+                      parsedData['email'] = '';
+                    }
+                    if (parsedData['website'] == null) {
+                      parsedData['website'] = '';
+                    }
+                    if (parsedData['designation'] == null) {
+                      parsedData['designation'] = '';
+                    }
+
+                    return {
+                      'keyid': keyid,
+                      'parsed_data': parsedData,
+                      'logoimage': card['logoimage'] as Uint8List?,
+                      'cardimg': card['cardimg'] as Uint8List?,
+                    };
+                  } catch (e) {
+                    print("Error processing card: $e");
+                    return null;
+                  }
+                })
+                .where((card) => card != null)
+                .cast<Map<String, dynamic>>()
+                .toList();
       });
     } catch (e) {
       print("Error loading cards: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error loading cards: ${e.toString()}")),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error loading cards: ${e.toString()}")),
+        );
+      }
+      setState(() {
+        cards = [];
+      });
     }
   }
 
@@ -74,7 +237,7 @@ class _AddVisitingCardState extends State<AddVisitingCard>
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -85,7 +248,10 @@ class _AddVisitingCardState extends State<AddVisitingCard>
           child: Column(
             children: [
               Container(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 child: Row(
                   children: [
                     Container(
@@ -98,11 +264,14 @@ class _AddVisitingCardState extends State<AddVisitingCard>
                       ),
                       child: IconButton(
                         onPressed: () => Navigator.pop(context),
-                        icon: Icon(Icons.arrow_back_ios, color: Colors.white),
+                        icon: const Icon(
+                          Icons.arrow_back_ios,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
-                    SizedBox(width: 16),
-                    Expanded(
+                    const SizedBox(width: 16),
+                    const Expanded(
                       child: Text(
                         'Your Visiting Cards',
                         style: TextStyle(
@@ -122,8 +291,10 @@ class _AddVisitingCardState extends State<AddVisitingCard>
                         ),
                       ),
                       child: IconButton(
-                        onPressed: () {},
-                        icon: Icon(Icons.more_vert, color: Colors.white),
+                        onPressed: () {
+                          // Add functionality for more options if needed
+                        },
+                        icon: const Icon(Icons.more_vert, color: Colors.white),
                       ),
                     ),
                   ],
@@ -131,10 +302,10 @@ class _AddVisitingCardState extends State<AddVisitingCard>
               ),
               Expanded(
                 child: Container(
-                  margin: EdgeInsets.only(top: 20),
+                  margin: const EdgeInsets.only(top: 20),
                   decoration: BoxDecoration(
                     color: Colors.grey[50],
-                    borderRadius: BorderRadius.only(
+                    borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(30),
                       topRight: Radius.circular(30),
                     ),
@@ -144,7 +315,7 @@ class _AddVisitingCardState extends State<AddVisitingCard>
                     child: FadeTransition(
                       opacity: _fadeAnimation,
                       child: SingleChildScrollView(
-                        padding: EdgeInsets.all(20),
+                        padding: const EdgeInsets.all(20),
                         child: Column(
                           children: [
                             Container(
@@ -155,7 +326,7 @@ class _AddVisitingCardState extends State<AddVisitingCard>
                                 borderRadius: BorderRadius.circular(2),
                               ),
                             ),
-                            SizedBox(height: 30),
+                            const SizedBox(height: 30),
                             if (cards.isEmpty)
                               Center(
                                 child: Text(
@@ -169,141 +340,159 @@ class _AddVisitingCardState extends State<AddVisitingCard>
                             else
                               ...cards.map((card) {
                                 final cardData =
-                                    card['parsed_data']
-                                        as Map<String, dynamic>? ??
-                                    {};
-                                final logoImage =
-                                    card['logoimage'] as Uint8List?;
-                                return Container(
-                                  margin: EdgeInsets.only(bottom: 20),
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        Colors.white.withOpacity(0.9),
-                                        Colors.white.withOpacity(0.7),
-                                      ],
-                                    ),
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(
-                                      color: Colors.white.withOpacity(0.3),
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.1),
-                                        blurRadius: 20,
-                                        offset: Offset(0, 10),
-                                      ),
-                                    ],
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(20),
-                                    child: Container(
-                                      padding: EdgeInsets.all(20),
-                                      child: Row(
-                                        children: [
-                                          Hero(
-                                            tag:
-                                                'profile_image_${card['keyid']}',
-                                            child: Container(
-                                              width: 100,
-                                              height: 100,
-                                              decoration: BoxDecoration(
-                                                borderRadius:
-                                                    BorderRadius.circular(15),
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: Colors.black
-                                                        .withOpacity(0.2),
-                                                    blurRadius: 10,
-                                                    offset: Offset(0, 5),
-                                                  ),
-                                                ],
-                                                image: DecorationImage(
-                                                  image:
-                                                      logoImage != null
-                                                          ? MemoryImage(
-                                                            logoImage,
-                                                          )
-                                                          : AssetImage(
-                                                                'assets/placeholder_logo.png',
-                                                              )
-                                                              as ImageProvider,
-                                                  fit: BoxFit.cover,
-                                                ),
-                                              ),
+                                    card['parsed_data'] as Map<String, dynamic>;
+                                return FutureBuilder<ImageProvider>(
+                                  future: _getCardImage(card),
+                                  builder: (context, snapshot) {
+                                    if (snapshot.connectionState ==
+                                        ConnectionState.waiting) {
+                                      return const Center(
+                                        child: CircularProgressIndicator(),
+                                      );
+                                    }
+                                    return Container(
+                                      margin: const EdgeInsets.only(bottom: 20),
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            Colors.white.withOpacity(0.9),
+                                            Colors.white.withOpacity(0.7),
+                                          ],
+                                        ),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(
+                                          color: Colors.white.withOpacity(0.3),
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(
+                                              0.1,
                                             ),
-                                          ),
-                                          SizedBox(width: 20),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                _buildInfoRow(
-                                                  Icons.person,
-                                                  cardData['name'] ?? "Unknown",
-                                                  Color(0xFF667eea),
-                                                ),
-                                                SizedBox(height: 8),
-                                                _buildInfoRow(
-                                                  Icons.phone,
-                                                  cardData['phone'] ??
-                                                      "No Phone",
-                                                  Color(0xFF764ba2),
-                                                ),
-                                                SizedBox(height: 8),
-                                                _buildInfoRow(
-                                                  Icons.web,
-                                                  cardData['website'] ??
-                                                      "No Website",
-                                                  Color(0xFFF093fb),
-                                                ),
-                                                SizedBox(height: 8),
-                                                _buildInfoRow(
-                                                  Icons.work,
-                                                  cardData['designation'] ??
-                                                      "No Designation",
-                                                  Color(0xFF667eea),
-                                                ),
-                                                SizedBox(height: 15),
-                                                Row(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment.end,
-                                                  children: [
-                                                    _buildActionButton(
-                                                      "Edit",
-                                                      Icons.edit,
-                                                      Colors.blue,
-                                                      () => _editCard(card),
-                                                    ),
-                                                    SizedBox(width: 10),
-                                                    _buildActionButton(
-                                                      "Delete",
-                                                      Icons.delete_outline,
-                                                      Colors.red,
-                                                      () => _showDeleteDialog(
-                                                        card['keyid'],
-                                                      ),
-                                                    ),
-                                                    SizedBox(width: 10),
-                                                    _buildActionButton(
-                                                      "View",
-                                                      Icons.visibility,
-                                                      Colors.green,
-                                                      () => _viewCard(card),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
+                                            blurRadius: 20,
+                                            offset: const Offset(0, 10),
                                           ),
                                         ],
                                       ),
-                                    ),
-                                  ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(20),
+                                        child: Container(
+                                          padding: const EdgeInsets.all(20),
+                                          child: Row(
+                                            children: [
+                                              Hero(
+                                                tag:
+                                                    'profile_image_${card['keyid']}',
+                                                child: Container(
+                                                  width: 100,
+                                                  height: 100,
+                                                  decoration: BoxDecoration(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          15,
+                                                        ),
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: Colors.black
+                                                            .withOpacity(0.2),
+                                                        blurRadius: 10,
+                                                        offset: const Offset(
+                                                          0,
+                                                          5,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                    image: DecorationImage(
+                                                      image:
+                                                          snapshot.data ??
+                                                          const AssetImage(
+                                                            'assets/placeholder_card.png',
+                                                          ),
+                                                      fit: BoxFit.cover,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 20),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    _buildInfoRow(
+                                                      Icons.person,
+                                                      cardData['name'] ??
+                                                          "Unknown",
+                                                      const Color(0xFF667eea),
+                                                    ),
+                                                    const SizedBox(height: 8),
+                                                    _buildInfoRow(
+                                                      Icons.phone,
+                                                      cardData['phone'] ??
+                                                          "No Phone",
+                                                      const Color(0xFF764ba2),
+                                                    ),
+                                                    const SizedBox(height: 8),
+                                                    _buildInfoRow(
+                                                      Icons.web,
+                                                      cardData['website'] ??
+                                                          "No Website",
+                                                      const Color(0xFFF093fb),
+                                                    ),
+                                                    const SizedBox(height: 8),
+                                                    _buildInfoRow(
+                                                      Icons.work,
+                                                      cardData['designation'] ??
+                                                          "No Designation",
+                                                      const Color(0xFF667eea),
+                                                    ),
+                                                    const SizedBox(height: 15),
+                                                    Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment.end,
+                                                      children: [
+                                                        _buildActionButton(
+                                                          "Edit",
+                                                          Icons.edit,
+                                                          Colors.blue,
+                                                          () => _editCard(card),
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 10,
+                                                        ),
+                                                        _buildActionButton(
+                                                          "Delete",
+                                                          Icons.delete_outline,
+                                                          Colors.red,
+                                                          () =>
+                                                              _showDeleteDialog(
+                                                                card['keyid'],
+                                                              ),
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 10,
+                                                        ),
+                                                        _buildActionButton(
+                                                          "View",
+                                                          Icons.visibility,
+                                                          Colors.green,
+                                                          () => _viewCard(
+                                                            card['keyid'],
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 );
                               }).toList(),
-                            SizedBox(height: 30),
+                            const SizedBox(height: 30),
                             Row(
                               children: [
                                 Expanded(
@@ -314,7 +503,7 @@ class _AddVisitingCardState extends State<AddVisitingCard>
                                     _shareCard,
                                   ),
                                 ),
-                                SizedBox(width: 15),
+                                const SizedBox(width: 15),
                                 Expanded(
                                   child: _buildActionButton(
                                     "Add New Card",
@@ -338,15 +527,15 @@ class _AddVisitingCardState extends State<AddVisitingCard>
       ),
       floatingActionButton: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
+          gradient: const LinearGradient(
             colors: [Color(0xFF667eea), Color(0xFF764ba2)],
           ),
           borderRadius: BorderRadius.circular(25),
           boxShadow: [
             BoxShadow(
-              color: Color(0xFF667eea).withOpacity(0.4),
+              color: const Color(0xFF667eea).withOpacity(0.4),
               blurRadius: 15,
-              offset: Offset(0, 8),
+              offset: const Offset(0, 8),
             ),
           ],
         ),
@@ -354,8 +543,8 @@ class _AddVisitingCardState extends State<AddVisitingCard>
           backgroundColor: Colors.transparent,
           elevation: 0,
           onPressed: _addNewCard,
-          icon: Icon(Icons.add, color: Colors.white, size: 24),
-          label: Text(
+          icon: const Icon(Icons.add, color: Colors.white, size: 24),
+          label: const Text(
             "Add New Card",
             style: TextStyle(
               color: Colors.white,
@@ -370,20 +559,44 @@ class _AddVisitingCardState extends State<AddVisitingCard>
   }
 
   Widget _buildInfoRow(IconData icon, String text, Color color) {
+    // Handle null or empty text
+    String displayText = text;
+    if (text == null || text.trim().isEmpty || text == 'null') {
+      switch (icon) {
+        case Icons.person:
+          displayText = 'No Name Provided';
+          break;
+        case Icons.phone:
+          displayText = 'No Phone Number';
+          break;
+        case Icons.web:
+          displayText = 'No Website';
+          break;
+        case Icons.work:
+          displayText = 'No Designation';
+          break;
+        case Icons.email:
+          displayText = 'No Email';
+          break;
+        default:
+          displayText = 'Not Provided';
+      }
+    }
+
     return Row(
       children: [
         Container(
-          padding: EdgeInsets.all(6),
+          padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
             color: color.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, size: 16, color: color),
         ),
-        SizedBox(width: 10),
+        const SizedBox(width: 10),
         Expanded(
           child: Text(
-            text,
+            displayText,
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
@@ -410,7 +623,7 @@ class _AddVisitingCardState extends State<AddVisitingCard>
           BoxShadow(
             color: color.withOpacity(0.3),
             blurRadius: 10,
-            offset: Offset(0, 5),
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -420,15 +633,15 @@ class _AddVisitingCardState extends State<AddVisitingCard>
           borderRadius: BorderRadius.circular(15),
           onTap: onTap,
           child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(icon, color: Colors.white, size: 16),
-                SizedBox(width: 4),
+                const SizedBox(width: 4),
                 Text(
                   title,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
                     fontSize: 12,
@@ -450,16 +663,18 @@ class _AddVisitingCardState extends State<AddVisitingCard>
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
           ),
-          title: Text("Delete Card"),
-          content: Text("Are you sure you want to delete this visiting card?"),
+          title: const Text("Delete Card"),
+          content: const Text(
+            "Are you sure you want to delete this visiting card?",
+          ),
           actions: [
             TextButton(
-              child: Text("Cancel"),
+              child: const Text("Cancel"),
               onPressed: () => Navigator.of(context).pop(),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: Text("Delete"),
+              child: const Text("Delete"),
               onPressed: () async {
                 await _dbHelper.deleteVisitingCard(id);
                 Navigator.of(context).pop();
@@ -475,7 +690,7 @@ class _AddVisitingCardState extends State<AddVisitingCard>
   void _shareCard() {
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text("Select a card to share")));
+    ).showSnackBar(const SnackBar(content: Text("Select a card to share")));
   }
 
   void _editCard(Map<String, dynamic> card) {
@@ -484,7 +699,7 @@ class _AddVisitingCardState extends State<AddVisitingCard>
       MaterialPageRoute(
         builder:
             (context) => VisitingCard(
-              cardData: card['parsed_data'] as Map<String, dynamic>?,
+              cardData: card['parsed_data'] as Map<String, dynamic>,
               cardId: card['keyid'],
               logoImage: card['logoimage'] as Uint8List?,
               cardImage: card['cardimg'] as Uint8List?,
@@ -497,29 +712,48 @@ class _AddVisitingCardState extends State<AddVisitingCard>
     });
   }
 
-  void _viewCard(Map<String, dynamic> card) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder:
-            (context) => VisitingCardPage(
-              imageUrl: card['cardimg'] != null ? 'memory' : 'assets/1.jpg',
-              cardData: card['parsed_data'] as Map<String, dynamic>?,
-              visitingCardId: card['keyid'],
-            ),
-      ),
-    );
+  Future<void> _viewCard(int visitingCardId) async {
+    try {
+      final card = await _dbHelper.getVisitingCardById(visitingCardId);
+      if (card != null) {
+        final cardData = {
+          ...card['parsed_data'] as Map<String, dynamic>,
+          'logoimage': card['logoimage'] as Uint8List?,
+          'cardimg': card['cardimg'] as Uint8List?,
+        };
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder:
+                (context) => VisitingCardPage(
+                  cardData: cardData,
+                  visitingCardId: visitingCardId,
+                ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Card not found")));
+      }
+    } catch (e) {
+      print("Error viewing card: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error viewing card: ${e.toString()}")),
+      );
+    }
   }
 
   void _addNewCard() {
     Navigator.push(
       context,
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => VisitingCard(),
+        pageBuilder:
+            (context, animation, secondaryAnimation) => const VisitingCard(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return SlideTransition(
             position: Tween<Offset>(
-              begin: Offset(0, 1),
+              begin: const Offset(0, 1),
               end: Offset.zero,
             ).animate(animation),
             child: child,

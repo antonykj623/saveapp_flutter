@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:image/image.dart' as img;
 import 'package:new_project_2025/view/home/widget/Emergency_numbers_screen/model_class_emergency.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import 'dart:typed_data';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:new_project_2025/model/receipt.dart';
 import 'package:new_project_2025/view/home/dream_page/model_dream_page/model_dream.dart';
@@ -27,7 +29,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'save.db');
     return await openDatabase(
       path,
-      version: 3, // Updated version to handle new schema
+      version: 4,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -47,7 +49,6 @@ class DatabaseHelper {
       ''');
     }
     if (oldVersion < 3) {
-      // Update carousel image table structure
       await db.execute('''
         CREATE TABLE IF NOT EXISTS TABLE_CAROUSEL_IMAGES (
           keyid INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,42 +56,97 @@ class DatabaseHelper {
           image_data BLOB,
           image_order INTEGER,
           is_selected INTEGER DEFAULT 0,
-          FOREIGN KEY (visitcard_id) REFERENCES TABLE_VISITCARD (keyid)
+          FOREIGN KEY (visitcard_id) REFERENCES TABLE_VISITCARD (keyid) ON DELETE CASCADE
         )
       ''');
-
-      // Update visiting card table structure
       await db.execute('''
         ALTER TABLE TABLE_VISITCARD ADD COLUMN parsed_data TEXT
       ''');
-
-      // Insert default carousel images
-      await _insertDefaultCarouselImages(db);
+    }
+    if (oldVersion < 4) {
+      await db.execute('''
+        DROP TABLE IF EXISTS TABLE_CAROUSEL_IMAGES
+      ''');
+      await db.execute('''
+        CREATE TABLE TABLE_CAROUSEL_IMAGES (
+          keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+          visitcard_id INTEGER,
+          image_data BLOB,
+          image_order INTEGER,
+          is_selected INTEGER DEFAULT 0,
+          FOREIGN KEY (visitcard_id) REFERENCES TABLE_VISITCARD (keyid) ON DELETE CASCADE
+        )
+      ''');
     }
   }
 
-  Future<void> _insertDefaultCarouselImages(Database db) async {
-    // Insert default background images (these would be asset paths)
-    List<String> defaultImages = [
-      "assets/1.jpg",
-      "assets/2.jpg",
-      "assets/3.jpg",
-    ];
+  // NEW: Image compression method to handle large images
+  Future<Uint8List?> compressImage(
+    Uint8List imageBytes, {
+    int maxSizeKB = 100,
+    int quality = 85,
+  }) async {
+    try {
+      // Decode the image
+      img.Image? image = img.decodeImage(imageBytes);
+      if (image == null) {
+        print("Failed to decode image");
+        return null;
+      }
 
-    for (int i = 0; i < defaultImages.length; i++) {
-      await db.insert('TABLE_CAROUSEL_IMAGES', {
-        'visitcard_id':
-            null, // These are default images not tied to specific cards
-        'image_data':
-            null, // For asset images, we store path in separate field if needed
-        'image_order': i,
-        'is_selected': 0,
-      });
+      // Calculate original size in KB
+      double originalSizeKB = imageBytes.length / 1024;
+      print("Original image size: ${originalSizeKB.toStringAsFixed(2)} KB");
+
+      if (originalSizeKB <= maxSizeKB) {
+        print("Image is already within size limit");
+        return imageBytes;
+      }
+
+      // Calculate resize ratio based on file size
+      double ratio =
+          (maxSizeKB / originalSizeKB) * 0.8; // 80% of target to be safe
+      int newWidth = (image.width * ratio).round();
+      int newHeight = (image.height * ratio).round();
+
+      // Ensure minimum dimensions
+      if (newWidth < 100) newWidth = 100;
+      if (newHeight < 100) newHeight = 100;
+
+      // Resize the image
+      img.Image resized = img.copyResize(
+        image,
+        width: newWidth,
+        height: newHeight,
+      );
+
+      // Encode with quality compression
+      Uint8List compressedBytes = Uint8List.fromList(
+        img.encodeJpg(resized, quality: quality),
+      );
+
+      double compressedSizeKB = compressedBytes.length / 1024;
+      print("Compressed image size: ${compressedSizeKB.toStringAsFixed(2)} KB");
+
+      // If still too large, reduce quality further
+      if (compressedSizeKB > maxSizeKB && quality > 30) {
+        print("Still too large, reducing quality further");
+        return await compressImage(
+          imageBytes,
+          maxSizeKB: maxSizeKB,
+          quality: quality - 20,
+        );
+      }
+
+      return compressedBytes;
+    } catch (e) {
+      print("Error compressing image: $e");
+      return null;
     }
   }
 
   Future<void> _createAllTables(Database db) async {
-    // All existing tables...
+    // [Previous table creation code remains unchanged]
     await db.execute('''
       CREATE TABLE TABLE_TARGETCATEGORY (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -99,71 +155,60 @@ class DatabaseHelper {
         isCustom TEXT
       )
     ''');
-
     await db.execute('''
       CREATE TABLE TABLE_PAYMENTVOUCHER (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         voucherdata TEXT
       )
     ''');
-
     await db.execute('''
       CREATE TABLE INSURANCE_NO (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         insuranceNO TEXT
       )
     ''');
-
     await db.execute('''
       CREATE TABLE INVESTNAMES_TABLE (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         investname TEXT
       )
     ''');
-
     await db.execute('''
       CREATE TABLE CASHBALANCE_table (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         cashbalancedata TEXT
       )
     ''');
-
     await db.execute('''
       CREATE TABLE LOAN_table (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         loan_data TEXT
       )
     ''');
-
     await db.execute('''
       CREATE TABLE RECEIPT_table (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         receipt_data TEXT
       )
     ''');
-
     await db.execute('''
       CREATE TABLE TABLE_DOCUMENT (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         data TEXT
       )
     ''');
-
     await db.execute('''
       CREATE TABLE TABLE_WALLET (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         data TEXT
       )
     ''');
-
     await db.execute('''
       CREATE TABLE TABLE_PASSWORD (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         data TEXT
       )
     ''');
-
-    // Updated carousel images table
     await db.execute('''
       CREATE TABLE TABLE_CAROUSEL_IMAGES (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -171,24 +216,21 @@ class DatabaseHelper {
         image_data BLOB,
         image_order INTEGER,
         is_selected INTEGER DEFAULT 0,
-        FOREIGN KEY (visitcard_id) REFERENCES TABLE_VISITCARD (keyid)
+        FOREIGN KEY (visitcard_id) REFERENCES TABLE_VISITCARD (keyid) ON DELETE CASCADE
       )
     ''');
-
     await db.execute('''
       CREATE TABLE TABLE_APP_PIN (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         data TEXT
       )
     ''');
-
     await db.execute('''
       CREATE TABLE TABLE_MILESTONE (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         data TEXT
       )
     ''');
-
     await db.execute('''
       CREATE TABLE TABLE_ACCOUNTS (
         ACCOUNTS_id INTEGER PRIMARY KEY AUTOINCREMENT, 
@@ -206,7 +248,6 @@ class DatabaseHelper {
         ACCOUNTS_billVoucherNumber TEXT
       )
     ''');
-
     await db.execute('''
       CREATE TABLE TABLE_ACCOUNTS_RECEIPT (
         ACCOUNTS_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -221,42 +262,36 @@ class DatabaseHelper {
         ACCOUNTS_cashbanktype TEXT
       )
     ''');
-
     await db.execute('''
       CREATE TABLE TABLE_ASSET (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         data TEXT
       )
     ''');
-
     await db.execute('''
       CREATE TABLE TABLE_LIABILITY (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         data TEXT
       )
     ''');
-
     await db.execute('''
       CREATE TABLE TABLE_INSURANCE (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         data TEXT
       )
     ''');
-
     await db.execute('''
       CREATE TABLE TABLE_ACCOUNTSETTINGS (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         data TEXT
       )
     ''');
-
     await db.execute('''
       CREATE TABLE DIARYSUBJECT_table (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         data TEXT
       )
     ''');
-
     await db.execute('''
       CREATE TABLE TABLE_BUDGET (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -266,89 +301,76 @@ class DatabaseHelper {
         amount REAL
       )
     ''');
-
     await db.execute('''
       CREATE TABLE DIARY_table (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         data TEXT
       )
     ''');
-
     await db.execute('''
       CREATE TABLE INVESTMENT_table (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         data TEXT
       )
     ''');
-
     await db.execute('''
       CREATE TABLE TABLE_TASK (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         data TEXT
       )
     ''');
-
-    // Updated visiting card table
     await db.execute('''
       CREATE TABLE TABLE_VISITCARD (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         data TEXT,
         parsed_data TEXT,
         logoimage BLOB,
-        cardimg TEXT,
+        cardimg BLOB,
         selected_background_id INTEGER
       )
     ''');
-
     await db.execute('''
       CREATE TABLE TABLE_TARGET (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         data TEXT
       )
     ''');
-
     await db.execute('''
       CREATE TABLE TABLE_ADDEDAMOUNT_MILESTONE (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         data TEXT
       )
     ''');
-
     await db.execute('''
       CREATE TABLE TABLE_BACKUP (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         data TEXT
       )
     ''');
-
     await db.execute('''
       CREATE TABLE TABLE_RENEWALMSG (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         data TEXT
       )
     ''');
-
     await db.execute('''
       CREATE TABLE TABLE_WEBLINKS (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         data TEXT
       )
     ''');
-
     await db.execute('''
       CREATE TABLE TABLE_EMERGENCY (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         data TEXT
       )
     ''');
-
     await db.execute('''
       CREATE TABLE TABLE_BILLDETAILS (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         data TEXT
       )
     ''');
-
     await db.execute('''
       CREATE TABLE dreams_table (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -361,20 +383,13 @@ class DatabaseHelper {
         notes TEXT
       )
     ''');
-
-    // New Emergency Contacts Table
     await db.execute('''
       CREATE TABLE TABLE_EMERGENCY_CONTACTS (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         data TEXT
       )
     ''');
-
-    // Insert default emergency contacts
     await _insertDefaultEmergencyContacts(db);
-
-    // Insert default carousel images
-    await _insertDefaultCarouselImages(db);
   }
 
   Future<void> _insertDefaultEmergencyContacts(Database db) async {
@@ -436,7 +451,379 @@ class DatabaseHelper {
     }
   }
 
-  // Carousel Image Methods
+  // Helper method to convert asset image to Uint8List
+  Future<Uint8List> loadAssetImage(String assetPath) async {
+    try {
+      final ByteData data = await rootBundle.load(assetPath);
+      Uint8List imageBytes = data.buffer.asUint8List();
+
+      // Compress asset images too if they're large
+      Uint8List? compressedBytes = await compressImage(imageBytes);
+      return compressedBytes ?? imageBytes;
+    } catch (e) {
+      print("Error loading asset image $assetPath: $e");
+      return Uint8List(0); // Return empty Uint8List on error
+    }
+  }
+
+  // UPDATED: insertOrUpdateVisitingCard method with image compression
+  Future<int> insertOrUpdateVisitingCard({
+    required Map<String, dynamic> cardData,
+    Uint8List? logoImage,
+    Uint8List? cardImage,
+    int? id,
+    int? selectedBackgroundId,
+    List<String>? defaultImageAssets,
+  }) async {
+    try {
+      final db = await database;
+
+      // Validate and clean input data
+      Map<String, dynamic> cleanedCardData = {};
+      cardData.forEach((key, value) {
+        if (value != null) {
+          String cleanValue = value.toString().trim();
+          if (cleanValue.isNotEmpty && cleanValue.toLowerCase() != 'null') {
+            cleanedCardData[key] = cleanValue;
+          } else {
+            cleanedCardData[key] = '';
+          }
+        } else {
+          cleanedCardData[key] = '';
+        }
+      });
+
+      // Ensure required fields have valid values
+      if (cleanedCardData['name'] == null ||
+          cleanedCardData['name'].toString().trim().isEmpty) {
+        cleanedCardData['name'] =
+            'New Card ${DateTime.now().millisecondsSinceEpoch}';
+      }
+
+      // COMPRESS IMAGES BEFORE STORING
+      Uint8List? compressedLogoImage;
+      Uint8List? compressedCardImage;
+
+      if (logoImage != null && logoImage.isNotEmpty) {
+        print("Compressing logo image...");
+        compressedLogoImage = await compressImage(logoImage, maxSizeKB: 50);
+        if (compressedLogoImage == null) {
+          print("Failed to compress logo image, using original");
+          compressedLogoImage = logoImage;
+        }
+      }
+
+      if (cardImage != null && cardImage.isNotEmpty) {
+        print("Compressing card image...");
+        compressedCardImage = await compressImage(cardImage, maxSizeKB: 80);
+        if (compressedCardImage == null) {
+          print("Failed to compress card image, using original");
+          compressedCardImage = cardImage;
+        }
+      }
+
+      Map<String, dynamic> dataToStore = Map.from(cleanedCardData);
+      if (compressedLogoImage != null && compressedLogoImage.isNotEmpty) {
+        dataToStore['logoimage'] = compressedLogoImage;
+      }
+
+      final data = {
+        'data': jsonEncode(dataToStore),
+        'parsed_data': jsonEncode(cleanedCardData),
+        'logoimage': compressedLogoImage,
+        'cardimg': compressedCardImage,
+        'selected_background_id': selectedBackgroundId,
+      };
+
+      int visitingCardId;
+      if (id != null && id > 0) {
+        final updateResult = await db.update(
+          'TABLE_VISITCARD',
+          data,
+          where: 'keyid = ?',
+          whereArgs: [id],
+        );
+        if (updateResult > 0) {
+          visitingCardId = id;
+        } else {
+          throw Exception('Failed to update card with ID $id');
+        }
+      } else {
+        visitingCardId = await db.insert('TABLE_VISITCARD', data);
+        if (visitingCardId <= 0) {
+          throw Exception('Failed to insert new card');
+        }
+      }
+
+      // Handle default images if no cardImage is provided
+      if (compressedCardImage == null &&
+          defaultImageAssets != null &&
+          defaultImageAssets.isNotEmpty) {
+        await deleteCarouselImagesByVisitCardId(visitingCardId);
+        for (int i = 0; i < defaultImageAssets.length; i++) {
+          final Uint8List imageData = await loadAssetImage(
+            defaultImageAssets[i],
+          );
+          if (imageData.isNotEmpty) {
+            await insertCarouselImage(
+              imageData: imageData,
+              visitCardId: visitingCardId,
+              order: i,
+              isSelected: i == (selectedBackgroundId ?? 0),
+            );
+          }
+        }
+      }
+
+      print("Successfully saved visiting card with ID: $visitingCardId");
+      return visitingCardId;
+    } catch (e) {
+      print("Error in insertOrUpdateVisitingCard: $e");
+      return 0;
+    }
+  }
+
+  // UPDATED: getVisitingCards method with better error handling for large images
+  Future<List<Map<String, dynamic>>> getVisitingCards() async {
+    try {
+      final db = await database;
+
+      // Query without BLOB columns first to avoid cursor window issues
+      final cardsWithoutBlobs = await db.query(
+        'TABLE_VISITCARD',
+        columns: ['keyid', 'data', 'parsed_data', 'selected_background_id'],
+        orderBy: 'keyid DESC',
+      );
+
+      List<Map<String, dynamic>> processedCards = [];
+
+      for (var card in cardsWithoutBlobs) {
+        try {
+          Map<String, dynamic> processedCard = Map.from(card);
+
+          // Handle parsed_data with multiple fallbacks
+          if (processedCard['parsed_data'] == null ||
+              processedCard['parsed_data'].toString().trim().isEmpty) {
+            if (processedCard['data'] != null &&
+                processedCard['data'].toString().trim().isNotEmpty) {
+              processedCard['parsed_data'] = processedCard['data'];
+            } else {
+              // Create default data structure
+              processedCard['parsed_data'] = jsonEncode({
+                'name': 'Recovery Mode Card',
+                'phone': '',
+                'email': '',
+                'website': '',
+                'designation': '',
+                'companyName': '',
+                'error': 'Original data was corrupted or missing',
+              });
+            }
+          }
+
+          // Parse JSON data safely
+          if (processedCard['parsed_data'] is String) {
+            try {
+              final jsonData = jsonDecode(processedCard['parsed_data']);
+              if (jsonData is Map<String, dynamic>) {
+                processedCard['parsed_data'] = jsonData;
+              } else {
+                throw FormatException('Invalid JSON structure');
+              }
+            } catch (e) {
+              print(
+                "Error parsing JSON for card ${processedCard['keyid']}: $e",
+              );
+              // Create a safe fallback structure
+              processedCard['parsed_data'] = {
+                'name': 'Data Recovery Card ${processedCard['keyid']}',
+                'phone': '',
+                'email': '',
+                'website': '',
+                'designation': '',
+                'companyName': '',
+                'error': 'JSON parsing failed: ${e.toString()}',
+              };
+            }
+          }
+
+          // Ensure parsed_data is a valid Map
+          if (processedCard['parsed_data'] is! Map<String, dynamic>) {
+            processedCard['parsed_data'] = {
+              'name': 'Unknown Card ${processedCard['keyid']}',
+              'phone': '',
+              'email': '',
+              'website': '',
+              'designation': '',
+              'companyName': '',
+              'error': 'Invalid data type',
+            };
+          }
+
+          // Validate and clean individual fields
+          final parsedData =
+              processedCard['parsed_data'] as Map<String, dynamic>;
+
+          // Clean each field to prevent null/undefined display
+          parsedData['name'] = _cleanField(parsedData['name'], 'Unnamed Card');
+          parsedData['phone'] = _cleanField(parsedData['phone'], '');
+          parsedData['email'] = _cleanField(parsedData['email'], '');
+          parsedData['website'] = _cleanField(parsedData['website'], '');
+          parsedData['designation'] = _cleanField(
+            parsedData['designation'],
+            '',
+          );
+          parsedData['companyName'] = _cleanField(
+            parsedData['companyName'],
+            '',
+          );
+          parsedData['whatsapnumber'] = _cleanField(
+            parsedData['whatsapnumber'],
+            '',
+          );
+          parsedData['landphone'] = _cleanField(parsedData['landphone'], '');
+          parsedData['companyaddress'] = _cleanField(
+            parsedData['companyaddress'],
+            '',
+          );
+          parsedData['fblink'] = _cleanField(parsedData['fblink'], '');
+          parsedData['instalink'] = _cleanField(parsedData['instalink'], '');
+          parsedData['youtubelink'] = _cleanField(
+            parsedData['youtubelink'],
+            '',
+          );
+          parsedData['saveapplink'] = _cleanField(
+            parsedData['saveapplink'],
+            '',
+          );
+          parsedData['couponcode'] = _cleanField(parsedData['couponcode'], '');
+
+          // Load BLOB data separately if needed
+          try {
+            final blobData = await db.query(
+              'TABLE_VISITCARD',
+              columns: ['logoimage', 'cardimg'],
+              where: 'keyid = ?',
+              whereArgs: [processedCard['keyid']],
+              limit: 1,
+            );
+
+            if (blobData.isNotEmpty) {
+              processedCard['logoimage'] = blobData.first['logoimage'];
+              processedCard['cardimg'] = blobData.first['cardimg'];
+            } else {
+              processedCard['logoimage'] = null;
+              processedCard['cardimg'] = null;
+            }
+          } catch (e) {
+            print(
+              "Error loading BLOB data for card ${processedCard['keyid']}: $e",
+            );
+            processedCard['logoimage'] = null;
+            processedCard['cardimg'] = null;
+          }
+
+          processedCards.add(processedCard);
+        } catch (e) {
+          print("Error processing individual card: $e");
+          // Create a safe card entry even if processing fails
+          processedCards.add({
+            'keyid': card['keyid'] ?? 0,
+            'parsed_data': {
+              'name': 'Error Card ${card['keyid'] ?? 'Unknown'}',
+              'phone': '',
+              'email': '',
+              'website': '',
+              'designation': '',
+              'companyName': '',
+              'error': 'Card processing failed: ${e.toString()}',
+            },
+            'logoimage': null,
+            'cardimg': null,
+          });
+        }
+      }
+      return processedCards;
+    } catch (e) {
+      print("Error getting visiting cards: $e");
+      return [];
+    }
+  }
+
+  // Helper method to clean individual fields
+  String _cleanField(dynamic value, String defaultValue) {
+    if (value == null) return defaultValue;
+    if (value is String) {
+      final cleaned = value.trim();
+      if (cleaned.isEmpty ||
+          cleaned.toLowerCase() == 'null' ||
+          cleaned.toLowerCase() == 'unknown') {
+        return defaultValue;
+      }
+      return cleaned;
+    }
+    return value.toString().trim().isEmpty ? defaultValue : value.toString();
+  }
+
+  // UPDATED: getVisitingCardById method with separate BLOB loading
+  Future<Map<String, dynamic>?> getVisitingCardById(int id) async {
+    try {
+      final db = await database;
+
+      // First get non-BLOB data
+      final result = await db.query(
+        'TABLE_VISITCARD',
+        columns: ['keyid', 'data', 'parsed_data', 'selected_background_id'],
+        where: 'keyid = ?',
+        whereArgs: [id],
+        limit: 1,
+      );
+
+      if (result.isNotEmpty) {
+        Map<String, dynamic> card = Map.from(result.first);
+
+        if (card['parsed_data'] == null && card['data'] != null) {
+          card['parsed_data'] = card['data'];
+        }
+        if (card['parsed_data'] is String) {
+          try {
+            card['parsed_data'] = jsonDecode(card['parsed_data']);
+          } catch (e) {
+            print("Error parsing JSON: $e");
+            card['parsed_data'] = {};
+          }
+        }
+
+        // Load BLOB data separately
+        try {
+          final blobResult = await db.query(
+            'TABLE_VISITCARD',
+            columns: ['logoimage', 'cardimg'],
+            where: 'keyid = ?',
+            whereArgs: [id],
+            limit: 1,
+          );
+
+          if (blobResult.isNotEmpty) {
+            card['logoimage'] = blobResult.first['logoimage'];
+            card['cardimg'] = blobResult.first['cardimg'];
+          }
+        } catch (e) {
+          print("Error loading BLOB data: $e");
+          card['logoimage'] = null;
+          card['cardimg'] = null;
+        }
+
+        return card;
+      }
+      return null;
+    } catch (e) {
+      print("Error getting visiting card by ID: $e");
+      return null;
+    }
+  }
+
+  // UPDATED: insertCarouselImage with compression
   Future<int> insertCarouselImage({
     required Uint8List imageData,
     required int visitCardId,
@@ -445,14 +832,93 @@ class DatabaseHelper {
   }) async {
     try {
       final db = await database;
+      if (imageData.isEmpty) {
+        print("Warning: Attempting to insert empty image data");
+        return 0;
+      }
+
+      // Compress carousel image
+      print("Compressing carousel image...");
+      Uint8List? compressedImageData = await compressImage(
+        imageData,
+        maxSizeKB: 80,
+      );
+      if (compressedImageData == null) {
+        print("Failed to compress carousel image, using original");
+        compressedImageData = imageData;
+      }
+
       return await db.insert('TABLE_CAROUSEL_IMAGES', {
         'visitcard_id': visitCardId,
-        'image_data': imageData,
+        'image_data': compressedImageData,
         'image_order': order,
         'is_selected': isSelected ? 1 : 0,
       });
     } catch (e) {
       print("Error inserting carousel image: $e");
+      return 0;
+    }
+  }
+
+  // UPDATED: getCarouselImagesByVisitCardId with separate query
+  Future<List<Map<String, dynamic>>> getCarouselImagesByVisitCardId(
+    int visitCardId,
+  ) async {
+    try {
+      final db = await database;
+
+      // Query metadata first
+      final metadataResult = await db.query(
+        'TABLE_CAROUSEL_IMAGES',
+        columns: ['keyid', 'visitcard_id', 'image_order', 'is_selected'],
+        where: 'visitcard_id = ?',
+        whereArgs: [visitCardId],
+        orderBy: 'image_order ASC',
+      );
+
+      List<Map<String, dynamic>> result = [];
+
+      for (var metadata in metadataResult) {
+        try {
+          // Load image data separately
+          final imageResult = await db.query(
+            'TABLE_CAROUSEL_IMAGES',
+            columns: ['image_data'],
+            where: 'keyid = ?',
+            whereArgs: [metadata['keyid']],
+            limit: 1,
+          );
+
+          if (imageResult.isNotEmpty &&
+              imageResult.first['image_data'] != null) {
+            Map<String, dynamic> combined = Map.from(metadata);
+            combined['image_data'] = imageResult.first['image_data'];
+            result.add(combined);
+          }
+        } catch (e) {
+          print(
+            "Error loading image data for carousel image ${metadata['keyid']}: $e",
+          );
+        }
+      }
+
+      return result;
+    } catch (e) {
+      print("Error getting carousel images: $e");
+      return [];
+    }
+  }
+
+  Future<int> deleteVisitingCard(int id) async {
+    try {
+      final db = await database;
+      return await db.delete(
+        'TABLE_VISITCARD',
+        where: 'keyid = ?',
+        whereArgs: [id],
+      );
+    } catch (e) {
+      print("Error deleting visiting card: $e");
       return 0;
     }
   }
@@ -465,10 +931,20 @@ class DatabaseHelper {
   }) async {
     try {
       final db = await database;
+
+      // Compress image before updating
+      Uint8List? compressedImageData = await compressImage(
+        imageData,
+        maxSizeKB: 80,
+      );
+      if (compressedImageData == null) {
+        compressedImageData = imageData;
+      }
+
       return await db.update(
         'TABLE_CAROUSEL_IMAGES',
         {
-          'image_data': imageData,
+          'image_data': compressedImageData,
           'image_order': order,
           'is_selected': isSelected ? 1 : 0,
         },
@@ -481,35 +957,15 @@ class DatabaseHelper {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getCarouselImagesByVisitCardId(
-    int visitCardId,
-  ) async {
-    try {
-      final db = await database;
-      return await db.query(
-        'TABLE_CAROUSEL_IMAGES',
-        where: 'visitcard_id = ?',
-        whereArgs: [visitCardId],
-        orderBy: 'image_order ASC',
-      );
-    } catch (e) {
-      print("Error getting carousel images: $e");
-      return [];
-    }
-  }
-
   Future<int> setSelectedCarouselImage(int visitCardId, int imageId) async {
     try {
       final db = await database;
-      // First, unselect all images for this visiting card
       await db.update(
         'TABLE_CAROUSEL_IMAGES',
         {'is_selected': 0},
         where: 'visitcard_id = ?',
         whereArgs: [visitCardId],
       );
-
-      // Then select the specified image
       return await db.update(
         'TABLE_CAROUSEL_IMAGES',
         {'is_selected': 1},
@@ -527,159 +983,122 @@ class DatabaseHelper {
   ) async {
     try {
       final db = await database;
-      final result = await db.query(
+
+      // Get metadata first
+      final metadataResult = await db.query(
         'TABLE_CAROUSEL_IMAGES',
+        columns: ['keyid', 'visitcard_id', 'image_order', 'is_selected'],
         where: 'visitcard_id = ? AND is_selected = 1',
         whereArgs: [visitCardId],
         limit: 1,
       );
-      return result.isNotEmpty ? result.first : null;
+
+      if (metadataResult.isNotEmpty) {
+        // Load image data separately
+        final imageResult = await db.query(
+          'TABLE_CAROUSEL_IMAGES',
+          columns: ['image_data'],
+          where: 'keyid = ?',
+          whereArgs: [metadataResult.first['keyid']],
+          limit: 1,
+        );
+
+        if (imageResult.isNotEmpty) {
+          Map<String, dynamic> result = Map.from(metadataResult.first);
+          result['image_data'] = imageResult.first['image_data'];
+          return result;
+        }
+      }
+      return null;
     } catch (e) {
       print("Error getting selected carousel image: $e");
       return null;
     }
   }
 
-  // Updated Visiting Card Methods
-  Future<int> insertOrUpdateVisitingCard({
-    required Map<String, dynamic> cardData,
-    Uint8List? logoImage,
-    Uint8List? cardImage,
-    int? id,
-    int? selectedBackgroundId,
-  }) async {
+  Future<int> deleteCarouselImagesByVisitCardId(int visitCardId) async {
     try {
       final db = await database;
-      final data = {
-        'data': jsonEncode(cardData), // Keep original format for compatibility
-        'parsed_data': jsonEncode(
-          cardData,
-        ), // Add parsed data for easier access
-        if (logoImage != null) 'logoimage': logoImage,
-        if (cardImage != null) 'cardimg': cardImage,
-        if (selectedBackgroundId != null)
-          'selected_background_id': selectedBackgroundId,
-      };
-
-      if (id != null) {
-        // Update existing visiting card
-        final result = await db.update(
-          'TABLE_VISITCARD',
-          data,
-          where: 'keyid = ?',
-          whereArgs: [id],
-        );
-        return result > 0 ? id : 0;
-      } else {
-        // Insert new visiting card
-        return await db.insert('TABLE_VISITCARD', data);
-      }
-    } catch (e) {
-      print("Error inserting/updating visiting card: $e");
-      return 0;
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> getVisitingCards() async {
-    try {
-      final db = await database;
-      final cards = await db.query('TABLE_VISITCARD', orderBy: 'keyid DESC');
-
-      // Process each card to ensure parsed_data exists
-      List<Map<String, dynamic>> processedCards = [];
-      for (var card in cards) {
-        Map<String, dynamic> processedCard = Map.from(card);
-
-        // If parsed_data doesn't exist, create it from data
-        if (processedCard['parsed_data'] == null &&
-            processedCard['data'] != null) {
-          try {
-            processedCard['parsed_data'] = processedCard['data'];
-          } catch (e) {
-            print("Error processing card data: $e");
-            processedCard['parsed_data'] = '{}';
-          }
-        }
-
-        // Parse the JSON string to Map if it's still a string
-        if (processedCard['parsed_data'] is String) {
-          try {
-            processedCard['parsed_data'] = jsonDecode(
-              processedCard['parsed_data'],
-            );
-          } catch (e) {
-            print("Error parsing JSON: $e");
-            processedCard['parsed_data'] = {};
-          }
-        }
-
-        processedCards.add(processedCard);
-      }
-
-      return processedCards;
-    } catch (e) {
-      print("Error getting visiting cards: $e");
-      return [];
-    }
-  }
-
-  Future<Map<String, dynamic>?> getVisitingCardById(int id) async {
-    try {
-      final db = await database;
-      final result = await db.query(
-        'TABLE_VISITCARD',
-        where: 'keyid = ?',
-        whereArgs: [id],
-        limit: 1,
-      );
-
-      if (result.isNotEmpty) {
-        Map<String, dynamic> card = Map.from(result.first);
-
-        // Ensure parsed_data exists
-        if (card['parsed_data'] == null && card['data'] != null) {
-          card['parsed_data'] = card['data'];
-        }
-
-        // Parse the JSON string to Map if it's still a string
-        if (card['parsed_data'] is String) {
-          try {
-            card['parsed_data'] = jsonDecode(card['parsed_data']);
-          } catch (e) {
-            print("Error parsing JSON: $e");
-            card['parsed_data'] = {};
-          }
-        }
-
-        return card;
-      }
-      return null;
-    } catch (e) {
-      print("Error getting visiting card by ID: $e");
-      return null;
-    }
-  }
-
-  Future<int> deleteVisitingCard(int id) async {
-    try {
-      final db = await database;
-
-      // Delete associated carousel images
-      await db.delete(
+      return await db.delete(
         'TABLE_CAROUSEL_IMAGES',
         where: 'visitcard_id = ?',
-        whereArgs: [id],
-      );
-
-      // Delete the visiting card
-      return await db.delete(
-        'TABLE_VISITCARD',
-        where: 'keyid = ?',
-        whereArgs: [id],
+        whereArgs: [visitCardId],
       );
     } catch (e) {
-      print("Error deleting visiting card: $e");
+      print("Error deleting carousel images: $e");
       return 0;
+    }
+  }
+
+  // New method to repair corrupted visiting cards
+  Future<void> repairCorruptedVisitingCards() async {
+    try {
+      final db = await database;
+      final cards = await db.query('TABLE_VISITCARD');
+
+      for (var card in cards) {
+        bool needsRepair = false;
+        Map<String, dynamic> repairedData = Map.from(card);
+
+        // Check if parsed_data is corrupted
+        if (card['parsed_data'] == null ||
+            card['parsed_data'].toString().trim().isEmpty) {
+          if (card['data'] != null &&
+              card['data'].toString().trim().isNotEmpty) {
+            repairedData['parsed_data'] = card['data'];
+            needsRepair = true;
+          } else {
+            // Create minimal valid data
+            Map<String, dynamic> minimalData = {
+              'name': 'Recovered Card ${card['keyid']}',
+              'phone': '',
+              'email': '',
+              'website': '',
+              'designation': '',
+              'companyName': '',
+            };
+            repairedData['data'] = jsonEncode(minimalData);
+            repairedData['parsed_data'] = jsonEncode(minimalData);
+            needsRepair = true;
+          }
+        }
+
+        // Validate JSON structure
+        try {
+          if (repairedData['parsed_data'] is String) {
+            final parsed = jsonDecode(repairedData['parsed_data']);
+            if (parsed is! Map<String, dynamic>) {
+              throw FormatException('Invalid structure');
+            }
+          }
+        } catch (e) {
+          Map<String, dynamic> safeData = {
+            'name': 'Repaired Card ${card['keyid']}',
+            'phone': '',
+            'email': '',
+            'website': '',
+            'designation': '',
+            'companyName': '',
+            'repaired': true,
+            'originalError': e.toString(),
+          };
+          repairedData['data'] = jsonEncode(safeData);
+          repairedData['parsed_data'] = jsonEncode(safeData);
+          needsRepair = true;
+        }
+
+        if (needsRepair) {
+          await db.update(
+            'TABLE_VISITCARD',
+            repairedData,
+            where: 'keyid = ?',
+            whereArgs: [card['keyid']],
+          );
+          print("Repaired visiting card ${card['keyid']}");
+        }
+      }
+    } catch (e) {
+      print("Error during database repair: $e");
     }
   }
 
@@ -703,7 +1122,6 @@ class DatabaseHelper {
         'TABLE_EMERGENCY_CONTACTS',
       );
       List<EmergencyContact> contacts = [];
-
       for (var map in maps) {
         try {
           Map<String, dynamic> contactData = jsonDecode(map['data']);
@@ -764,7 +1182,6 @@ class DatabaseHelper {
     }
   }
 
-  // Search emergency contacts
   Future<List<EmergencyContact>> searchEmergencyContacts(String query) async {
     try {
       final allContacts = await getAllEmergencyContacts();
@@ -781,7 +1198,6 @@ class DatabaseHelper {
     }
   }
 
-  // Get emergency contacts count
   Future<int> getEmergencyContactsCount() async {
     try {
       final contacts = await getAllEmergencyContacts();
@@ -840,9 +1256,6 @@ class DatabaseHelper {
       } catch (e) {
         print('Error parsing account data: $e');
       }
-    }
-    if (accountNames.isEmpty) {
-      return [];
     }
     return accountNames;
   }
@@ -1191,20 +1604,19 @@ class DatabaseHelper {
   Future<int> insertOrUpdateCarouselImage(Uint8List imageData) async {
     try {
       final db = await database;
-      // Check if an image already exists (you can modify this logic based on your requirements)
       final existingImages = await db.query('TABLE_CAROUSEL_IMAGES');
       if (existingImages.isNotEmpty) {
-        // Update the first image (or modify logic to handle multiple images)
+        Uint8List? compressedData = await compressImage(imageData);
         return await db.update(
           'TABLE_CAROUSEL_IMAGES',
-          {'image_data': imageData},
+          {'image_data': compressedData ?? imageData},
           where: 'keyid = ?',
           whereArgs: [existingImages.first['keyid']],
         );
       } else {
-        // Insert new image
+        Uint8List? compressedData = await compressImage(imageData);
         return await db.insert('TABLE_CAROUSEL_IMAGES', {
-          'image_data': imageData,
+          'image_data': compressedData ?? imageData,
         });
       }
     } catch (e) {
@@ -1223,6 +1635,14 @@ class DatabaseHelper {
     } catch (e) {
       print("Error getting carousel images: $e");
       return [];
+    }
+  }
+
+  // Close the database
+  Future<void> close() async {
+    if (_database != null) {
+      await _database!.close();
+      _database = null;
     }
   }
 }

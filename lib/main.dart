@@ -17,7 +17,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-   debugShowCheckedModeBanner: false,
+      debugShowCheckedModeBanner: false,
       title: 'SAVE App',
       theme: ThemeData(primarySwatch: Colors.teal),
       home: SplashPage(),
@@ -57,7 +57,7 @@ class _SplashPageState extends State<SplashPage> {
       );
     }
   }
-
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(body: Center(child: Image.asset("assets/Invoice.jpg")));
