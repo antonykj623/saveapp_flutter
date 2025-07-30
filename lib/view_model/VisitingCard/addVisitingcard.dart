@@ -1,4 +1,3 @@
-//import 'dart:typed_data';
 import 'dart:typed_data' show Uint8List, ByteData;
 import 'dart:ui' as ui;
 import 'dart:io';
@@ -7,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 
 class VisitingCardPage extends StatefulWidget {
@@ -37,9 +37,9 @@ class _VisitingCardPageState extends State<VisitingCardPage>
   final DatabaseHelper _dbHelper = DatabaseHelper();
   Map<String, dynamic>? visitingCardData;
   Uint8List? selectedImageData;
-  Uint8List? logoImageData; // Separate variable for logo image
+  Uint8List? logoImageData;
   String qrData = '';
-  bool isLoading = true; // Track loading state
+  bool isLoading = true;
 
   @override
   void initState() {
@@ -100,7 +100,6 @@ class _VisitingCardPageState extends State<VisitingCardPage>
         }
       }
 
-      // Validate logoImageData
       if (logoImageData != null && logoImageData!.isEmpty) {
         print("Warning: logoimage is empty in database");
         logoImageData = null;
@@ -182,6 +181,27 @@ class _VisitingCardPageState extends State<VisitingCardPage>
 
     vCard += 'END:VCARD';
     return vCard;
+  }
+
+  Future<void> _launchURL(String url) async {
+    try {
+      final Uri uri = Uri.parse(url);
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://$url';
+      }
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not launch $url')));
+      }
+    } catch (e) {
+      print("Error launching URL: $e");
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error launching URL: $e')));
+    }
   }
 
   Future<void> _shareCard() async {
@@ -659,24 +679,37 @@ class _VisitingCardPageState extends State<VisitingCardPage>
 
     if (visitingCardData?['fblink']?.isNotEmpty == true) {
       socialButtons.add(
-        _buildSocialButton(Icons.facebook, "Facebook", const Color(0xFF1877F2)),
+        GestureDetector(
+          onTap: () => _launchURL(visitingCardData!['fblink']),
+          child: _buildSocialButton(
+            Icons.facebook,
+            "Facebook",
+            const Color(0xFF1877F2),
+          ),
+        ),
       );
     }
     if (visitingCardData?['youtubelink']?.isNotEmpty == true) {
       socialButtons.add(
-        _buildSocialButton(
-          Icons.play_circle_fill,
-          "YouTube",
-          const Color(0xFFFF0000),
+        GestureDetector(
+          onTap: () => _launchURL(visitingCardData!['youtubelink']),
+          child: _buildSocialButton(
+            Icons.play_circle_fill,
+            "YouTube",
+            const Color(0xFFFF0000),
+          ),
         ),
       );
     }
     if (visitingCardData?['instalink']?.isNotEmpty == true) {
       socialButtons.add(
-        _buildSocialButton(
-          Icons.camera_alt,
-          "Instagram",
-          const Color(0xFFE4405F),
+        GestureDetector(
+          onTap: () => _launchURL(visitingCardData!['instalink']),
+          child: _buildSocialButton(
+            Icons.camera_alt,
+            "Instagram",
+            const Color(0xFFE4405F),
+          ),
         ),
       );
     }

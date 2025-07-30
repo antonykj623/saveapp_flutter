@@ -87,11 +87,16 @@ class DatabaseHelper {
     int quality = 85,
   }) async {
     try {
+      if (imageBytes.isEmpty) {
+        print("Cannot compress empty image data");
+        return null;
+      }
+
       // Decode the image
       img.Image? image = img.decodeImage(imageBytes);
       if (image == null) {
-        print("Failed to decode image");
-        return null;
+        print("Failed to decode image for compression");
+        return imageBytes; // Return original if can't decode
       }
 
       // Calculate original size in KB
@@ -141,7 +146,7 @@ class DatabaseHelper {
       return compressedBytes;
     } catch (e) {
       print("Error compressing image: $e");
-      return null;
+      return imageBytes; // Return original on error
     }
   }
 
@@ -500,43 +505,64 @@ class DatabaseHelper {
             'New Card ${DateTime.now().millisecondsSinceEpoch}';
       }
 
-      // COMPRESS IMAGES BEFORE STORING
+      // COMPRESS IMAGES BEFORE STORING - Better logo handling
       Uint8List? compressedLogoImage;
       Uint8List? compressedCardImage;
 
       if (logoImage != null && logoImage.isNotEmpty) {
-        print("Compressing logo image...");
+        print(
+          "Compressing logo image... Original size: ${logoImage.length} bytes",
+        );
         compressedLogoImage = await compressImage(logoImage, maxSizeKB: 50);
-        if (compressedLogoImage == null) {
+        if (compressedLogoImage == null || compressedLogoImage.isEmpty) {
           print("Failed to compress logo image, using original");
           compressedLogoImage = logoImage;
+        } else {
+          print("Logo compressed to: ${compressedLogoImage.length} bytes");
         }
+      } else {
+        print("No logo image provided");
       }
 
       if (cardImage != null && cardImage.isNotEmpty) {
-        print("Compressing card image...");
+        print(
+          "Compressing card image... Original size: ${cardImage.length} bytes",
+        );
         compressedCardImage = await compressImage(cardImage, maxSizeKB: 80);
-        if (compressedCardImage == null) {
+        if (compressedCardImage == null || compressedCardImage.isEmpty) {
           print("Failed to compress card image, using original");
           compressedCardImage = cardImage;
+        } else {
+          print(
+            "Card image compressed to: ${compressedCardImage.length} bytes",
+          );
         }
       }
 
-      Map<String, dynamic> dataToStore = Map.from(cleanedCardData);
-      if (compressedLogoImage != null && compressedLogoImage.isNotEmpty) {
-        dataToStore['logoimage'] = compressedLogoImage;
-      }
+      // Prepare data for storage - DON'T include logo in JSON data
+      Map<String, dynamic> jsonData = Map.from(cleanedCardData);
+      // Remove any existing logo from JSON to prevent duplication
+      jsonData.remove('logoimage');
+      jsonData.remove('logo_image');
+      jsonData.remove('logo');
 
       final data = {
-        'data': jsonEncode(dataToStore),
+        'data': jsonEncode(jsonData),
         'parsed_data': jsonEncode(cleanedCardData),
-        'logoimage': compressedLogoImage,
+        'logoimage': compressedLogoImage, // Store logo separately as BLOB
         'cardimg': compressedCardImage,
         'selected_background_id': selectedBackgroundId,
       };
 
       int visitingCardId;
       if (id != null && id > 0) {
+        // For updates, preserve existing logo if new one is not provided
+        if (compressedLogoImage == null) {
+          // Don't update logo field if no new logo provided
+          data.remove('logoimage');
+          print("Update: No new logo provided, keeping existing logo");
+        }
+
         final updateResult = await db.update(
           'TABLE_VISITCARD',
           data,
@@ -545,6 +571,7 @@ class DatabaseHelper {
         );
         if (updateResult > 0) {
           visitingCardId = id;
+          print("Card updated successfully with ID: $visitingCardId");
         } else {
           throw Exception('Failed to update card with ID $id');
         }
@@ -553,6 +580,7 @@ class DatabaseHelper {
         if (visitingCardId <= 0) {
           throw Exception('Failed to insert new card');
         }
+        print("New card inserted with ID: $visitingCardId");
       }
 
       // Handle default images if no cardImage is provided
@@ -588,7 +616,7 @@ class DatabaseHelper {
     try {
       final db = await database;
 
-      // Query without BLOB columns first to avoid cursor window issues
+      // Query with pagination to handle large datasets
       final cardsWithoutBlobs = await db.query(
         'TABLE_VISITCARD',
         columns: ['keyid', 'data', 'parsed_data', 'selected_background_id'],
@@ -601,14 +629,13 @@ class DatabaseHelper {
         try {
           Map<String, dynamic> processedCard = Map.from(card);
 
-          // Handle parsed_data with multiple fallbacks
+          // Handle parsed_data
           if (processedCard['parsed_data'] == null ||
               processedCard['parsed_data'].toString().trim().isEmpty) {
             if (processedCard['data'] != null &&
                 processedCard['data'].toString().trim().isNotEmpty) {
               processedCard['parsed_data'] = processedCard['data'];
             } else {
-              // Create default data structure
               processedCard['parsed_data'] = jsonEncode({
                 'name': 'Recovery Mode Card',
                 'phone': '',
@@ -634,7 +661,6 @@ class DatabaseHelper {
               print(
                 "Error parsing JSON for card ${processedCard['keyid']}: $e",
               );
-              // Create a safe fallback structure
               processedCard['parsed_data'] = {
                 'name': 'Data Recovery Card ${processedCard['keyid']}',
                 'phone': '',
@@ -660,11 +686,9 @@ class DatabaseHelper {
             };
           }
 
-          // Validate and clean individual fields
+          // Clean individual fields
           final parsedData =
               processedCard['parsed_data'] as Map<String, dynamic>;
-
-          // Clean each field to prevent null/undefined display
           parsedData['name'] = _cleanField(parsedData['name'], 'Unnamed Card');
           parsedData['phone'] = _cleanField(parsedData['phone'], '');
           parsedData['email'] = _cleanField(parsedData['email'], '');
@@ -698,7 +722,7 @@ class DatabaseHelper {
           );
           parsedData['couponcode'] = _cleanField(parsedData['couponcode'], '');
 
-          // Load BLOB data separately if needed
+          // Load BLOB data separately - Critical for logo display
           try {
             final blobData = await db.query(
               'TABLE_VISITCARD',
@@ -709,9 +733,32 @@ class DatabaseHelper {
             );
 
             if (blobData.isNotEmpty) {
-              processedCard['logoimage'] = blobData.first['logoimage'];
-              processedCard['cardimg'] = blobData.first['cardimg'];
+              final logoImage = blobData.first['logoimage'];
+              final cardImg = blobData.first['cardimg'];
+
+              // Validate logo image
+              if (logoImage != null &&
+                  logoImage is Uint8List &&
+                  logoImage.isNotEmpty) {
+                processedCard['logoimage'] = logoImage;
+                print(
+                  "Logo loaded for card ${processedCard['keyid']}: ${logoImage.length} bytes",
+                );
+              } else {
+                processedCard['logoimage'] = null;
+                print("No valid logo for card ${processedCard['keyid']}");
+              }
+
+              // Validate card image
+              if (cardImg != null &&
+                  cardImg is Uint8List &&
+                  cardImg.isNotEmpty) {
+                processedCard['cardimg'] = cardImg;
+              } else {
+                processedCard['cardimg'] = null;
+              }
             } else {
+              print("No BLOB data found for card ${processedCard['keyid']}");
               processedCard['logoimage'] = null;
               processedCard['cardimg'] = null;
             }
@@ -743,6 +790,8 @@ class DatabaseHelper {
           });
         }
       }
+
+      print("Loaded ${processedCards.length} cards successfully");
       return processedCards;
     } catch (e) {
       print("Error getting visiting cards: $e");
@@ -770,10 +819,9 @@ class DatabaseHelper {
     try {
       final db = await database;
 
-      // First get non-BLOB data
+      // Get complete card data including BLOB
       final result = await db.query(
         'TABLE_VISITCARD',
-        columns: ['keyid', 'data', 'parsed_data', 'selected_background_id'],
         where: 'keyid = ?',
         whereArgs: [id],
         limit: 1,
@@ -782,6 +830,7 @@ class DatabaseHelper {
       if (result.isNotEmpty) {
         Map<String, dynamic> card = Map.from(result.first);
 
+        // Handle parsed_data
         if (card['parsed_data'] == null && card['data'] != null) {
           card['parsed_data'] = card['data'];
         }
@@ -794,24 +843,18 @@ class DatabaseHelper {
           }
         }
 
-        // Load BLOB data separately
-        try {
-          final blobResult = await db.query(
-            'TABLE_VISITCARD',
-            columns: ['logoimage', 'cardimg'],
-            where: 'keyid = ?',
-            whereArgs: [id],
-            limit: 1,
-          );
-
-          if (blobResult.isNotEmpty) {
-            card['logoimage'] = blobResult.first['logoimage'];
-            card['cardimg'] = blobResult.first['cardimg'];
+        // Ensure logoimage is properly retrieved
+        final logoImage = card['logoimage'];
+        if (logoImage != null && logoImage is Uint8List) {
+          if (logoImage.isNotEmpty) {
+            print("Logo retrieved from database: ${logoImage.length} bytes");
+          } else {
+            print("Logo is empty in database");
+            card['logoimage'] = null;
           }
-        } catch (e) {
-          print("Error loading BLOB data: $e");
+        } else {
+          print("No logo found in database for card $id");
           card['logoimage'] = null;
-          card['cardimg'] = null;
         }
 
         return card;
@@ -860,7 +903,6 @@ class DatabaseHelper {
     }
   }
 
-  // UPDATED: getCarouselImagesByVisitCardId with separate query
   Future<List<Map<String, dynamic>>> getCarouselImagesByVisitCardId(
     int visitCardId,
   ) async {

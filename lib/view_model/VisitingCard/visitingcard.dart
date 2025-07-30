@@ -1,3 +1,4 @@
+// Updated VisitingCard form with optimized loading and better UX
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -39,6 +40,9 @@ class _VisitingCardFormState extends State<VisitingCard>
 
   List<dynamic> _images = [];
   int _currentIndex = 0;
+  bool _isSaving = false;
+  bool _isLoadingCarousel = true; // New loading state for carousel
+  double _saveProgress = 0.0; // Progress indicator
 
   final TextEditingController name = TextEditingController();
   final TextEditingController email = TextEditingController();
@@ -64,25 +68,33 @@ class _VisitingCardFormState extends State<VisitingCard>
   @override
   void initState() {
     super.initState();
+    _initAnimations();
+    _initializeData();
+    _loadCarouselImagesOptimized();
+  }
+
+  void _initAnimations() {
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 600), // Reduced from 1000ms
       vsync: this,
     );
     _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 2000),
+      duration: const Duration(milliseconds: 1500), // Reduced from 2000ms
       vsync: this,
     );
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
     _animationController.forward();
     _pulseController.repeat(reverse: true);
+  }
 
+  void _initializeData() {
     if (widget.cardData != null) {
       name.text = widget.cardData!['name'] ?? '';
       email.text = widget.cardData!['email'] ?? '';
@@ -98,25 +110,44 @@ class _VisitingCardFormState extends State<VisitingCard>
       instalink.text = widget.cardData!['instalink'] ?? '';
       youtubelink.text = widget.cardData!['youtubelink'] ?? '';
       companyaddress.text = widget.cardData!['companyaddress'] ?? '';
+
+      _logoImage =
+          widget.logoImage ?? widget.cardData!['logoimage'] as Uint8List?;
+      _image = widget.cardImage ?? widget.cardData!['cardimg'] as Uint8List?;
+    } else {
       _logoImage = widget.logoImage;
       _image = widget.cardImage;
     }
-
-    _loadCarouselImages();
   }
 
-  Future<void> _loadCarouselImages() async {
+  // Optimized carousel loading with progress indication
+  Future<void> _loadCarouselImagesOptimized() async {
     try {
       List<dynamic> loadedImages = [];
       int selectedIndex = 0;
 
       if (widget.cardId != null && widget.cardId! > 0) {
+        // Show loading immediately
+        setState(() {
+          _isLoadingCarousel = true;
+        });
+
         final images = await _dbHelper.getCarouselImagesByVisitCardId(
           widget.cardId!,
         );
         if (images.isNotEmpty) {
-          loadedImages =
-              images.map((img) => img['image_data'] as Uint8List).toList();
+          // Load images in batches to prevent blocking
+          for (int i = 0; i < images.length; i++) {
+            loadedImages.add(images[i]['image_data'] as Uint8List);
+
+            // Update UI every few images
+            if (i % 2 == 0 && mounted) {
+              setState(() {
+                _images = List.from(loadedImages);
+              });
+            }
+          }
+
           final selectedIndexResult = images.indexWhere(
             (img) => img['is_selected'] == 1,
           );
@@ -124,23 +155,26 @@ class _VisitingCardFormState extends State<VisitingCard>
         }
       }
 
-      setState(() {
-        _images = loadedImages.isNotEmpty ? loadedImages : _defaultImageAssets;
-        _currentIndex = loadedImages.isNotEmpty ? selectedIndex : 0;
-        if (_images.isNotEmpty && _currentIndex >= _images.length) {
-          _currentIndex = 0;
-        }
-      });
+      if (mounted) {
+        setState(() {
+          _images =
+              loadedImages.isNotEmpty ? loadedImages : _defaultImageAssets;
+          _currentIndex = loadedImages.isNotEmpty ? selectedIndex : 0;
+          if (_images.isNotEmpty && _currentIndex >= _images.length) {
+            _currentIndex = 0;
+          }
+          _isLoadingCarousel = false;
+        });
+      }
     } catch (e) {
       print("Error loading carousel images: $e");
-      setState(() {
-        _images = _defaultImageAssets;
-        _currentIndex = 0;
-      });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Failed to load carousel images")),
-        );
+        setState(() {
+          _images = _defaultImageAssets;
+          _currentIndex = 0;
+          _isLoadingCarousel = false;
+        });
+        _showSnackBar("Failed to load carousel images");
       }
     }
   }
@@ -170,7 +204,9 @@ class _VisitingCardFormState extends State<VisitingCard>
     try {
       final XFile? pickedFile = await _picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 85,
+        imageQuality: 60, // Reduced from 70 for faster processing
+        maxWidth: isLogo ? 400 : 800, // Reduced dimensions
+        maxHeight: isLogo ? 400 : 800,
       );
 
       if (pickedFile != null) {
@@ -189,10 +225,16 @@ class _VisitingCardFormState extends State<VisitingCard>
     } catch (e) {
       print("Error picking image: $e");
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("Failed to pick image")));
+        _showSnackBar("Failed to pick image");
       }
+    }
+  }
+
+  void _showSnackBar(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
+      );
     }
   }
 
@@ -387,7 +429,7 @@ class _VisitingCardFormState extends State<VisitingCard>
                           const SizedBox(height: 15),
                           _buildEnhancedTextField(
                             controller: fblink,
-                            hint: "Facebook Profile",
+                            hint: "Facebook Profile URL",
                             icon: Icons.facebook_outlined,
                             color: const Color(0xFF3B5998),
                           ),
@@ -397,7 +439,7 @@ class _VisitingCardFormState extends State<VisitingCard>
                               Expanded(
                                 child: _buildEnhancedTextField(
                                   controller: instalink,
-                                  hint: "Instagram",
+                                  hint: "Instagram URL",
                                   icon: Icons.camera_alt_outlined,
                                   color: const Color(0xFFE4405F),
                                 ),
@@ -406,7 +448,7 @@ class _VisitingCardFormState extends State<VisitingCard>
                               Expanded(
                                 child: _buildEnhancedTextField(
                                   controller: youtubelink,
-                                  hint: "YouTube",
+                                  hint: "YouTube URL",
                                   icon: Icons.play_circle_outline,
                                   color: const Color(0xFFFF0000),
                                 ),
@@ -483,6 +525,33 @@ class _VisitingCardFormState extends State<VisitingCard>
   }
 
   Widget _buildCarouselSection() {
+    if (_isLoadingCarousel) {
+      return Container(
+        height: 200,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          color: Colors.grey[200],
+        ),
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text(
+                'Loading templates...',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     if (_images.isEmpty) {
       return Container(
         height: 200,
@@ -490,7 +559,12 @@ class _VisitingCardFormState extends State<VisitingCard>
           borderRadius: BorderRadius.circular(20),
           color: Colors.grey[200],
         ),
-        child: const Center(child: CircularProgressIndicator()),
+        child: const Center(
+          child: Text(
+            'No templates available',
+            style: TextStyle(fontSize: 16, color: Colors.grey),
+          ),
+        ),
       );
     }
 
@@ -535,12 +609,9 @@ class _VisitingCardFormState extends State<VisitingCard>
                 options: CarouselOptions(
                   height: 200,
                   enlargeCenterPage: true,
-                  autoPlay: true,
-                  autoPlayInterval: const Duration(seconds: 4),
+                  autoPlay: false, // Disabled to improve performance
                   aspectRatio: 16 / 9,
                   enableInfiniteScroll: true,
-                  autoPlayCurve: Curves.fastOutSlowIn,
-                  autoPlayAnimationDuration: const Duration(milliseconds: 1200),
                   viewportFraction: 0.85,
                   onPageChanged: (index, reason) {
                     setState(() {
@@ -718,15 +789,17 @@ class _VisitingCardFormState extends State<VisitingCard>
             ],
           ),
           child:
-              _logoImage != null
+              _logoImage != null && _logoImage!.isNotEmpty
                   ? ClipRRect(
                     borderRadius: BorderRadius.circular(18),
-                    child: Image.memory(_logoImage!, fit: BoxFit.cover),
-                  )
-                  : widget.logoImage != null
-                  ? ClipRRect(
-                    borderRadius: BorderRadius.circular(18),
-                    child: Image.memory(widget.logoImage!, fit: BoxFit.cover),
+                    child: Image.memory(
+                      _logoImage!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        print("Error displaying logo: $error");
+                        return _buildPlaceholderImage();
+                      },
+                    ),
                   )
                   : _buildPlaceholderImage(),
         ),
@@ -792,218 +865,253 @@ class _VisitingCardFormState extends State<VisitingCard>
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(28),
-          onTap: () async {
-            if (name.text.trim().isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text("Please enter a name"),
-                  backgroundColor: Colors.red,
-                ),
-              );
-              return;
-            }
-
-            if (_images.isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    "Please select or upload at least one background image",
-                  ),
-                  backgroundColor: Colors.red,
-                ),
-              );
-              return;
-            }
-
-            final cardData = {
-              'name': name.text,
-              'email': email.text,
-              'phone': phone.text,
-              'whatsapnumber': whatsapnumber.text,
-              'landphone': landphone.text,
-              'companyName': companyName.text,
-              'designation': desig.text,
-              'website': website.text,
-              'companyaddress': companyaddress.text,
-              'fblink': fblink.text,
-              'instalink': instalink.text,
-              'youtubelink': youtubelink.text,
-              'saveapplink': saveapplink.text,
-              'couponcode': couponcode.text,
-            };
-
-            try {
-              Uint8List? selectedCardImage;
-              if (_currentIndex >= 0 && _currentIndex < _images.length) {
-                if (_images[_currentIndex] is String) {
-                  selectedCardImage = await _dbHelper.loadAssetImage(
-                    _images[_currentIndex],
-                  );
-                  if (selectedCardImage.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          "Failed to load selected background image",
+          onTap: _isSaving ? null : _handleSubmit,
+          child:
+              _isSaving
+                  ? Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                          value: _saveProgress > 0 ? _saveProgress : null,
                         ),
-                        backgroundColor: Colors.red,
                       ),
-                    );
-                    return;
-                  }
-                } else if (_images[_currentIndex] is Uint8List) {
-                  selectedCardImage = _images[_currentIndex] as Uint8List;
-                }
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("Invalid background image selection"),
-                    backgroundColor: Colors.red,
+                      const SizedBox(height: 8),
+                      Text(
+                        _saveProgress > 0
+                            ? '${(_saveProgress * 100).toInt()}%'
+                            : 'Saving...',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  )
+                  : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.rocket_launch,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        widget.cardId == null
+                            ? 'Create Visiting Card'
+                            : 'Update Visiting Card',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
                   ),
-                );
-                return;
-              }
-
-              final result = await _dbHelper.insertOrUpdateVisitingCard(
-                cardData: cardData,
-                logoImage: _logoImage ?? widget.logoImage,
-                cardImage: selectedCardImage,
-                id: widget.cardId,
-                selectedBackgroundId: _currentIndex,
-                defaultImageAssets:
-                    _images.every((img) => img is String)
-                        ? _defaultImageAssets
-                        : null,
-              );
-
-              final int finalVisitingCardId = widget.cardId ?? result;
-              if (finalVisitingCardId <= 0) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Failed to save visiting card"),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-                return;
-              }
-
-              try {
-                await _dbHelper.deleteCarouselImagesByVisitCardId(
-                  finalVisitingCardId,
-                );
-                for (int i = 0; i < _images.length; i++) {
-                  Uint8List? imageBytes;
-                  if (_images[i] is String) {
-                    imageBytes = await _dbHelper.loadAssetImage(_images[i]);
-                    if (imageBytes.isEmpty) {
-                      print(
-                        "Failed to load asset image at index $i: ${_images[i]}",
-                      );
-                      continue; // Skip invalid images
-                    }
-                  } else if (_images[i] is Uint8List) {
-                    imageBytes = _images[i] as Uint8List;
-                  }
-
-                  if (imageBytes != null && imageBytes.isNotEmpty) {
-                    final int? carouselImageId = await _dbHelper
-                        .insertCarouselImage(
-                          imageData: imageBytes,
-                          visitCardId: finalVisitingCardId,
-                          order: i,
-                          isSelected: i == _currentIndex,
-                        );
-
-                    if (i == _currentIndex &&
-                        carouselImageId != null &&
-                        carouselImageId > 0) {
-                      await _dbHelper.setSelectedCarouselImage(
-                        finalVisitingCardId,
-                        carouselImageId,
-                      );
-                    }
-                  }
-                }
-              } catch (dbError) {
-                print("Error saving carousel images: $dbError");
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Failed to save carousel images"),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              }
-
-              _showSuccessDialog();
-
-              Future.delayed(const Duration(seconds: 2), () {
-                if (mounted) {
-                  Navigator.of(context).pop(); // Dismiss dialog
-                  Navigator.pushReplacement(
-                    context,
-                    PageRouteBuilder(
-                      pageBuilder:
-                          (context, animation, secondaryAnimation) =>
-                              VisitingCardPage(
-                                cardData: cardData,
-                                visitingCardId: finalVisitingCardId,
-                              ),
-                      transitionsBuilder: (
-                        context,
-                        animation,
-                        secondaryAnimation,
-                        child,
-                      ) {
-                        return SlideTransition(
-                          position: Tween<Offset>(
-                            begin: const Offset(1, 0),
-                            end: Offset.zero,
-                          ).animate(animation),
-                          child: child,
-                        );
-                      },
-                    ),
-                  ).then((_) => Navigator.pop(context, true)); // Signal refresh
-                }
-              });
-            } catch (e) {
-              print("Error saving visiting card: $e");
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      "Error occurred while saving: ${e.toString()}",
-                    ),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            }
-          },
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.rocket_launch, color: Colors.white, size: 24),
-              const SizedBox(width: 12),
-              Text(
-                widget.cardId == null
-                    ? 'Create Visiting Card'
-                    : 'Update Visiting Card',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
+  }
+
+  // Optimized submit handler with progress indication
+  Future<void> _handleSubmit() async {
+    if (_isSaving) return;
+
+    // Validation
+    if (name.text.trim().isEmpty) {
+      _showSnackBar("Please enter a name");
+      return;
+    }
+
+    if (_images.isEmpty) {
+      _showSnackBar("Please select or upload at least one background image");
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+      _saveProgress = 0.0;
+    });
+
+    try {
+      // Step 1: Prepare card data
+      setState(() => _saveProgress = 0.2);
+
+      final cardData = {
+        'name': name.text.trim(),
+        'email': email.text.trim(),
+        'phone': phone.text.trim(),
+        'whatsapnumber': whatsapnumber.text.trim(),
+        'landphone': landphone.text.trim(),
+        'companyName': companyName.text.trim(),
+        'designation': desig.text.trim(),
+        'website': website.text.trim(),
+        'companyaddress': companyaddress.text.trim(),
+        'fblink': fblink.text.trim(),
+        'instalink': instalink.text.trim(),
+        'youtubelink': youtubelink.text.trim(),
+        'saveapplink': saveapplink.text.trim(),
+        'couponcode': couponcode.text.trim(),
+      };
+
+      // Step 2: Prepare selected card image
+      setState(() => _saveProgress = 0.4);
+
+      Uint8List? selectedCardImage;
+      if (_currentIndex >= 0 && _currentIndex < _images.length) {
+        if (_images[_currentIndex] is String) {
+          selectedCardImage = await _dbHelper.loadAssetImage(
+            _images[_currentIndex],
+          );
+          if (selectedCardImage.isEmpty) {
+            throw Exception("Failed to load selected background image");
+          }
+        } else if (_images[_currentIndex] is Uint8List) {
+          selectedCardImage = _images[_currentIndex] as Uint8List;
+        }
+      }
+
+      if (selectedCardImage == null) {
+        throw Exception("Invalid background image selection");
+      }
+
+      // Step 3: Save visiting card
+      setState(() => _saveProgress = 0.6);
+
+      final result = await _dbHelper.insertOrUpdateVisitingCard(
+        cardData: cardData,
+        logoImage: _logoImage,
+        cardImage: selectedCardImage,
+        id: widget.cardId,
+        selectedBackgroundId: _currentIndex,
+        defaultImageAssets:
+            _images.every((img) => img is String) ? _defaultImageAssets : null,
+      );
+
+      final int finalVisitingCardId = widget.cardId ?? result;
+      if (finalVisitingCardId <= 0) {
+        throw Exception('Failed to save visiting card');
+      }
+
+      // Step 4: Save carousel images
+      setState(() => _saveProgress = 0.8);
+
+      await _saveCarouselImagesOptimized(finalVisitingCardId);
+
+      // Step 5: Complete
+      setState(() => _saveProgress = 1.0);
+
+      if (mounted) {
+        await Future.delayed(
+          const Duration(milliseconds: 500),
+        ); // Show 100% briefly
+        _showSuccessDialog();
+
+        // Navigate to VisitingCardPage and then pop back with result
+        Future.delayed(const Duration(seconds: 1), () {
+          if (mounted) {
+            Navigator.of(context).pop(); // Dismiss dialog
+            Navigator.push(
+              context,
+              PageRouteBuilder(
+                pageBuilder:
+                    (context, animation, secondaryAnimation) =>
+                        VisitingCardPage(
+                          cardData: {...cardData, 'logoimage': _logoImage},
+                          visitingCardId: finalVisitingCardId,
+                        ),
+                transitionsBuilder: (
+                  context,
+                  animation,
+                  secondaryAnimation,
+                  child,
+                ) {
+                  return SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(1, 0),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
+                  );
+                },
+              ),
+            ).then((_) {
+              // Pop back to AddVisitingCard with result true
+              Navigator.pop(context, true);
+            });
+          }
+        });
+      }
+    } catch (e) {
+      print("Error saving visiting card: $e");
+      if (mounted) {
+        _showSnackBar("Error occurred while saving: ${e.toString()}");
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+          _saveProgress = 0.0;
+        });
+      }
+    }
+  }
+
+  // Optimized carousel image saving with batching
+  Future<void> _saveCarouselImagesOptimized(int visitingCardId) async {
+    try {
+      // Delete existing carousel images
+      await _dbHelper.deleteCarouselImagesByVisitCardId(visitingCardId);
+
+      // Save new carousel images in smaller batches
+      for (int i = 0; i < _images.length; i++) {
+        Uint8List? imageBytes;
+
+        if (_images[i] is String) {
+          imageBytes = await _dbHelper.loadAssetImage(_images[i]);
+          if (imageBytes.isEmpty) {
+            print("Failed to load asset image at index $i: ${_images[i]}");
+            continue;
+          }
+        } else if (_images[i] is Uint8List) {
+          imageBytes = _images[i] as Uint8List;
+        }
+
+        if (imageBytes != null && imageBytes.isNotEmpty) {
+          final int? carouselImageId = await _dbHelper.insertCarouselImage(
+            imageData: imageBytes,
+            visitCardId: visitingCardId,
+            order: i,
+            isSelected: i == _currentIndex,
+          );
+
+          // Set selected image
+          if (i == _currentIndex &&
+              carouselImageId != null &&
+              carouselImageId > 0) {
+            await _dbHelper.setSelectedCarouselImage(
+              visitingCardId,
+              carouselImageId,
+            );
+          }
+        }
+
+        // Smaller delay to prevent blocking
+        if (i % 2 == 0) {
+          await Future.delayed(const Duration(milliseconds: 5));
+        }
+      }
+    } catch (e) {
+      print("Error saving carousel images: $e");
+      throw Exception("Failed to save carousel images: $e");
+    }
   }
 
   void _showSuccessDialog() {
@@ -1053,14 +1161,10 @@ class _VisitingCardFormState extends State<VisitingCard>
                 const SizedBox(height: 10),
                 Text(
                   widget.cardId == null
-                      ? 'Your visiting card is being created...'
-                      : 'Your visiting card is being updated...',
+                      ? 'Your visiting card has been created successfully!'
+                      : 'Your visiting card has been updated successfully!',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                ),
-                const SizedBox(height: 20),
-                const CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF667eea)),
                 ),
               ],
             ),
