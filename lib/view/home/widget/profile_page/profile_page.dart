@@ -75,13 +75,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // }
 
     ApiHelper api = ApiHelper();
- 
 
     try {
-      String logresponse = await api.postApiResponse(
-        "getUserDetails.php",
-        {},
-      );
+      String logresponse = await api.postApiResponse("getUserDetails.php", {});
       debugPrint("Response1: $logresponse");
       var res = json.decode(logresponse);
       debugPrint("res is...$res");
@@ -199,8 +195,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final url = Uri.parse(
       'https://mysaving.in/IntegraAccount/api/uploadUserProfile.php',
     );
-    final token =
-        'qwertyuioplkjhgfvbnmlkjiou.OTc0NzQ5Nzk2Nw==.MjVkNTVhZDI4M2FhNDAwYWY0NjRjNzZkNzEzYzA3YWQ=.qwertyuioplkjhgfvbnmlkjiou';
+
+    final prefs = await SharedPreferences.getInstance();
+    String? token = await prefs.getString('token');
     final timestamp = DateTime.now().toUtc().toIso8601String();
 
     print('File path: ${imageFile.path}');

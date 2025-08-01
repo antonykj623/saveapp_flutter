@@ -9,6 +9,7 @@ import 'package:new_project_2025/services/API_services/API_services.dart';
 import 'package:new_project_2025/services/API_services/sms_helper/sms_helper.dart';
 import 'package:new_project_2025/view/home/widget/Resgistration_page/Resgistration_page.dart';
 import 'package:new_project_2025/view/home/widget/home_screen.dart';
+import 'package:new_project_2025/view/home/widget/setting_page/app_lock/check_pattern.dart';
 import 'package:new_project_2025/view_model/Resgistration_page/Resgistration_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
@@ -112,7 +113,7 @@ class _LoginScreenState extends State<LoginScreen>
       );
       await handleLoginResponse(context, logresponse);
     } catch (e) {
-      print("Error: $e");
+      debugPrint("Error: $e");
       _showErrorDialog(
         "Login Error",
         "An error occurred during login. Please try again.",
@@ -143,15 +144,19 @@ class _LoginScreenState extends State<LoginScreen>
         await prefs.setString('userid', data['userid']);
         await prefs.setString('message', message);
 
+        debugPrint('Login successful - navigating to main app');
+
         if (mounted) {
-          Navigator.pushReplacement(
+          // Navigate directly to main app
+          Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (context) => const SaveApp()),
+            (Route<dynamic> route) => false,
           );
         }
       }
     } catch (e) {
-      print("Error parsing response: $e");
+      debugPrint("Error parsing response: $e");
       _showErrorDialog(
         "Error",
         "An error occurred while processing the login response.",
@@ -173,7 +178,7 @@ class _LoginScreenState extends State<LoginScreen>
         );
       }
     } catch (e) {
-      print("Error launching URL: $e");
+      debugPrint("Error launching URL: $e");
       _showErrorDialog(
         "Error",
         "Could not open the signup page. Please try again later.",
@@ -231,7 +236,7 @@ class _LoginScreenState extends State<LoginScreen>
       if (mounted) {
         Navigator.pop(context);
       }
-      print("Error verifying mobile number: $e");
+      debugPrint("Error verifying mobile number: $e");
       _showErrorDialog(
         "Network Error",
         "Unable to connect to server. Please check your internet connection and try again.",
@@ -276,7 +281,7 @@ class _LoginScreenState extends State<LoginScreen>
       if (mounted) {
         Navigator.pop(context);
       }
-      print("Error sending SMS: $e");
+      debugPrint("Error sending SMS: $e");
       _showErrorDialog(
         "SMS Error",
         "Failed to send SMS. Please try again later.",

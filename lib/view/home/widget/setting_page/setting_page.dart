@@ -1,28 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:new_project_2025/view/home/widget/delete_account/delete_account.dart';
 import 'package:new_project_2025/view/home/widget/profile_page/profile_page.dart';
+import 'package:new_project_2025/view/home/widget/setting_page/app_lock/App_lock.dart';
+import 'package:new_project_2025/view/home/widget/setting_page/app_lock/set_pattern.dart';
 import 'package:new_project_2025/view/home/widget/setting_page/app_update/version_check.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:new_project_2025/app/Modules/login/login_page.dart';
-
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.teal,
-        primaryColor: const Color(0xFF00897B),
-      ),
-      home: const SettingsScreen(),
-    );
-  }
-}
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({Key? key}) : super(key: key);
@@ -31,14 +15,35 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStateMixin {
+class _SettingsScreenState extends State<SettingsScreen>
+    with TickerProviderStateMixin {
   bool appLockEnabled = false;
+  String applock = "";
+
+  Future<void> saveAppLockState(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('app_lock_enabled', value);
+    debugPrint("Saved App Lock state: $value");
+  }
+
+  Future<void> loadAppLockState() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      appLockEnabled = prefs.getBool('app_lock_enabled') ?? false;
+      applock = prefs.getString('lock_pattern') ?? "no value";
+    });
+    debugPrint(
+      "Loaded App Lock state: $appLockEnabled, lock_pattern: $applock",
+    );
+  }
+
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
+    loadAppLockState();
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -61,20 +66,22 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
       barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           backgroundColor: Colors.white,
           title: Row(
             children: [
               Container(
-                padding: EdgeInsets.all(8),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: Colors.red.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(Icons.logout, color: Colors.red, size: 24),
+                child: const Icon(Icons.logout, color: Colors.red, size: 24),
               ),
-              SizedBox(width: 12),
-              Text(
+              const SizedBox(width: 12),
+              const Text(
                 'Confirm Logout',
                 style: TextStyle(
                   fontSize: 18,
@@ -84,18 +91,21 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
               ),
             ],
           ),
-          content: Text(
-            'Are you sure you want to logout?',
-            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+          content: const Text(
+            'Are you sure you want to logout? The app will close after logout.',
+            style: TextStyle(fontSize: 16, color: Colors.grey),
           ),
           actions: <Widget>[
             TextButton(
               style: TextButton.styleFrom(
-                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
               ),
-              child: Text(
+              child: const Text(
                 'Cancel',
-                style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                style: TextStyle(color: Colors.grey, fontSize: 16),
               ),
               onPressed: () {
                 Navigator.of(context).pop();
@@ -105,10 +115,18 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
                 foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
-              child: Text('Logout', style: TextStyle(fontSize: 16)),
+              child: const Text(
+                'Logout & Exit',
+                style: TextStyle(fontSize: 16),
+              ),
               onPressed: () {
                 Navigator.of(context).pop();
                 _handleLogout();
@@ -121,56 +139,94 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
   }
 
   Future<void> _handleLogout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('token');
-    print('Logout tapped, token removed');
+    try {
+      final prefs = await SharedPreferences.getInstance();
 
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (context) => LoginScreen()),
-      (Route<dynamic> route) => false,
-    );
+      // Check current app lock settings before logout
+      bool appLockEnabled = prefs.getBool('app_lock_enabled') ?? false;
+      String? lockPattern = prefs.getString('lock_pattern');
+
+      // Remove token
+      await prefs.remove('token');
+
+      // Set flags for next launch
+      if (appLockEnabled && lockPattern != null && lockPattern.isNotEmpty) {
+        await prefs.setBool('needs_pattern_verification', true);
+        await prefs.setBool('app_was_closed_after_logout', true);
+        debugPrint(
+          'App lock is enabled - pattern will be required on next launch',
+        );
+      } else {
+        await prefs.setBool('needs_pattern_verification', false);
+        await prefs.setBool('app_was_closed_after_logout', false);
+      }
+
+      debugPrint('Logout completed, app will now exit');
+
+      // Show message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Logged out successfully. App will close.'),
+            duration: Duration(seconds: 1),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+
+      // Delay to show snackbar, then exit
+      await Future.delayed(const Duration(milliseconds: 1500));
+      SystemNavigator.pop();
+    } catch (e) {
+      debugPrint('Error during logout: $e');
+      SystemNavigator.pop();
+    }
   }
 
   Future<void> _checkForUpdates() async {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Container(
-          padding: EdgeInsets.all(30),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Color(0xFF00897B).withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00897B)),
-                  strokeWidth: 3,
-                ),
+      builder:
+          (context) => Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(30),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF00897B).withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Color(0xFF00897B),
+                      ),
+                      strokeWidth: 3,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Checking for updates...',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(height: 20),
-              Text(
-                'Checking for updates...',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
     );
 
-    await Future.delayed(Duration(milliseconds: 500));
-    
+    await Future.delayed(const Duration(milliseconds: 500));
+
     try {
       Navigator.of(context).pop();
       await VersionCheckService.checkForAppUpdate(context);
@@ -183,41 +239,40 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF00897B),
-              Color(0xFF00796B),
-            ],
+            colors: [Color(0xFF00897B), Color(0xFF00796B)],
           ),
         ),
         child: SafeArea(
           child: Column(
             children: [
-              // Custom App Bar
               Container(
-                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 20,
+                ),
                 child: Row(
                   children: [
                     GestureDetector(
                       onTap: () => Navigator.pop(context),
                       child: Container(
-                        padding: EdgeInsets.all(10),
+                        padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Icon(
+                        child: const Icon(
                           Icons.arrow_back_ios,
                           color: Colors.white,
                           size: 20,
                         ),
                       ),
                     ),
-                    SizedBox(width: 20),
-                    Text(
+                    const SizedBox(width: 20),
+                    const Text(
                       'Settings',
                       style: TextStyle(
                         color: Colors.white,
@@ -228,13 +283,11 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
                   ],
                 ),
               ),
-              
-              // Settings Content
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.grey[50],
-                    borderRadius: BorderRadius.only(
+                    borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(30),
                       topRight: Radius.circular(30),
                     ),
@@ -242,11 +295,9 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
                   child: FadeTransition(
                     opacity: _fadeAnimation,
                     child: ListView(
-                      padding: EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(20),
                       children: [
-                        SizedBox(height: 10),
-                        
-                        // Account Section
+                        const SizedBox(height: 10),
                         _buildSectionTitle('Account'),
                         _buildSettingCard(
                           icon: Icons.person_outline,
@@ -256,12 +307,12 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
                           onTap: () {
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (context) => ProfileScreen()),
+                              MaterialPageRoute(
+                                builder: (context) => const ProfileScreen(),
+                              ),
                             );
                           },
                         ),
-                        
-                        // App Settings Section
                         _buildSectionTitle('App Settings'),
                         _buildSettingCard(
                           icon: Icons.receipt_long_outlined,
@@ -269,7 +320,7 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
                           subtitle: 'Configure bill header settings',
                           iconColor: Colors.orange,
                           onTap: () {
-                            print('Bill Header tapped');
+                            debugPrint('Bill Header tapped');
                           },
                         ),
                         _buildToggleSettingCard(
@@ -282,11 +333,27 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
                             setState(() {
                               appLockEnabled = value;
                             });
-                            print('App Lock toggled: $value');
+                            saveAppLockState(value);
+                            debugPrint('App Lock toggled: $value');
+                          },
+                          onTap: () async {
+                            final prefs = await SharedPreferences.getInstance();
+                            setState(() {
+                              applock =
+                                  prefs.getString('lock_pattern') ?? "no value";
+                            });
+                            if (appLockEnabled || applock.isEmpty) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => LockPatternPage(),
+                                ),
+                              );
+                            } else {
+                              debugPrint('App Lock is disabled');
+                            }
                           },
                         ),
-                        
-                        // Data Management Section
                         _buildSectionTitle('Data Management'),
                         _buildSettingCard(
                           icon: Icons.cloud_upload_outlined,
@@ -295,7 +362,7 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
                           iconColor: Colors.green,
                           isDisabled: true,
                           onTap: () {
-                            print('Data Backup tapped');
+                            debugPrint('Data Backup tapped');
                           },
                         ),
                         _buildSettingCard(
@@ -305,11 +372,9 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
                           iconColor: Colors.teal,
                           isDisabled: true,
                           onTap: () {
-                            print('Restore Your Data tapped');
+                            debugPrint('Restore Your Data tapped');
                           },
                         ),
-                        
-                        // App Management Section
                         _buildSectionTitle('App Management'),
                         _buildSettingCard(
                           icon: Icons.system_update_outlined,
@@ -324,16 +389,14 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
                           subtitle: 'Manage your subscriptions',
                           iconColor: Colors.amber,
                           onTap: () {
-                            print('Purchase or Renewal tapped');
+                            debugPrint('Purchase or Renewal tapped');
                           },
                         ),
-                        
-                        // Account Actions Section
                         _buildSectionTitle('Account Actions'),
                         _buildSettingCard(
                           icon: Icons.logout,
                           title: 'Logout',
-                          subtitle: 'Sign out of your account',
+                          subtitle: 'Sign out and close app',
                           iconColor: Colors.red,
                           onTap: _showLogoutDialog,
                         ),
@@ -343,11 +406,15 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
                           subtitle: 'Permanently delete your account',
                           iconColor: Colors.red[700]!,
                           onTap: () {
-                            print('Delete Account tapped');
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => AlertToConfirmScreen(),
+                              ),
+                            );
                           },
                         ),
-                        
-                        SizedBox(height: 20),
+                        const SizedBox(height: 20),
                       ],
                     ),
                   ),
@@ -362,7 +429,7 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
 
   Widget _buildSectionTitle(String title) {
     return Padding(
-      padding: EdgeInsets.only(left: 5, top: 20, bottom: 10),
+      padding: const EdgeInsets.only(left: 5, top: 20, bottom: 10),
       child: Text(
         title,
         style: TextStyle(
@@ -384,14 +451,14 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
     bool isDisabled = false,
   }) {
     return Container(
-      margin: EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 12),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: isDisabled ? null : onTap,
           borderRadius: BorderRadius.circular(16),
           child: Container(
-            padding: EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
@@ -399,14 +466,14 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
                 BoxShadow(
                   color: Colors.black.withOpacity(0.05),
                   blurRadius: 10,
-                  offset: Offset(0, 2),
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
             child: Row(
               children: [
                 Container(
-                  padding: EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: iconColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
@@ -417,7 +484,7 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
                     size: 24,
                   ),
                 ),
-                SizedBox(width: 16),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -430,12 +497,13 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
                           color: isDisabled ? Colors.grey[500] : Colors.black87,
                         ),
                       ),
-                      SizedBox(height: 4),
+                      const SizedBox(height: 4),
                       Text(
                         subtitle,
                         style: TextStyle(
                           fontSize: 13,
-                          color: isDisabled ? Colors.grey[400] : Colors.grey[600],
+                          color:
+                              isDisabled ? Colors.grey[400] : Colors.grey[600],
                         ),
                       ),
                     ],
@@ -461,72 +529,73 @@ class _SettingsScreenState extends State<SettingsScreen> with TickerProviderStat
     required Color iconColor,
     required bool isToggled,
     required Function(bool) onToggle,
+    required VoidCallback onTap,
   }) {
     return Container(
-      margin: EdgeInsets.only(bottom: 12),
-      child: Container(
-        padding: EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: Offset(0, 2),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                icon,
-                color: iconColor,
-                size: 24,
-              ),
-            ),
-            SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: iconColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey[600],
-                    ),
+                  child: Icon(icon, color: iconColor, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                Transform.scale(
+                  scale: 0.9,
+                  child: Switch(
+                    value: isToggled,
+                    onChanged: onToggle,
+                    activeColor: const Color(0xFF00897B),
+                    activeTrackColor: const Color(0xFF00897B).withOpacity(0.3),
+                    inactiveThumbColor: Colors.grey[400],
+                    inactiveTrackColor: Colors.grey[300],
+                  ),
+                ),
+              ],
             ),
-            Transform.scale(
-              scale: 0.9,
-              child: Switch(
-                value: isToggled,
-                onChanged: onToggle,
-                activeColor: Color(0xFF00897B),
-                activeTrackColor: Color(0xFF00897B).withOpacity(0.3),
-                inactiveThumbColor: Colors.grey[400],
-                inactiveTrackColor: Colors.grey[300],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
