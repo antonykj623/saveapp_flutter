@@ -4,7 +4,9 @@ import 'package:new_project_2025/view/home/widget/delete_account/delete_account.
 import 'package:new_project_2025/view/home/widget/profile_page/profile_page.dart';
 import 'package:new_project_2025/view/home/widget/setting_page/app_lock/App_lock.dart';
 import 'package:new_project_2025/view/home/widget/setting_page/app_lock/set_pattern.dart';
+import 'package:new_project_2025/view/home/widget/setting_page/app_renewal/App_renewal.dart';
 import 'package:new_project_2025/view/home/widget/setting_page/app_update/version_check.dart';
+import 'package:new_project_2025/view/home/widget/setting_page/bill_header/bill_header.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:new_project_2025/app/Modules/login/login_page.dart';
 
@@ -308,7 +310,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const ProfileScreen(),
+                                builder: (context) => ProfileScreen(),
                               ),
                             );
                           },
@@ -320,7 +322,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                           subtitle: 'Configure bill header settings',
                           iconColor: Colors.orange,
                           onTap: () {
-                            debugPrint('Bill Header tapped');
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => BillDetailsScreen(),
+                              ),
+                            );
                           },
                         ),
                         _buildToggleSettingCard(
@@ -389,7 +396,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                           subtitle: 'Manage your subscriptions',
                           iconColor: Colors.amber,
                           onTap: () {
-                            debugPrint('Purchase or Renewal tapped');
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => AppRenewalScreen(),
+                              ),
+                            );
                           },
                         ),
                         _buildSectionTitle('Account Actions'),

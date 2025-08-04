@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:image/image.dart' as img;
 import 'package:new_project_2025/view/home/widget/Emergency_numbers_screen/model_class_emergency.dart';
+import 'package:new_project_2025/view/home/widget/setting_page/bill_header/bill_class.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -1687,6 +1688,187 @@ class DatabaseHelper {
       _database = null;
     }
   }
+
+  Future<int> insertBillDetails(BillDetails billDetails) async {
+    try {
+      final db = await database;
+
+      // Validate input data
+      if (billDetails.companyName.trim().isEmpty) {
+        print("Error: Company name is required");
+        return 0;
+      }
+
+      Map<String, dynamic> billData = {
+        'data': jsonEncode(billDetails.toJson()),
+      };
+
+      int result = await db.insert('TABLE_BILLDETAILS', billData);
+
+      if (result > 0) {
+        print("✅ Bill details inserted successfully!");
+        print("📋 ID: $result");
+        print("🏢 Company: ${billDetails.companyName}");
+        print("📍 Address: ${billDetails.address}");
+        print("📱 Mobile: ${billDetails.mobile}");
+      } else {
+        print("❌ Failed to insert bill details");
+      }
+
+      return result;
+    } catch (e) {
+      print("❌ Error inserting bill details: $e");
+      return 0;
+    }
+  }
+
+  /// Update Bill Details
+  Future<int> updateBillDetails(int billId, BillDetails billDetails) async {
+    try {
+      final db = await database;
+
+      // Validate input data
+      if (billDetails.companyName.trim().isEmpty) {
+        print("Error: Company name is required");
+        return 0;
+      }
+
+      Map<String, dynamic> billData = {
+        'data': jsonEncode(billDetails.toJson()),
+      };
+
+      int result = await db.update(
+        'TABLE_BILLDETAILS',
+        billData,
+        where: 'keyid = ?',
+        whereArgs: [billId],
+      );
+
+      if (result > 0) {
+        print("✅ Bill details updated successfully!");
+        print("📋 ID: $billId");
+        print("🏢 Company: ${billDetails.companyName}");
+        print("📍 Address: ${billDetails.address}");
+        print("📱 Mobile: ${billDetails.mobile}");
+      } else {
+        print("❌ No bill found with ID: $billId");
+      }
+
+      return result;
+    } catch (e) {
+      print("❌ Error updating bill details: $e");
+      return 0;
+    }
+  }
+
+  /// Get All Bill Details
+  Future<List<BillDetails>> getAllBillDetails() async {
+    try {
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'TABLE_BILLDETAILS',
+      );
+
+      List<BillDetails> billDetailsList = [];
+
+      for (var map in maps) {
+        try {
+          Map<String, dynamic> billData = jsonDecode(map['data']);
+          billDetailsList.add(BillDetails.fromJson(billData, id: map['keyid']));
+        } catch (e) {
+          print('Error parsing bill details data for ID ${map['keyid']}: $e');
+        }
+      }
+
+      print("📋 Retrieved ${billDetailsList.length} bill details records");
+      return billDetailsList;
+    } catch (e) {
+      print("❌ Error getting bill details: $e");
+      return [];
+    }
+  }
+
+  /// Get Bill Details by ID
+  Future<BillDetails?> getBillDetailsById(int id) async {
+    try {
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'TABLE_BILLDETAILS',
+        where: 'keyid = ?',
+        whereArgs: [id],
+      );
+
+      if (maps.isNotEmpty) {
+        Map<String, dynamic> billData = jsonDecode(maps.first['data']);
+        return BillDetails.fromJson(billData, id: maps.first['keyid']);
+      }
+
+      print("❌ No bill details found with ID: $id");
+      return null;
+    } catch (e) {
+      print("❌ Error getting bill details by ID: $e");
+      return null;
+    }
+  }
+
+  /// Delete Bill Details
+  Future<int> deleteBillDetails(int id) async {
+    try {
+      final db = await database;
+      int result = await db.delete(
+        'TABLE_BILLDETAILS',
+        where: 'keyid = ?',
+        whereArgs: [id],
+      );
+
+      if (result > 0) {
+        print("✅ Bill details deleted successfully for ID: $id");
+      } else {
+        print("❌ No bill details found with ID: $id");
+      }
+
+      return result;
+    } catch (e) {
+      print("❌ Error deleting bill details: $e");
+      return 0;
+    }
+  }
+
+  /// Search Bill Details by Company Name
+  Future<List<BillDetails>> searchBillDetailsByCompany(
+    String companyName,
+  ) async {
+    try {
+      final allBills = await getAllBillDetails();
+      return allBills
+          .where(
+            (bill) => bill.companyName.toLowerCase().contains(
+              companyName.toLowerCase(),
+            ),
+          )
+          .toList();
+    } catch (e) {
+      print("❌ Error searching bill details: $e");
+      return [];
+    }
+  }
+
+  /// Get Bill Details Count
+  Future<int> getBillDetailsCount() async {
+    try {
+      final bills = await getAllBillDetails();
+      return bills.length;
+    } catch (e) {
+      print("❌ Error getting bill details count: $e");
+      return 0;
+    }
+  }
+
+  // Usage Examples:
+
+  /*
+
+*/
 }
 
 class TargetCategory {

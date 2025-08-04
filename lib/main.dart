@@ -42,7 +42,7 @@ class _SplashPageState extends State<SplashPage> {
 
     final prefs = await SharedPreferences.getInstance();
 
-    // Check if pattern verification is needed
+    
     bool needsPatternVerification =
         prefs.getBool('needs_pattern_verification') ?? false;
     bool appLockEnabled = prefs.getBool('app_lock_enabled') ?? false;
@@ -59,7 +59,7 @@ class _SplashPageState extends State<SplashPage> {
     );
     debugPrint('================================');
 
-    // Priority 1: Check if pattern verification is needed
+   
     if (needsPatternVerification || appWasClosedAfterLogout) {
       if (appLockEnabled) {
         debugPrint('Pattern verification required - showing pattern lock');
@@ -95,7 +95,7 @@ class _SplashPageState extends State<SplashPage> {
         if (mounted) {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) =>  SetPattern()),
+            MaterialPageRoute(builder: (context) => SetPattern()),
           );
         }
         return;
