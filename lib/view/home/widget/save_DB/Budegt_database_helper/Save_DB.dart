@@ -1425,7 +1425,19 @@ class DatabaseHelper {
       return false;
     }
   }
+Future<List<Map<String, dynamic>>> fetchAllData() async {
+  Database db = await database;
+  var res = await db.query('TABLE_WEBLINKS');
 
+  List<Map<String, dynamic>> s = res.toList();
+  print("Weblink datas are: $s");
+
+  return s;
+}
+Future<int> deleteWebLInk(String tableName, String id) async {
+  final db = await database;
+  return await db.delete(tableName, where: 'keyid = ?', whereArgs: [id]);
+}
   // Payment-related methods
   Future<int> insertPayment(Payment payment) async {
     final db = await database;

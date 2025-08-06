@@ -1,35 +1,73 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:new_project_2025/view/home/widget/website_link_page/add_website_link_page.dart';
 import 'package:share_plus/share_plus.dart';
-
-void main() {
-  runApp(MyApp1());
-}
-
-class MyApp1 extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Web Links',
-      theme: ThemeData(primarySwatch: Colors.teal),
-      home: WebLinksListPage(),
-      debugShowCheckedModeBanner: false,
-    );
-  }
-}
+import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 
 class WebLink {
-  String websiteLink;
-  String username;
-  String password;
-  String description;
+  final int? keyId;
+  final String websiteLink;
+  final String username;
+  final String password;
+  final String description;
 
   WebLink({
+    required this.keyId,
     required this.websiteLink,
     required this.username,
     required this.password,
     required this.description,
   });
+
+  factory WebLink.fromMap(Map<String, dynamic> map) {
+    return WebLink(
+      keyId: map['keyid'] ?? 0,
+      websiteLink: map['weblink'] ?? '',
+      username: map['username'] ?? '',
+      password: map['password'] ?? '',
+      description: map['desc'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'keyid': keyId,
+      'weblink': websiteLink,
+      'username': username,
+      'password': password,
+      'desc': description,
+    };
+  }
+
+  @override
+  String toString() {
+    return 'WebLinkData((keyId: $keyId,websiteLink: $websiteLink, username: $username, password: $password, description: $description)';
+  }
+}
+
+class WebLinkItem {
+  final int keyId;
+  final WebLink data;
+
+  WebLinkItem({required this.keyId, required this.data});
+
+  factory WebLinkItem.fromMap(Map<String, dynamic> map) {
+    final rawData = map['data'];
+    final Map<String, dynamic> dataMap = rawData is String
+        ? Map<String, dynamic>.from(jsonDecode(rawData))
+        : Map<String, dynamic>.from(rawData);
+
+    return WebLinkItem(
+      keyId: map['keyid'] ?? 0,
+      data: WebLink.fromMap(dataMap),
+    );
+  }
+
+  @override
+  String toString() => 'WebLinkItem(keyId: $keyId, data: $data)';
 }
 
 class WebLinksListPage extends StatefulWidget {
@@ -38,105 +76,190 @@ class WebLinksListPage extends StatefulWidget {
 }
 
 class _WebLinksListPageState extends State<WebLinksListPage> {
-  List<WebLink> webLinks = [
-    WebLink(
-      websiteLink: 'https connection',
-      username: 'uiii',
-      password: 'password123',
-      description: 'hhggv',
-    ),
-  ];
+  List<WebLink> webLinks = [];
+
+  void _loadData() async {
+    final rawData = await DatabaseHelper().fetchAllData();
+    List<WebLink> loadedLinks = [];
+    for (var entry in rawData) {
+      final keyId = entry['keyid'];
+      final jsonString = entry['data'];
+
+      try {
+        final decodedMap = jsonDecode(jsonString) as Map<String, dynamic>;
+        decodedMap['keyid'] = keyId; // Add keyId
+        loadedLinks.add(WebLink.fromMap(decodedMap));
+      } catch (e) {
+        print("Error decoding JSON: $e");
+      }
+    }
+
+    setState(() {
+      webLinks = loadedLinks;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        backgroundColor: Colors.teal[600],
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () {
-            Navigator.of(
-              context,
-            ).pop(); // Correct: Returns to the previous page
+
+      // appBar: AppBar(
+      //   backgroundColor: Colors.teal[600],
+      //   leading: IconButton(
+      //     icon: Icon(Icons.arrow_back, color: Colors.white),
+      //     onPressed: () {
+      //       Navigator.of(context).pop();
+      //     },
+      //   ),
+      //   title: Text(
+      //     'Web Links',
+      //     style: TextStyle(color: Colors.white, fontSize: 20),
+      //   ),
+      //   elevation: 0,
+      // ),
+
+      body:
+      Padding(
+        padding: const EdgeInsets.all(0.0),
+
+        child:
+        Column(
+
+       children: [
+         Container(
+
+           width: double.infinity,
+           padding:  EdgeInsets.symmetric(
+             horizontal: 16,
+             vertical: 12,),
+           decoration:  BoxDecoration(
+             gradient: LinearGradient(
+               begin: Alignment.topLeft,
+               end: Alignment.bottomRight,
+               colors: [Color(0xFF667eea), Color(0xFF764ba2), Color(0xFFF093fb)],
+             ),
+           ),
+           child: Column(
+             crossAxisAlignment: CrossAxisAlignment.start,
+             children: [
+               GestureDetector(
+                 onTap: () => Navigator.pop(context),
+                 child: Row(
+                   mainAxisSize: MainAxisSize.min,
+                   children: [
+                     Container(
+                       padding: EdgeInsets.all(10),
+                       decoration: BoxDecoration(
+                         color: Colors.white.withOpacity(0.15),
+                         shape: BoxShape.circle,
+                       ),
+                       child: Icon(Icons.arrow_back, color: Colors.white),
+                     ),
+                     SizedBox(width: 8),
+                     Text(
+                       'Add Password Manager',
+                       style: TextStyle(
+                         color: Colors.white,
+                         fontSize: 16,
+                         fontWeight: FontWeight.w500,
+                       ),
+                     ),
+                   ],
+                 ),
+               ),
+               SizedBox(width: 8),
+
+             ],
+           ),
+         ),
+
+
+         Expanded(
+
+           child: Container(
+
+            child: ListView.builder(
+              padding: EdgeInsets.all(16),
+
+              itemCount: webLinks.length,
+              itemBuilder: (context, index) {
+                final link = webLinks[index];
+                return WebLinkCard(
+
+                  webLink: link,
+                  onEdit: () => _editWebLink(index),
+                  onDelete: () => _deleteWebLink(index),
+                  onShare: () => _shareWebLink(index),
+                );
+              },
+            ),
+                   ),
+         ),
+
+       Padding(
+         padding: const EdgeInsets.all(8.0),
+         child: FloatingActionButton(
+          onPressed: _addWebLink,
+          backgroundColor: Colors.pink[600],
+          child: Icon(Icons.add, color: Colors.white),
+               ),
+       ),
+      ]) ));
+  }
+
+  void _addWebLink() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddEditWebLinkPage(
+          onSave: (webLink) {
+            // No need to add to webLinks here; _loadData will handle it
           },
         ),
-        title: Text(
-          'Web Links',
-          style: TextStyle(color: Colors.white, fontSize: 20),
+      ),
+    );
+    if (result == true) {
+      _loadData(); // Re-fetch updated data from the database
+    }
+  }
+
+  void _editWebLink(int index) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddEditWebLinkPage(
+          webLink: webLinks[index],
+          isEdit: true,
+          onSave: (webLink) {
+            // No need to update webLinks here; _loadData will handle it
+          },
         ),
-        elevation: 0,
-      ),
-      body: ListView.builder(
-        padding: EdgeInsets.all(16),
-        itemCount: webLinks.length,
-        itemBuilder: (context, index) {
-          return WebLinkCard(
-            webLink: webLinks[index],
-            onEdit: () => _editWebLink(index),
-            onDelete: () => _deleteWebLink(index),
-            onShare: () => _shareWebLink(index),
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addWebLink,
-        backgroundColor: Colors.pink[600],
-        child: Icon(Icons.add, color: Colors.white),
       ),
     );
+    if (result == true) {
+      _loadData(); // Re-fetch updated data from the database
+    }
   }
 
-  void _addWebLink() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder:
-            (context) => AddEditWebLinkPage(
-              onSave: (webLink) {
-                setState(() {
-                  webLinks.add(webLink);
-                });
-                Navigator.pop(
-                  context,
-                ); // Correct: Returns to WebLinksListPage after adding
-              },
-            ),
-      ),
-    );
-  }
-
-  void _editWebLink(int index) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder:
-            (context) => AddEditWebLinkPage(
-              webLink: webLinks[index],
-              isEdit: true,
-              onSave: (webLink) {
-                setState(() {
-                  webLinks[index] = webLink;
-                });
-                Navigator.pop(
-                  context,
-                ); // Correct: Returns to WebLinksListPage after editing
-              },
-            ),
-      ),
-    );
-  }
-
-  void _deleteWebLink(int index) {
-    setState(() {
-      webLinks.removeAt(index);
-    });
+  void _deleteWebLink(int index) async {
+    final webLink = webLinks[index];
+    final keyId = webLink.keyId;
+    if (keyId != null) {
+      await DatabaseHelper().deleteWebLInk("TABLE_WEBLINKS", keyId as String);
+      _loadData(); // Refresh the UI after deletion
+    }
   }
 
   void _shareWebLink(int index) {
     final webLink = webLinks[index];
-    final shareText =
-        '''
+    final shareText = '''
 🔗 Website: ${webLink.websiteLink}
 👤 Username: ${webLink.username}
 📝 Description: ${webLink.description}
@@ -144,7 +267,6 @@ class _WebLinksListPageState extends State<WebLinksListPage> {
 
     Share.share(shareText, subject: 'Web Link - ${webLink.websiteLink}');
 
-    // Show confirmation
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Link shared successfully!'),
@@ -175,6 +297,8 @@ class WebLinkCard extends StatefulWidget {
 class _WebLinkCardState extends State<WebLinkCard> {
   bool _isPasswordVisible = false;
 
+
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -184,6 +308,7 @@ class _WebLinkCardState extends State<WebLinkCard> {
       child: Padding(
         padding: EdgeInsets.all(16),
         child: Column(
+
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildInfoRow('Website Link', widget.webLink.websiteLink),
@@ -223,6 +348,7 @@ class _WebLinkCardState extends State<WebLinkCard> {
           ],
         ),
       ),
+
     );
   }
 
@@ -288,172 +414,6 @@ class _WebLinkCardState extends State<WebLinkCard> {
           ),
         ),
       ],
-    );
-  }
-}
-
-class AddEditWebLinkPage extends StatefulWidget {
-  final WebLink? webLink;
-  final bool isEdit;
-  final Function(WebLink) onSave;
-
-  AddEditWebLinkPage({this.webLink, this.isEdit = false, required this.onSave});
-
-  @override
-  _AddEditWebLinkPageState createState() => _AddEditWebLinkPageState();
-}
-
-class _AddEditWebLinkPageState extends State<AddEditWebLinkPage> {
-  final _formKey = GlobalKey<FormState>();
-  late TextEditingController _websiteLinkController;
-  late TextEditingController _usernameController;
-  late TextEditingController _passwordController;
-  late TextEditingController _descriptionController;
-
-  @override
-  void initState() {
-    super.initState();
-    _websiteLinkController = TextEditingController(
-      text: widget.webLink?.websiteLink ?? '',
-    );
-    _usernameController = TextEditingController(
-      text: widget.webLink?.username ?? '',
-    );
-    _passwordController = TextEditingController(
-      text: widget.webLink?.password ?? '',
-    );
-    _descriptionController = TextEditingController(
-      text: widget.webLink?.description ?? '',
-    );
-  }
-
-  @override
-  void dispose() {
-    _websiteLinkController.dispose();
-    _usernameController.dispose();
-    _passwordController.dispose();
-    _descriptionController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.teal[600],
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () {
-            Navigator.pop(context); 
-          },
-        ),
-        title: Text(
-          widget.isEdit ? 'Edit Web Link' : 'Add Web Link',
-          style: TextStyle(color: Colors.white, fontSize: 20),
-        ),
-        elevation: 0,
-      ),
-      body: Padding(
-        padding: EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              TextFormField(
-                controller: _websiteLinkController,
-                decoration: InputDecoration(
-                  labelText: 'Website Link',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a website link';
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: 16),
-              TextFormField(
-                controller: _usernameController,
-                decoration: InputDecoration(
-                  labelText: 'Username',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a username';
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: 16),
-              TextFormField(
-                controller: _passwordController,
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a password';
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: 16),
-              TextFormField(
-                controller: _descriptionController,
-                decoration: InputDecoration(
-                  labelText: 'Description',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a description';
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  OutlinedButton(
-                    onPressed: () {
-                      Navigator.pop(
-                        context,
-                      ); 
-                    },
-                    child: Text('Cancel'),
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: Colors.teal),
-                    ),
-                  ),
-                  SizedBox(width: 16),
-                  ElevatedButton(
-                    onPressed: () {
-                      if (_formKey.currentState!.validate()) {
-                        final webLink = WebLink(
-                          websiteLink: _websiteLinkController.text,
-                          username: _usernameController.text,
-                          password: _passwordController.text,
-                          description: _descriptionController.text,
-                        );
-                        widget.onSave(webLink);
-                        // Note: Navigator.pop is handled in the onSave callback
-                      }
-                    },
-                    child: Text(widget.isEdit ? 'Save' : 'Add'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.teal[600],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

@@ -5,6 +5,7 @@ import 'package:new_project_2025/view/home/dream_page/dream_class/db_class.dart'
 import 'package:new_project_2025/view/home/widget/More_page/More_page.dart';
 import 'package:new_project_2025/view/home/widget/insurance/insurance_database/Insurance_list_page/insurance_list_page.dart';
 import 'package:new_project_2025/view_model/Accountfiles/CashAccount.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:animated_notch_bottom_bar/animated_notch_bottom_bar/animated_notch_bottom_bar.dart';
 import 'package:new_project_2025/view/home/widget/Notification_page.dart';
@@ -132,6 +133,37 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
     _cardAnimationController.dispose();
     _notchController.dispose();
     super.dispose();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+
+    _slideAnimation = Tween<double>(begin: 50.0, end: 0.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.elasticOut),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _cardAnimationController,
+        curve: Curves.bounceOut,
+      ),
+    );
+
+    _animationController.forward();
+    _cardAnimationController.forward();
+
+    // Load saved theme preference
+    _loadThemePreference();
+
+    // Initialize services
+    ExpenseAccountHelper.insertExpenseAccounts();
+    IncomeAccount.addIncomeAccount();
+    CashAccountHelper.insertCashAccount();
+    InvestmentAccount.insertInvestmentAccount();
+    TargetCategoryService.addDefaultTargetCategories();
   }
 
   void _changePage(int index) {
@@ -142,10 +174,34 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
     });
   }
 
+  Future<void> _saveThemePreference(bool isDark) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('isDarkTheme', isDark);
+    } catch (e) {
+      print('Error saving theme preference: $e');
+    }
+  }
+
+  Future<void> _loadThemePreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        isDarkTheme =
+            prefs.getBool('isDarkTheme') ?? true; // Default to dark theme
+      });
+    } catch (e) {
+      print('Error loading theme preference: $e');
+      // Keep default theme if there's an error
+    }
+  }
+
   void _toggleTheme() {
     setState(() {
       isDarkTheme = !isDarkTheme;
     });
+    // Save the theme preference
+    _saveThemePreference(isDarkTheme);
   }
 
   void _showChartDialog() {
