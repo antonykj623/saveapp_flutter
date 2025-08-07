@@ -10,7 +10,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:new_project_2025/services/API_services/API_services.dart';
 import 'package:uuid/uuid.dart';
 
-
 void main() {
   runApp(const MyApp());
 }
@@ -33,23 +32,19 @@ class MyApp extends StatelessWidget {
 }
 
 class RegistrationScreen extends StatefulWidget {
-
-
   const RegistrationScreen({super.key});
 
   @override
   State<RegistrationScreen> createState() => _RegistrationScreenState();
 }
+
 var apidata = ApiHelper();
+
 class _RegistrationScreenState extends State<RegistrationScreen> {
- 
   @override
   initState() {
-
     super.initState();
     fetchCountryData();
-
-
   }
 
   final _formKey = GlobalKey<FormState>();
@@ -71,7 +66,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _mobileController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
   String timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
   final List<dynamic> data = [];
   @override
@@ -84,10 +80,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     _confirmPasswordController.dispose();
     super.dispose();
   }
-  Future<void> fetchCountryData() async {
 
-    ApiHelper apiHelper=new ApiHelper();
-   String response= await apiHelper.getApiResponse("getCountry.php?timestamp="+DateTime.now().toString());
+  Future<void> fetchCountryData() async {
+    ApiHelper apiHelper = new ApiHelper();
+    String response = await apiHelper.getApiResponse(
+      "getCountry.php?timestamp=" + DateTime.now().toString(),
+    );
 
     final Map<String, dynamic> jsonResponse = json.decode(response);
 
@@ -99,13 +97,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       isLoading = false;
     });
     fetchDataState();
-
   }
+
   Future<void> fetchDataState() async {
-
-
-    ApiHelper apiHelper=new ApiHelper();
-    String response= await apiHelper.getApiResponse("getState.php?timestamp="+DateTime.now().toString()+"&countryid=$selectedValue");
+    ApiHelper apiHelper = new ApiHelper();
+    String response = await apiHelper.getApiResponse(
+      "getState.php?timestamp=" +
+          DateTime.now().toString() +
+          "&countryid=$selectedValue",
+    );
 
     final Map<String, dynamic> jsonResponse = json.decode(response);
 
@@ -117,25 +117,21 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       dropdownstateitem = data;
       isLoading = false;
     });
-
-
-
   }
 
-
   void Registration() async {
-    var uuid = Uuid().v4(); 
+    var uuid = Uuid().v4();
     String timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
 
     Map<String, String> regdata = {
       "mobile": _mobileController.text.trim(),
       "password": _passwordController.text.trim(),
-      "confirmpassword":_confirmPasswordController.text.trim(),
-      "email":_emailController.text.trim(),
-      "sp_reg_code":"0",
-      "sp_reg_id":"0",
-      "stateid":"$selectedValue",
-      "country_id":"$selectedValue1",
+      "confirmpassword": _confirmPasswordController.text.trim(),
+      "email": _emailController.text.trim(),
+      "sp_reg_code": "0",
+      "sp_reg_id": "0",
+      "stateid": "$selectedValue",
+      "country_id": "$selectedValue1",
       "uuid": uuid,
       "timestamp": timestamp,
     };
@@ -143,15 +139,17 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     ApiHelper api = ApiHelper();
 
     try {
-
-      String regresponse = await api.postApiResponse(" UserAuthenticate.php", regdata);
+      String regresponse = await api.postApiResponse(
+        " UserAuthenticate.php",
+        regdata,
+      );
 
       print("Response: $regresponse");
-
     } catch (e) {
       print("Error: $e");
     }
   }
+
   Future<void> _launchTermsURL() async {
     const url = 'https://mysaving.in/index.php/web/termsCondition';
     try {
@@ -208,9 +206,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       print('Coupon: ${_hasCouponCode ? _couponController.text : "None"}');
       print('Language: $_selectedLanguage');
 
-
       _launchTermsURL();
-
 
       _showSnackBar('Registration successful!');
     }
@@ -393,7 +389,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         borderRadius: BorderRadius.circular(4),
       ),
 
-
       // DropdownButtonFormField<String>(
       //   dropdownColor: const Color(0xFF096c6c),
       //   style: const TextStyle(color: Colors.white),
@@ -409,117 +404,121 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       //     });
       //   },
       child:
-      dropdowncountryItems.isEmpty
-        ? CircularProgressIndicator()
-        : Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: DropdownButton<String>(
-              hint:  Padding(
-                padding: const EdgeInsets.only(left: 18.0),
-                child: Text('Select a Country', style: TextStyle(color: Colors.white)),
-              ),
-          dropdownColor: const Color(0xFF096c6c),
-          style: const TextStyle(color: Colors.white),
-              value: selectedValue,
-              onChanged: (value) {
+          dropdowncountryItems.isEmpty
+              ? CircularProgressIndicator()
+              : Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: DropdownButton<String>(
+                  hint: Padding(
+                    padding: const EdgeInsets.only(left: 18.0),
+                    child: Text(
+                      'Select a Country',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  dropdownColor: const Color(0xFF096c6c),
+                  style: const TextStyle(color: Colors.white),
+                  value: selectedValue,
+                  onChanged: (value) {
+                    setState(() {
+                      selectedValue = value;
+                    });
+                    fetchDataState();
+                  },
 
-              setState(() {
-              selectedValue = value;
-              });
-              fetchDataState();
-              },
-              //     style: TextStyle(
-              // color: Colors.black,
-              // fontSize: 16,),
-
-          items: dropdowncountryItems.map((item) {
-            return DropdownMenuItem<String>(
-              value: item['id'],
-              child: Text(item['country_name'],style:TextStyle(color: Colors.white),),
-            );
-          }).toList(),
-
-
-
-
-
-
+                  //     style: TextStyle(
+                  // color: Colors.black,
+                  // fontSize: 16,),
+                  items:
+                      dropdowncountryItems.map((item) {
+                        return DropdownMenuItem<String>(
+                          value: item['id'],
+                          child: Text(
+                            item['country_name'],
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        );
+                      }).toList(),
                 ),
-        ),
+              ),
     );
   }
 
   Widget _buildStateDropdown() {
-    return (dropdownstateitem.length>0)? Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.transparent,
-        border: Border.all(color: Colors.white54),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child:dropdownstateitem.isEmpty
-          ? CircularProgressIndicator()
-          : Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: DropdownButton<String>(
-          hint:  Padding(
-            padding: const EdgeInsets.only(left: 18.0),
-            child: Text('Select a Country', style: TextStyle(color: Colors.white)),
+    return (dropdownstateitem.length > 0)
+        ? Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            border: Border.all(color: Colors.white54),
+            borderRadius: BorderRadius.circular(4),
           ),
-          dropdownColor: const Color(0xFF096c6c),
-          style: const TextStyle(color: Colors.white),
-          value: selectedValue1,
-          onChanged: (value) {
-            setState(() {
-              selectedValue1 = value;
-            });
-          },
-          //     style: TextStyle(
-          // color: Colors.black,
-          // fontSize: 16,),
+          child:
+              dropdownstateitem.isEmpty
+                  ? CircularProgressIndicator()
+                  : Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: DropdownButton<String>(
+                      hint: Padding(
+                        padding: const EdgeInsets.only(left: 18.0),
+                        child: Text(
+                          'Select a Country',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                      dropdownColor: const Color(0xFF096c6c),
+                      style: const TextStyle(color: Colors.white),
+                      value: selectedValue1,
+                      onChanged: (value) {
+                        setState(() {
+                          selectedValue1 = value;
+                        });
+                      },
 
-          items: dropdownstateitem.map((item) {
-            return DropdownMenuItem<String>(
-              value: item['id'],
-              child: Text(item['state_name'],style:TextStyle(color: Colors.white),),
-            );
-          }).toList(),
-
-
-
-
-
-
-        ),
-      ),
-      // DropdownButtonFormField<String>(
-      //   dropdownColor: const Color(0xFF096c6c),
-      //   style: const TextStyle(color: Colors.white),
-      //   value: _selectedState,
-      //   decoration: const InputDecoration(
-      //     contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      //     border: InputBorder.none,
-      //   ),
-      //   icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
-      //   onChanged: (String? newValue) {
-      //     setState(() {
-      //       _selectedState = newValue!;
-      //     });
-      //   },
-      //   items:
-      //       <String>[
-      //         'Andaman and Nicobar Islands',
-      //         'Andhra Pradesh',
-      //         'Delhi',
-      //         'Gujarat',
-      //         'Karnataka',
-      //         'Maharashtra',
-      //       ].map<DropdownMenuItem<String>>((String value) {
-      //         return DropdownMenuItem<String>(value: value, child: Text(value));
-      //       }).toList(),
-      //   validator: (value) => value == null ? 'Please select a state' : null,
-      // ),
-    ) : Container();
+                      //     style: TextStyle(
+                      // color: Colors.black,
+                      // fontSize: 16,),
+                      items:
+                          dropdownstateitem.map((item) {
+                            return DropdownMenuItem<String>(
+                              value: item['id'],
+                              child: Text(
+                                item['state_name'],
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            );
+                          }).toList(),
+                    ),
+                  ),
+          // DropdownButtonFormField<String>(
+          //   dropdownColor: const Color(0xFF096c6c),
+          //   style: const TextStyle(color: Colors.white),
+          //   value: _selectedState,
+          //   decoration: const InputDecoration(
+          //     contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          //     border: InputBorder.none,
+          //   ),
+          //   icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+          //   onChanged: (String? newValue) {
+          //     setState(() {
+          //       _selectedState = newValue!;
+          //     });
+          //   },
+          //   items:
+          //       <String>[
+          //         'Andaman and Nicobar Islands',
+          //         'Andhra Pradesh',
+          //         'Delhi',
+          //         'Gujarat',
+          //         'Karnataka',
+          //         'Maharashtra',
+          //       ].map<DropdownMenuItem<String>>((String value) {
+          //         return DropdownMenuItem<String>(value: value, child: Text(value));
+          //       }).toList(),
+          //   validator: (value) => value == null ? 'Please select a state' : null,
+          // ),
+        )
+        : Container();
   }
 
   Widget _buildCouponSection() {
@@ -717,44 +716,42 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 borderRadius: BorderRadius.circular(25),
               ),
               child: TextButton(
+                onPressed: () {
+                  if (_formKey.currentState!.validate()) {
+                    // If the form is valid, proceed
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text('Processing Data')));
+                    _submitForm;
+                    final name = _nameController.text;
+                    final email = _emailController.text;
+                    final mobile = _mobileController.text;
+                    final password = _passwordController.text;
+                    final confirmpass = _confirmPasswordController.text;
+                    final coupen = _couponController.text;
+                    final country = selectedValue.toString();
+                    final state = selectedValue1.toString();
+                    final language = "English";
 
-                onPressed:(){
-    if (_formKey.currentState!.validate()) {
-      // If the form is valid, proceed
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Processing Data')),
-      );
-      _submitForm;
-      final name = _nameController.text;
-      final email = _emailController.text;
-      final mobile = _mobileController.text;
-      final password = _passwordController.text;
-      final confirmpass = _confirmPasswordController.text;
-      final coupen = _couponController.text;
-      final country = selectedValue.toString();
-      final state = selectedValue1.toString();
-      final language = "English";
-
-
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => OtpRegistration(
-            name: name,
-            email: email,
-            mobile: mobile,
-            password: password,
-            confirmpass: confirmpass,
-            coupen: coupen,
-            country:country,
-            state:state,
-            language:language,
-          ),
-        ),
-      );
-    }    },
-
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (context) => OtpRegistration(
+                              name: name,
+                              email: email,
+                              mobile: mobile,
+                              password: password,
+                              confirmpass: confirmpass,
+                              coupen: coupen,
+                              country: country,
+                              state: state,
+                              language: language,
+                            ),
+                      ),
+                    );
+                  }
+                },
 
                 child: const Text(
                   'Submit',
@@ -778,17 +775,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               const SizedBox(width: 16),
               TextButton(
                 onPressed: () {
-                 //  Registration();
+                  //  Registration();
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-
-                      builder: (context) => const SaveApp(),
-                    ),
+                    MaterialPageRoute(builder: (context) => const SaveApp()),
                   );
                 },
-                child:
-                const Text(
+                child: const Text(
                   'Login',
                   style: TextStyle(
                     color: Colors.white,

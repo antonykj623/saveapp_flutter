@@ -56,9 +56,10 @@ class WebLinkItem {
 
   factory WebLinkItem.fromMap(Map<String, dynamic> map) {
     final rawData = map['data'];
-    final Map<String, dynamic> dataMap = rawData is String
-        ? Map<String, dynamic>.from(jsonDecode(rawData))
-        : Map<String, dynamic>.from(rawData);
+    final Map<String, dynamic> dataMap =
+        rawData is String
+            ? Map<String, dynamic>.from(jsonDecode(rawData))
+            : Map<String, dynamic>.from(rawData);
 
     return WebLinkItem(
       keyId: map['keyid'] ?? 0,
@@ -124,105 +125,101 @@ class _WebLinksListPageState extends State<WebLinksListPage> {
       //   ),
       //   elevation: 0,
       // ),
-
-      body:
-      Padding(
+      body: Padding(
         padding: const EdgeInsets.all(0.0),
 
-        child:
-        Column(
-
-       children: [
-         Container(
-
-           width: double.infinity,
-           padding:  EdgeInsets.symmetric(
-             horizontal: 16,
-             vertical: 12,),
-           decoration:  BoxDecoration(
-             gradient: LinearGradient(
-               begin: Alignment.topLeft,
-               end: Alignment.bottomRight,
-               colors: [Color(0xFF667eea), Color(0xFF764ba2), Color(0xFFF093fb)],
-             ),
-           ),
-           child: Column(
-             crossAxisAlignment: CrossAxisAlignment.start,
-             children: [
-               GestureDetector(
-                 onTap: () => Navigator.pop(context),
-                 child: Row(
-                   mainAxisSize: MainAxisSize.min,
-                   children: [
-                     Container(
-                       padding: EdgeInsets.all(10),
-                       decoration: BoxDecoration(
-                         color: Colors.white.withOpacity(0.15),
-                         shape: BoxShape.circle,
-                       ),
-                       child: Icon(Icons.arrow_back, color: Colors.white),
-                     ),
-                     SizedBox(width: 8),
-                     Text(
-                       'Add Password Manager',
-                       style: TextStyle(
-                         color: Colors.white,
-                         fontSize: 16,
-                         fontWeight: FontWeight.w500,
-                       ),
-                     ),
-                   ],
-                 ),
-               ),
-               SizedBox(width: 8),
-
-             ],
-           ),
-         ),
-
-
-         Expanded(
-
-           child: Container(
-
-            child: ListView.builder(
-              padding: EdgeInsets.all(16),
-
-              itemCount: webLinks.length,
-              itemBuilder: (context, index) {
-                final link = webLinks[index];
-                return WebLinkCard(
-
-                  webLink: link,
-                  onEdit: () => _editWebLink(index),
-                  onDelete: () => _deleteWebLink(index),
-                  onShare: () => _shareWebLink(index),
-                );
-              },
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF667eea),
+                    Color(0xFF764ba2),
+                    Color(0xFFF093fb),
+                  ],
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.arrow_back, color: Colors.white),
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Add Password Manager',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                ],
+              ),
             ),
-                   ),
-         ),
 
-       Padding(
-         padding: const EdgeInsets.all(8.0),
-         child: FloatingActionButton(
-          onPressed: _addWebLink,
-          backgroundColor: Colors.pink[600],
-          child: Icon(Icons.add, color: Colors.white),
-               ),
-       ),
-      ]) ));
+            Expanded(
+              child: Container(
+                child: ListView.builder(
+                  padding: EdgeInsets.all(16),
+
+                  itemCount: webLinks.length,
+                  itemBuilder: (context, index) {
+                    final link = webLinks[index];
+                    return WebLinkCard(
+                      webLink: link,
+                      onEdit: () => _editWebLink(index),
+                      onDelete: () => _deleteWebLink(index),
+                      onShare: () => _shareWebLink(index),
+                    );
+                  },
+                ),
+              ),
+            ),
+
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: FloatingActionButton(
+                onPressed: _addWebLink,
+                backgroundColor: Colors.pink[600],
+                child: Icon(Icons.add, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _addWebLink() async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => AddEditWebLinkPage(
-          onSave: (webLink) {
-            // No need to add to webLinks here; _loadData will handle it
-          },
-        ),
+        builder:
+            (context) => AddEditWebLinkPage(
+              onSave: (webLink) {
+                // No need to add to webLinks here; _loadData will handle it
+              },
+            ),
       ),
     );
     if (result == true) {
@@ -234,13 +231,14 @@ class _WebLinksListPageState extends State<WebLinksListPage> {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => AddEditWebLinkPage(
-          webLink: webLinks[index],
-          isEdit: true,
-          onSave: (webLink) {
-            // No need to update webLinks here; _loadData will handle it
-          },
-        ),
+        builder:
+            (context) => AddEditWebLinkPage(
+              webLink: webLinks[index],
+              isEdit: true,
+              onSave: (webLink) {
+                // No need to update webLinks here; _loadData will handle it
+              },
+            ),
       ),
     );
     if (result == true) {
@@ -252,14 +250,15 @@ class _WebLinksListPageState extends State<WebLinksListPage> {
     final webLink = webLinks[index];
     final keyId = webLink.keyId;
     if (keyId != null) {
-      await DatabaseHelper().deleteWebLInk("TABLE_WEBLINKS", keyId as String);
+      await DatabaseHelper().deleteWebLInk("TABLE_WEBLINKS", keyId);
       _loadData(); // Refresh the UI after deletion
     }
   }
 
   void _shareWebLink(int index) {
     final webLink = webLinks[index];
-    final shareText = '''
+    final shareText =
+        '''
 🔗 Website: ${webLink.websiteLink}
 👤 Username: ${webLink.username}
 📝 Description: ${webLink.description}
@@ -297,8 +296,6 @@ class WebLinkCard extends StatefulWidget {
 class _WebLinkCardState extends State<WebLinkCard> {
   bool _isPasswordVisible = false;
 
-
-
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -308,7 +305,6 @@ class _WebLinkCardState extends State<WebLinkCard> {
       child: Padding(
         padding: EdgeInsets.all(16),
         child: Column(
-
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildInfoRow('Website Link', widget.webLink.websiteLink),
@@ -348,7 +344,6 @@ class _WebLinkCardState extends State<WebLinkCard> {
           ],
         ),
       ),
-
     );
   }
 

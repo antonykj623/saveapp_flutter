@@ -1434,7 +1434,7 @@ Future<List<Map<String, dynamic>>> fetchAllData() async {
 
   return s;
 }
-Future<int> deleteWebLInk(String tableName, String id) async {
+ deleteWebLInk(String tableName,  id) async {
   final db = await database;
   return await db.delete(tableName, where: 'keyid = ?', whereArgs: [id]);
 }

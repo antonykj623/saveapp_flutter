@@ -1,3 +1,6 @@
+import 'dart:math';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:carousel_slider/carousel_slider.dart';
@@ -76,7 +79,8 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
   int _currentCarouselIndex = 0;
   String selectedYear = '2025';
   final List<String> years = ['2023', '2024', '2025', '2026'];
-  bool isDarkTheme = true;
+  bool isDarkTheme = true; // Default theme
+  bool _isLoadingTheme = true; // Add loading state for theme
 
   final List<String> _carouselImages = [
     'https://images.pexels.com/photos/8386440/pexels-photo-8386440.jpeg',
@@ -115,8 +119,11 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       ),
     );
 
-    _animationController.forward();
-    _cardAnimationController.forward();
+    // Load theme preference FIRST before starting animations
+    _loadThemePreference().then((_) {
+      _animationController.forward();
+      _cardAnimationController.forward();
+    });
 
     // Initialize services
     ExpenseAccountHelper.insertExpenseAccounts();
@@ -133,37 +140,6 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
     _cardAnimationController.dispose();
     _notchController.dispose();
     super.dispose();
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
-    );
-
-    _slideAnimation = Tween<double>(begin: 50.0, end: 0.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.elasticOut),
-    );
-
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _cardAnimationController,
-        curve: Curves.bounceOut,
-      ),
-    );
-
-    _animationController.forward();
-    _cardAnimationController.forward();
-
-    // Load saved theme preference
-    _loadThemePreference();
-
-    // Initialize services
-    ExpenseAccountHelper.insertExpenseAccounts();
-    IncomeAccount.addIncomeAccount();
-    CashAccountHelper.insertCashAccount();
-    InvestmentAccount.insertInvestmentAccount();
-    TargetCategoryService.addDefaultTargetCategories();
   }
 
   void _changePage(int index) {
@@ -174,34 +150,61 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
     });
   }
 
+  /// Save theme preference to SharedPreferences with unique key to persist across sessions
   Future<void> _saveThemePreference(bool isDark) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('isDarkTheme', isDark);
+      // Use a persistent theme key that doesn't get cleared on logout
+      await prefs.setBool('user_preferred_theme', isDark);
+      debugPrint('Theme saved: ${isDark ? "Dark" : "Light"}');
     } catch (e) {
-      print('Error saving theme preference: $e');
+      debugPrint('Error saving theme preference: $e');
     }
   }
 
+  /// Load theme preference from SharedPreferences
   Future<void> _loadThemePreference() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      // Use the persistent theme key
+      bool? savedTheme = prefs.getBool('user_preferred_theme');
+
       setState(() {
-        isDarkTheme =
-            prefs.getBool('isDarkTheme') ?? true; // Default to dark theme
+        // If no saved preference, default to dark theme
+        isDarkTheme = savedTheme ?? true;
+        _isLoadingTheme = false;
       });
+
+      debugPrint('Theme loaded: ${isDarkTheme ? "Dark" : "Light"}');
     } catch (e) {
-      print('Error loading theme preference: $e');
-      // Keep default theme if there's an error
+      debugPrint('Error loading theme preference: $e');
+      setState(() {
+        isDarkTheme = true; // Fallback to dark theme
+        _isLoadingTheme = false;
+      });
     }
   }
 
+  /// Toggle theme and save preference
   void _toggleTheme() {
     setState(() {
       isDarkTheme = !isDarkTheme;
     });
-    // Save the theme preference
+    // Save the theme preference immediately
     _saveThemePreference(isDarkTheme);
+
+    // Show feedback to user
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Theme changed to ${isDarkTheme ? "Dark" : "Light"} mode',
+        ),
+        backgroundColor: isDarkTheme ? Colors.grey[800] : Colors.teal,
+        duration: const Duration(seconds: 1),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
   }
 
   void _showChartDialog() {
@@ -582,6 +585,26 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    // Show loading indicator while theme is being loaded
+    if (_isLoadingTheme) {
+      return Scaffold(
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF00897B), Color(0xFF00796B)],
+            ),
+          ),
+          child: const Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor:
           isDarkTheme ? const Color(0xFF0A0A0A) : const Color(0xFFF5F5F5),
@@ -622,24 +645,45 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
   }
 
   Widget _buildAppBar() {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 800),
+      curve: Curves.fastOutSlowIn,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
+          stops: const [0.0, 0.3, 0.6, 1.0],
           colors:
               isDarkTheme
                   ? [
-                    const Color(0xFF008080).withOpacity(0.8),
-                    const Color(0xFF20B2AA).withOpacity(0.6),
+                    const Color(0xFF1A1A2E),
+                    const Color(0xFF16213E),
+                    const Color(0xFF0F3460),
+                    const Color(0xFF533483),
                   ]
-                  : [const Color(0xFFCFECEC), const Color(0xFFE0ECEC)],
+                  : [
+                    const Color(0xFFE3FDFD),
+                    const Color(0xFFCBF1F5),
+                    const Color(0xFFA6E3E9),
+                    const Color(0xFF71C9CE),
+                  ],
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF008080).withOpacity(0.3),
-            blurRadius: 20,
+            color:
+                isDarkTheme
+                    ? const Color(0xFF533483).withOpacity(0.3)
+                    : const Color(0xFF71C9CE).withOpacity(0.3),
+            blurRadius: 25,
             offset: const Offset(0, 10),
+          ),
+          BoxShadow(
+            color:
+                isDarkTheme
+                    ? Colors.black.withOpacity(0.2)
+                    : Colors.white.withOpacity(0.5),
+            blurRadius: 15,
+            offset: const Offset(0, -5),
           ),
         ],
       ),
@@ -647,104 +691,501 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
         top: 40.0,
         left: 16.0,
         right: 16.0,
-        bottom: 16.0,
+        bottom: 20.0,
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
         children: [
+          // Main App Bar Content
           Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors:
-                        isDarkTheme
-                            ? [Colors.white, Colors.grey]
-                            : [Colors.teal.shade100, Colors.teal.shade300],
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
+              // Left side with animated logo and text
+              Expanded(
+                flex: 2,
+                child: Row(
+                  children: [
+                    _buildAnimatedLogo(),
+                    const SizedBox(width: 12),
+                    Flexible(child: _buildAnimatedTitle()),
                   ],
                 ),
-                child: const Icon(
-                  Icons.account_balance_wallet,
-                  color: Color(0xFF008080),
-                  size: 20,
+              ),
+
+              // Right side with action buttons
+              Flexible(child: _buildActionButtons()),
+            ],
+          ),
+
+          const SizedBox(height: 15),
+
+          // Animated Balance Card
+          // _buildBalanceCard(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildEnhancedButton(Icons.notifications_none_outlined, () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => NotificationScreen()),
+          );
+        }, const Color(0xFFFF6B6B)),
+        const SizedBox(width: 8),
+        _buildEnhancedButton(Icons.settings_outlined, () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => SettingsScreen()),
+          );
+        }, const Color(0xFF4ECDC4)),
+        const SizedBox(width: 8),
+        _buildThemeToggleButton(),
+      ],
+    );
+  }
+
+  Widget _buildEnhancedButton(
+    IconData icon,
+    VoidCallback onPressed,
+    Color accentColor,
+  ) {
+    return TweenAnimationBuilder<double>(
+      duration: const Duration(milliseconds: 1000),
+      tween: Tween<double>(begin: 0, end: 1),
+      builder: (context, value, child) {
+        return Transform.scale(
+          scale: 0.8 + (0.2 * value),
+          child: GestureDetector(
+            onTapDown: (_) => HapticFeedback.lightImpact(),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    accentColor.withOpacity(0.2),
+                    accentColor.withOpacity(0.1),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: accentColor.withOpacity(0.3),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: accentColor.withOpacity(0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: onPressed,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    child: Icon(icon, color: accentColor, size: 22),
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Flexible(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'My Personal App',
-                      style: TextStyle(
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildThemeToggleButton() {
+    return TweenAnimationBuilder<double>(
+      duration: const Duration(milliseconds: 1200),
+      tween: Tween<double>(begin: 0, end: 1),
+      builder: (context, value, child) {
+        return Transform.scale(
+          scale: 0.8 + (0.2 * value),
+          child: GestureDetector(
+            onTapDown: (_) => HapticFeedback.mediumImpact(),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.elasticOut,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors:
+                      isDarkTheme
+                          ? [
+                            const Color(0xFFFFA726).withOpacity(0.3),
+                            const Color(0xFFFF7043).withOpacity(0.2),
+                          ]
+                          : [
+                            const Color(0xFF3F51B5).withOpacity(0.3),
+                            const Color(0xFF9C27B0).withOpacity(0.2),
+                          ],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color:
+                      isDarkTheme
+                          ? const Color(0xFFFFA726).withOpacity(0.4)
+                          : const Color(0xFF3F51B5).withOpacity(0.4),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color:
+                        isDarkTheme
+                            ? const Color(0xFFFFA726).withOpacity(0.3)
+                            : const Color(0xFF3F51B5).withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    HapticFeedback.heavyImpact();
+                    _toggleTheme();
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 400),
+                      transitionBuilder: (child, animation) {
+                        return RotationTransition(
+                          turns: animation,
+                          child: child,
+                        );
+                      },
+                      child: Icon(
+                        isDarkTheme
+                            ? Icons.light_mode_outlined
+                            : Icons.dark_mode_outlined,
+                        key: ValueKey(isDarkTheme),
                         color:
                             isDarkTheme
-                                ? Colors.white
-                                : const Color(0xFF008080),
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                                ? const Color(0xFFFFA726)
+                                : const Color(0xFF3F51B5),
+                        size: 22,
                       ),
-                      overflow: TextOverflow.ellipsis,
                     ),
-                    Text(
-                      'Your financial companion',
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Widget _buildBalanceCard() {
+  //   return TweenAnimationBuilder<double>(
+  //     duration: const Duration(milliseconds: 1800),
+  //     tween: Tween<double>(begin: 0, end: 1),
+  //     curve: Curves.elasticOut,
+  //     builder: (context, value, child) {
+  //       return Transform.scale(
+  //         scale: 0.9 + (0.1 * value),
+  //         child: Transform.translate(
+  //           offset: Offset(0, 30 * (1 - value)),
+  //           child: Opacity(
+  //             opacity: value,
+  //             child: Container(
+  //               width: double.infinity,
+  //               padding: const EdgeInsets.symmetric(
+  //                 horizontal: 20,
+  //                 vertical: 15,
+  //               ),
+  //               decoration: BoxDecoration(
+  //                 gradient: LinearGradient(
+  //                   begin: Alignment.centerLeft,
+  //                   end: Alignment.centerRight,
+  //                   colors:
+  //                       isDarkTheme
+  //                           ? [
+  //                             Colors.white.withOpacity(0.1),
+  //                             Colors.white.withOpacity(0.05),
+  //                           ]
+  //                           : [
+  //                             Colors.white.withOpacity(0.9),
+  //                             Colors.white.withOpacity(0.7),
+  //                           ],
+  //                 ),
+  //                 borderRadius: BorderRadius.circular(20),
+  //                 border: Border.all(
+  //                   color:
+  //                       isDarkTheme
+  //                           ? Colors.white.withOpacity(0.2)
+  //                           : Colors.white.withOpacity(0.5),
+  //                   width: 1,
+  //                 ),
+  //                 boxShadow: [
+  //                   BoxShadow(
+  //                     color: Colors.black.withOpacity(0.1),
+  //                     blurRadius: 20,
+  //                     offset: const Offset(0, 8),
+  //                   ),
+  //                 ],
+  //               ),
+  //               child: Row(
+  //                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  //                 children: [
+  //                   Column(
+  //                     crossAxisAlignment: CrossAxisAlignment.start,
+  //                     children: [
+  //                       Text(
+  //                         'Total Balance',
+  //                         style: TextStyle(
+  //                           color:
+  //                               isDarkTheme
+  //                                   ? Colors.white.withOpacity(0.7)
+  //                                   : const Color(0xFF667EEA).withOpacity(0.8),
+  //                           fontSize: 12,
+  //                           fontWeight: FontWeight.w500,
+  //                         ),
+  //                       ),
+  //                       const SizedBox(height: 4),
+  //                       // Animated balance amount
+  //                       TweenAnimationBuilder<double>(
+  //                         duration: const Duration(milliseconds: 2500),
+  //                         tween: Tween<double>(begin: 0, end: 42850),
+  //                         builder: (context, balanceValue, child) {
+  //                           return Text(
+  //                             '₹${balanceValue.toStringAsFixed(0)}',
+  //                             style: TextStyle(
+  //                               color:
+  //                                   isDarkTheme
+  //                                       ? Colors.white
+  //                                       : const Color(0xFF667EEA),
+  //                               fontSize: 18,
+  //                               fontWeight: FontWeight.bold,
+  //                             ),
+  //                           );
+  //                         },
+  //                       ),
+  //                     ],
+  //                   ),
+  //                   // Animated chart icon
+  //                   TweenAnimationBuilder<double>(
+  //                     duration: const Duration(milliseconds: 2000),
+  //                     tween: Tween<double>(begin: 0, end: 1),
+  //                     builder: (context, iconValue, child) {
+  //                       return Transform.rotate(
+  //                         angle: iconValue * 0.5, // Slight rotation
+  //                         child: Container(
+  //                           padding: const EdgeInsets.all(8),
+  //                           decoration: BoxDecoration(
+  //                             gradient: LinearGradient(
+  //                               colors:
+  //                                   isDarkTheme
+  //                                       ? [
+  //                                         const Color(0xFF4ECDC4),
+  //                                         const Color(0xFF44A08D),
+  //                                       ]
+  //                                       : [
+  //                                         const Color(0xFF667EEA),
+  //                                         const Color(0xFF764BA2),
+  //                                       ],
+  //                             ),
+  //                             borderRadius: BorderRadius.circular(10),
+  //                             boxShadow: [
+  //                               BoxShadow(
+  //                                 color:
+  //                                     isDarkTheme
+  //                                         ? const Color(
+  //                                           0xFF4ECDC4,
+  //                                         ).withOpacity(0.3)
+  //                                         : const Color(
+  //                                           0xFF667EEA,
+  //                                         ).withOpacity(0.3),
+  //                                 blurRadius: 8,
+  //                                 offset: const Offset(0, 4),
+  //                               ),
+  //                             ],
+  //                           ),
+  //                           child: Icon(
+  //                             Icons.trending_up_rounded,
+  //                             color: Colors.white,
+  //                             size: 20,
+  //                           ),
+  //                         ),
+  //                       );
+  //                     },
+  //                   ),
+  //                 ],
+  //               ),
+  //             ),
+  //           ),
+  //         ),
+  //       );
+  //     },
+  //   );
+  // }
+
+  Widget _buildAnimatedLogo() {
+    return TweenAnimationBuilder<double>(
+      duration: const Duration(milliseconds: 2000),
+      tween: Tween<double>(begin: 0, end: 1),
+      builder: (context, value, child) {
+        return Transform.rotate(
+          angle: value * 2 * 3.14159, // Full rotation
+          child: Transform.scale(
+            scale: 0.8 + (0.2 * value), // Scale from 0.8 to 1.0
+            child: Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors:
+                      isDarkTheme
+                          ? [
+                            const Color(0xFFFF6B6B),
+                            const Color(0xFF4ECDC4),
+                            const Color(0xFF45B7D1),
+                          ]
+                          : [
+                            const Color(0xFF667EEA),
+                            const Color(0xFF764BA2),
+                            const Color(0xFFF093FB),
+                          ],
+                ),
+                borderRadius: BorderRadius.circular(25),
+                boxShadow: [
+                  BoxShadow(
+                    color:
+                        isDarkTheme
+                            ? const Color(0xFF4ECDC4).withOpacity(0.4)
+                            : const Color(0xFF667EEA).withOpacity(0.4),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Outer ring animation
+                  TweenAnimationBuilder<double>(
+                    duration: const Duration(milliseconds: 3000),
+                    tween: Tween<double>(begin: 0, end: 1),
+                    builder: (context, ringValue, child) {
+                      return Container(
+                        width:
+                            40 + (10 * sin(ringValue * 6.28)), // Pulsing effect
+                        height: 40 + (10 * sin(ringValue * 6.28)),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.3),
+                            width: 2,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  // App Icon Image
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: Image.asset(
+                      'assets/appicon.png', // Make sure this path matches your asset structure
+                      width: 40,
+                      height: 40,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        // Fallback to the original wallet icon if image fails to load
+                        return Icon(
+                          Icons.account_balance_wallet_outlined,
+                          color: Colors.white,
+                          size: 30,
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAnimatedTitle() {
+    return TweenAnimationBuilder<double>(
+      duration: const Duration(milliseconds: 1500),
+      tween: Tween<double>(begin: 0, end: 1),
+      builder: (context, value, child) {
+        return Transform.translate(
+          offset: Offset(50 * (1 - value), 0), // Slide in from right
+          child: Opacity(
+            opacity: value,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Main title with gradient text effect
+                ShaderMask(
+                  shaderCallback:
+                      (bounds) => LinearGradient(
+                        colors:
+                            isDarkTheme
+                                ? [Colors.white, const Color(0xFF4ECDC4)]
+                                : [
+                                  const Color(0xFF667EEA),
+                                  const Color(0xFF764BA2),
+                                ],
+                      ).createShader(bounds),
+                  child: const Text(
+                    'My Personal App',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                // Subtitle with typing animation
+                TweenAnimationBuilder<int>(
+                  duration: const Duration(milliseconds: 2000),
+                  tween: IntTween(begin: 0, end: 25),
+                  builder: (context, letterCount, child) {
+                    String subtitle = 'Your financial companion';
+                    String displayText = subtitle.substring(
+                      0,
+                      letterCount.clamp(0, subtitle.length),
+                    );
+                    return Text(
+                      displayText,
                       style: TextStyle(
                         color:
                             isDarkTheme
                                 ? Colors.white.withOpacity(0.8)
-                                : const Color(0xFF008080).withOpacity(0.8),
+                                : const Color(0xFF667EEA).withOpacity(0.8),
                         fontSize: 12,
+                        fontWeight: FontWeight.w500,
                       ),
                       overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          Flexible(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Flexible(
-                  child: _buildAppBarButton(Icons.notifications_none, () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => NotificationScreen(),
-                      ),
                     );
-                  }),
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: _buildAppBarButton(Icons.settings, () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => SettingsScreen()),
-                    );
-                  }),
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: _buildAppBarButton(Icons.brightness_6, _toggleTheme),
+                  },
                 ),
               ],
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1160,128 +1601,171 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
   Widget _buildBottomNavBar() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      height: 65,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            blurRadius: 30,
-            offset: const Offset(0, 10),
+            color:
+                isDarkTheme
+                    ? Colors.black.withOpacity(0.25)
+                    : Colors.grey.withOpacity(0.15),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(30),
-        child: AnimatedNotchBottomBar(
-          notchBottomBarController: _notchController,
-          color:
-              isDarkTheme
-                  ? const Color(0xFF1E1E2E).withOpacity(0.95)
-                  : Colors.white.withOpacity(0.95),
-          showLabel: true,
-          notchColor: Colors.transparent,
-          bottomBarWidth: MediaQuery.of(context).size.width - 40,
-          showShadow: false,
-          kIconSize: 28.0,
-          kBottomRadius: 30.0,
-          itemLabelStyle: TextStyle(
-            fontSize: 11,
-            color: isDarkTheme ? Colors.grey.shade300 : Colors.grey.shade700,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.5,
+        borderRadius: BorderRadius.circular(32),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors:
+                    isDarkTheme
+                        ? [
+                          const Color(0xFF1E1E2E).withOpacity(0.95),
+                          const Color(0xFF16213E).withOpacity(0.9),
+                        ]
+                        : [
+                          Colors.white.withOpacity(0.95),
+                          const Color(0xFFF8F9FA).withOpacity(0.9),
+                        ],
+              ),
+              border: Border.all(
+                color:
+                    isDarkTheme
+                        ? Colors.white.withOpacity(0.1)
+                        : Colors.grey.withOpacity(0.2),
+                width: 0.5,
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildNavItem(
+                    0,
+                    Icons.home_rounded,
+                    'Home',
+                    const Color(0xFF4FC3F7),
+                  ),
+                ),
+                Expanded(
+                  child: _buildNavItem(
+                    1,
+                    Icons.trending_up_rounded,
+                    'Reports',
+                    const Color(0xFF66BB6A),
+                  ),
+                ),
+                Expanded(
+                  child: _buildNavItem(
+                    2,
+                    Icons.explore_rounded,
+                    'More',
+                    const Color(0xFFFF7043),
+                  ),
+                ),
+              ],
+            ),
           ),
-          bottomBarItems: [
-            BottomBarItem(
-              inActiveItem: _buildNavItem(
-                Icons.home_work_rounded,
-                false,
-                const Color(0xFF4FC3F7),
-              ),
-              activeItem: _buildNavItem(
-                Icons.home_work_rounded,
-                true,
-                const Color(0xFF4FC3F7),
-              ),
-              itemLabel: 'Home',
-            ),
-            BottomBarItem(
-              inActiveItem: _buildNavItem(
-                Icons.trending_up_rounded,
-                false,
-                const Color(0xFF66BB6A),
-              ),
-              activeItem: _buildNavItem(
-                Icons.trending_up_rounded,
-                true,
-                const Color(0xFF66BB6A),
-              ),
-              itemLabel: 'Reports',
-            ),
-            BottomBarItem(
-              inActiveItem: _buildNavItem(
-                Icons.explore_rounded,
-                false,
-                const Color(0xFFFF7043),
-              ),
-              activeItem: _buildNavItem(
-                Icons.explore_rounded,
-                true,
-                const Color(0xFFFF7043),
-              ),
-              itemLabel: 'Explore',
-            ),
-          ],
-          onTap: (index) {
-            HapticFeedback.selectionClick();
-            _changePage(index);
-          },
         ),
       ),
     );
   }
 
-  Widget _buildNavItem(IconData icon, bool isActive, Color color) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOutCubic,
-      padding: EdgeInsets.all(isActive ? 12 : 8),
-      decoration: BoxDecoration(
-        gradient:
-            isActive
-                ? LinearGradient(
-                  colors: [color.withOpacity(0.8), color],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
-                : null,
-        borderRadius: BorderRadius.circular(isActive ? 20 : 12),
-        boxShadow:
-            isActive
-                ? [
-                  BoxShadow(
-                    color: color.withOpacity(0.4),
-                    blurRadius: 15,
-                    offset: const Offset(0, 6),
+  Widget _buildNavItem(
+    int index,
+    IconData icon,
+    String label,
+    Color primaryColor,
+  ) {
+    bool isActive = _currentIndex == index;
+
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        _changePage(index);
+      },
+      child: Container(
+        height: 65,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(25),
+            gradient:
+                isActive
+                    ? LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        primaryColor.withOpacity(0.8),
+                        primaryColor.withOpacity(0.6),
+                      ],
+                    )
+                    : null,
+            boxShadow:
+                isActive
+                    ? [
+                      BoxShadow(
+                        color: primaryColor.withOpacity(0.25),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                    : null,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Icon
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                child: Icon(
+                  icon,
+                  size: isActive ? 24 : 22,
+                  color:
+                      isActive
+                          ? Colors.white
+                          : isDarkTheme
+                          ? Colors.grey.shade400
+                          : Colors.grey.shade600,
+                ),
+              ),
+
+              const SizedBox(height: 4),
+
+              // Label with proper constraints
+              Flexible(
+                child: AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 200),
+                  style: TextStyle(
+                    fontSize: isActive ? 10 : 9,
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                    color:
+                        isActive
+                            ? Colors.white
+                            : isDarkTheme
+                            ? Colors.grey.shade400
+                            : Colors.grey.shade600,
                   ),
-                  BoxShadow(
-                    color: color.withOpacity(0.2),
-                    blurRadius: 25,
-                    offset: const Offset(0, 12),
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.clip,
                   ),
-                ]
-                : null,
-      ),
-      child: AnimatedScale(
-        scale: isActive ? 1.1 : 1.0,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.bounceOut,
-        child: Icon(
-          icon,
-          color:
-              isActive
-                  ? Colors.white
-                  : (isDarkTheme ? Colors.grey.shade500 : Colors.grey.shade400),
-          size: isActive ? 26 : 24,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

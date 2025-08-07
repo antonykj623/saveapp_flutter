@@ -59,7 +59,7 @@ class _SplashPageState extends State<SplashPage> {
     );
     debugPrint('================================');
 
-   
+    // Priority 1: Pattern verification needed (highest priority)
     if (needsPatternVerification || appWasClosedAfterLogout) {
       if (appLockEnabled) {
         debugPrint('Pattern verification required - showing pattern lock');
@@ -119,7 +119,7 @@ class _SplashPageState extends State<SplashPage> {
       if (mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const SaveApp()),
+          MaterialPageRoute(builder: (context) => SaveApp()),
         );
       }
     }

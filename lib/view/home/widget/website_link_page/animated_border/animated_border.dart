@@ -1,18 +1,19 @@
-// animated_border_widget.dart
-import 'dart:ui';
 
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 
+import 'package:get/get.dart';
+
 class AnimatedBorderWidget extends StatefulWidget {
   final Widget child;
-  final String borderType; // 'electric', 'rainbow', 'fire', 'ocean', 'custom'
+  final String borderType; 
   final List<Color>? customColors;
   final double borderWidth;
   final double glowSize;
-  final int animationDuration; // in milliseconds
+  final int animationDuration; 
   final BorderRadius? borderRadius;
-  final bool isActive; // Controls when animation starts/stops
+  final bool isActive; 
 
   const AnimatedBorderWidget({
     Key? key,
@@ -186,7 +187,6 @@ class _AnimatedBorderWidgetState extends State<AnimatedBorderWidget>
   }
 }
 
-// Custom Animated Border Implementation
 class CustomAnimatedBorder extends StatelessWidget {
   final Widget child;
   final double borderSize;
@@ -469,6 +469,7 @@ class AnimatedTextField extends StatefulWidget {
 
   const AnimatedTextField({
     Key? key,
+    required OnTap,
     required this.controller,
     required this.labelText,
     this.borderType = 'electric',

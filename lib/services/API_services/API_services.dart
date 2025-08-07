@@ -1,8 +1,9 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:new_project_2025/services/API_services/version_check/version_model.dart';
 import 'package:new_project_2025/view/home/widget/Invoice_page/class_invoice/Model_class_invoice.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:new_project_2025/view/home/widget/setting_page/app_update/app_update_class.dart'; 
+import 'package:new_project_2025/view/home/widget/setting_page/app_update/app_update_class.dart';
 
 class ApiHelper {
   final String baseurl = "https://mysaving.in/IntegraAccount/api/";
@@ -54,12 +55,22 @@ class ApiHelper {
     }
   }
 
+  Future<AppVersionModel1> checkAppVersion1() async {
+    // Your existing implementation
+    throw UnimplementedError(
+      'Use your existing ApiHelper checkAppVersion method',
+    );
+  }
+
   // Verify user credentials before deletion
-  Future<Map<String, dynamic>> verifyUserCredentials(String mobile, String password) async {
+  Future<Map<String, dynamic>> verifyUserCredentials(
+    String mobile,
+    String password,
+  ) async {
     final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
     final prefs = await SharedPreferences.getInstance();
     String? token = await prefs.getString('token');
-    
+
     Map<String, String> headers = {
       "Authorization": (token != null && token.isNotEmpty) ? token : "",
       "Content-Type": "application/x-www-form-urlencoded",
@@ -91,7 +102,7 @@ class ApiHelper {
     final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
     final prefs = await SharedPreferences.getInstance();
     String? token = await prefs.getString('token');
-    
+
     Map<String, String> headers = {
       "Authorization": (token != null && token.isNotEmpty) ? token : "",
       "Content-Type": "application/x-www-form-urlencoded",

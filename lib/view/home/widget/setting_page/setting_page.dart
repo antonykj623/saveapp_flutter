@@ -10,6 +10,167 @@ import 'package:new_project_2025/view/home/widget/setting_page/bill_header/bill_
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:new_project_2025/app/Modules/login/login_page.dart';
 
+// LogoutHelper class moved to the top
+class LogoutHelper {
+  /// Logout function that preserves theme settings and handles app lock
+  static Future<void> logoutUser() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Get current theme preference and app lock settings before clearing data
+      bool? currentTheme = prefs.getBool('user_preferred_theme');
+      bool appLockEnabled = prefs.getBool('app_lock_enabled') ?? false;
+      String? lockPattern = prefs.getString('lock_pattern');
+
+      debugPrint('=== Logout Process Started ===');
+      debugPrint(
+        'Current theme before logout: ${currentTheme != null ? (currentTheme ? "Dark" : "Light") : "Default"}',
+      );
+      debugPrint('App lock enabled: $appLockEnabled');
+
+      // Store settings to preserve
+      Map<String, dynamic> settingsToPreserve = {};
+
+      // Preserve theme setting
+      if (currentTheme != null) {
+        settingsToPreserve['user_preferred_theme'] = currentTheme;
+      }
+
+      // Preserve app lock settings
+      if (appLockEnabled) {
+        settingsToPreserve['app_lock_enabled'] = appLockEnabled;
+        settingsToPreserve['needs_pattern_verification'] = true;
+        settingsToPreserve['app_was_closed_after_logout'] = true;
+
+        if (lockPattern != null && lockPattern.isNotEmpty) {
+          settingsToPreserve['lock_pattern'] = lockPattern;
+        }
+      }
+
+      // Clear all user session data
+      await prefs.remove('token');
+      await prefs.remove('user_id');
+      await prefs.remove('user_email');
+      await prefs.remove('user_name');
+      await prefs.remove('user_profile_data');
+      await prefs.remove('is_logged_in');
+
+      // Restore preserved settings
+      for (String key in settingsToPreserve.keys) {
+        final value = settingsToPreserve[key];
+        if (value is bool) {
+          await prefs.setBool(key, value);
+        } else if (value is String) {
+          await prefs.setString(key, value);
+        } else if (value is int) {
+          await prefs.setInt(key, value);
+        } else if (value is double) {
+          await prefs.setDouble(key, value);
+        }
+      }
+
+      debugPrint('=== Logout Process Completed ===');
+      debugPrint('User session cleared, settings preserved');
+      debugPrint(
+        'Theme preserved: ${currentTheme != null ? (currentTheme ? "Dark" : "Light") : "Default"}',
+      );
+      debugPrint('App lock preserved: $appLockEnabled');
+    } catch (e) {
+      debugPrint('Error during logout: $e');
+      rethrow; // Re-throw to handle in calling function
+    }
+  }
+
+  /// Clear all app data (use with caution - this will reset theme and app lock too)
+  static Future<void> clearAllData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+      debugPrint('All app data cleared including theme and app lock settings');
+    } catch (e) {
+      debugPrint('Error clearing all data: $e');
+    }
+  }
+
+  /// Reset only theme to default (dark)
+  static Future<void> resetThemeToDefault() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('user_preferred_theme', true); // Default to dark
+      debugPrint('Theme reset to default (Dark)');
+    } catch (e) {
+      debugPrint('Error resetting theme: $e');
+    }
+  }
+
+  /// Get current theme setting
+  static Future<bool> getCurrentTheme() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool('user_preferred_theme') ?? true; // Default to dark
+    } catch (e) {
+      debugPrint('Error getting theme: $e');
+      return true; // Default to dark theme
+    }
+  }
+
+  /// Check if user is logged in
+  static Future<bool> isUserLoggedIn() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      String? token = prefs.getString('token');
+      bool? isLoggedIn = prefs.getBool('is_logged_in');
+      return (token != null && token.isNotEmpty) || (isLoggedIn == true);
+    } catch (e) {
+      debugPrint('Error checking login status: $e');
+      return false;
+    }
+  }
+
+  /// Check if app lock verification is needed
+  static Future<bool> needsPatternVerification() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      bool appLockEnabled = prefs.getBool('app_lock_enabled') ?? false;
+      bool needsVerification =
+          prefs.getBool('needs_pattern_verification') ?? false;
+      return appLockEnabled && needsVerification;
+    } catch (e) {
+      debugPrint('Error checking pattern verification: $e');
+      return false;
+    }
+  }
+
+  /// Mark pattern verification as completed
+  static Future<void> markPatternVerified() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('needs_pattern_verification', false);
+      await prefs.setBool('app_was_closed_after_logout', false);
+      debugPrint('Pattern verification marked as completed');
+    } catch (e) {
+      debugPrint('Error marking pattern verified: $e');
+    }
+  }
+
+  /// Debug function to print all stored preferences
+  static Future<void> debugPrintAllPreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final keys = prefs.getKeys();
+
+      debugPrint('=== All Stored Preferences ===');
+      for (String key in keys) {
+        final value = prefs.get(key);
+        debugPrint('$key: $value');
+      }
+      debugPrint('==============================');
+    } catch (e) {
+      debugPrint('Error printing preferences: $e');
+    }
+  }
+}
+
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({Key? key}) : super(key: key);
 
@@ -142,45 +303,46 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   Future<void> _handleLogout() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      // Call LogoutHelper's logoutUser function
+      await LogoutHelper.logoutUser();
 
-      // Check current app lock settings before logout
-      bool appLockEnabled = prefs.getBool('app_lock_enabled') ?? false;
-      String? lockPattern = prefs.getString('lock_pattern');
-
-      // Remove token
-      await prefs.remove('token');
-
-      // Set flags for next launch
-      if (appLockEnabled && lockPattern != null && lockPattern.isNotEmpty) {
-        await prefs.setBool('needs_pattern_verification', true);
-        await prefs.setBool('app_was_closed_after_logout', true);
-        debugPrint(
-          'App lock is enabled - pattern will be required on next launch',
-        );
-      } else {
-        await prefs.setBool('needs_pattern_verification', false);
-        await prefs.setBool('app_was_closed_after_logout', false);
-      }
-
-      debugPrint('Logout completed, app will now exit');
-
-      // Show message
+      // Show success message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Logged out successfully. App will close.'),
-            duration: Duration(seconds: 1),
+            content: Text('Logged out successfully. Settings preserved.'),
+            duration: Duration(seconds: 2),
             backgroundColor: Colors.green,
           ),
         );
       }
 
       // Delay to show snackbar, then exit
-      await Future.delayed(const Duration(milliseconds: 1500));
+      await Future.delayed(const Duration(milliseconds: 2000));
       SystemNavigator.pop();
+
+      // Optional: Navigate to LoginPage instead of exiting
+      // Navigator.pushAndRemoveUntil(
+      //   context,
+      //   MaterialPageRoute(builder: (context) => LoginPage()),
+      //   (route) => false, // Remove all previous routes
+      // );
     } catch (e) {
       debugPrint('Error during logout: $e');
+
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Logout failed: $e'),
+            duration: const Duration(seconds: 2),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+
+      // Still exit even if there's an error
+      await Future.delayed(const Duration(milliseconds: 2000));
       SystemNavigator.pop();
     }
   }
@@ -349,13 +511,16 @@ class _SettingsScreenState extends State<SettingsScreen>
                               applock =
                                   prefs.getString('lock_pattern') ?? "no value";
                             });
-                            if (appLockEnabled || applock.isEmpty) {
+                            if (appLockEnabled || applock == "no value") {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder: (context) => LockPatternPage(),
                                 ),
-                              );
+                              ).then((_) {
+                                // Refresh app lock state when returning from pattern page
+                                loadAppLockState();
+                              });
                             } else {
                               debugPrint('App Lock is disabled');
                             }
