@@ -4,9 +4,11 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:get/get.dart';
 import 'package:new_project_2025/view/home/dream_page/dream_class/db_class.dart';
 import 'package:new_project_2025/view/home/widget/More_page/More_page.dart';
 import 'package:new_project_2025/view/home/widget/insurance/insurance_database/Insurance_list_page/insurance_list_page.dart';
+import 'package:new_project_2025/view/home/widget/payment_recharge/Recharge_screen.dart';
 import 'package:new_project_2025/view_model/Accountfiles/CashAccount.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
@@ -154,7 +156,6 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
   Future<void> _saveThemePreference(bool isDark) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      // Use a persistent theme key that doesn't get cleared on logout
       await prefs.setBool('user_preferred_theme', isDark);
       debugPrint('Theme saved: ${isDark ? "Dark" : "Light"}');
     } catch (e) {
@@ -166,11 +167,9 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
   Future<void> _loadThemePreference() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      // Use the persistent theme key
       bool? savedTheme = prefs.getBool('user_preferred_theme');
 
       setState(() {
-        // If no saved preference, default to dark theme
         isDarkTheme = savedTheme ?? true;
         _isLoadingTheme = false;
       });
@@ -190,10 +189,8 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
     setState(() {
       isDarkTheme = !isDarkTheme;
     });
-    // Save the theme preference immediately
     _saveThemePreference(isDarkTheme);
 
-    // Show feedback to user
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -261,7 +258,6 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Container(
             padding: const EdgeInsets.all(20.0),
             decoration: BoxDecoration(
@@ -363,7 +359,6 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
               ],
             ),
           ),
-          // Chart content
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(20.0),
@@ -463,7 +458,6 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
               ),
             ),
           ),
-          // Action buttons
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -585,7 +579,6 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    // Show loading indicator while theme is being loaded
     if (_isLoadingTheme) {
       return Scaffold(
         body: Container(
@@ -608,37 +601,39 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
     return Scaffold(
       backgroundColor:
           isDarkTheme ? const Color(0xFF0A0A0A) : const Color(0xFFF5F5F5),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors:
-                isDarkTheme
-                    ? [
-                      const Color(0xFF0A0A0A),
-                      const Color(0xFF1A1A1A),
-                      const Color(0xFF0A0A0A),
-                    ]
-                    : [
-                      const Color(0xFFF5F5F5),
-                      const Color(0xFFE0ECEC),
-                      const Color(0xFFF5F5F5),
-                    ],
-          ),
-        ),
-        child: Column(
-          children: [
-            _buildAppBar(),
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [_buildHomePage(), ReportScreen(), More()],
-              ),
+      body: SafeArea(
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors:
+                  isDarkTheme
+                      ? [
+                        const Color(0xFF0A0A0A),
+                        const Color(0xFF1A1A1A),
+                        const Color(0xFF0A0A0A),
+                      ]
+                      : [
+                        const Color(0xFFF5F5F5),
+                        const Color(0xFFE0ECEC),
+                        const Color(0xFFF5F5F5),
+                      ],
             ),
-            _buildBottomNavBar(),
-          ],
+          ),
+          child: Column(
+            children: [
+              _buildAppBar(),
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [_buildHomePage(), ReportScreen(), More()],
+                ),
+              ),
+              _buildBottomNavBar(),
+            ],
+          ),
         ),
       ),
     );
@@ -688,38 +683,31 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
         ],
       ),
       padding: const EdgeInsets.only(
-        top: 40.0,
-        left: 16.0,
-        right: 16.0,
-        bottom: 20.0,
+        top: 20.0, // Reduced top padding
+        left: 12.0,
+        right: 12.0,
+        bottom: 12.0,
       ),
       child: Column(
         children: [
-          // Main App Bar Content
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Left side with animated logo and text
-              Expanded(
-                flex: 2,
-                child: Row(
-                  children: [
-                    _buildAnimatedLogo(),
-                    const SizedBox(width: 12),
-                    Flexible(child: _buildAnimatedTitle()),
-                  ],
-                ),
-              ),
-
-              // Right side with action buttons
-              Flexible(child: _buildActionButtons()),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Logo
+                  _buildAnimatedLogo(),
+                  const SizedBox(width: 8),
+                  // Title
+                  Expanded(child: _buildAnimatedTitle()),
+                  // Action buttons
+                  _buildActionButtons(),
+                ],
+              );
+            },
           ),
-
-          const SizedBox(height: 15),
-
-          // Animated Balance Card
-          // _buildBalanceCard(),
+          const SizedBox(height: 10),
         ],
       ),
     );
@@ -735,14 +723,14 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
             MaterialPageRoute(builder: (context) => NotificationScreen()),
           );
         }, const Color(0xFFFF6B6B)),
-        const SizedBox(width: 8),
+        const SizedBox(width: 4),
         _buildEnhancedButton(Icons.settings_outlined, () {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => SettingsScreen()),
           );
         }, const Color(0xFF4ECDC4)),
-        const SizedBox(width: 8),
+        const SizedBox(width: 4),
         _buildThemeToggleButton(),
       ],
     );
@@ -763,6 +751,12 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
             onTapDown: (_) => HapticFeedback.lightImpact(),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
+              constraints: const BoxConstraints(
+                minWidth: 32,
+                minHeight: 32,
+                maxWidth: 36,
+                maxHeight: 36,
+              ),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
@@ -772,7 +766,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                     accentColor.withOpacity(0.1),
                   ],
                 ),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: accentColor.withOpacity(0.3),
                   width: 1,
@@ -780,8 +774,8 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                 boxShadow: [
                   BoxShadow(
                     color: accentColor.withOpacity(0.2),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
+                    blurRadius: 6,
+                    offset: const Offset(0, 3),
                   ),
                 ],
               ),
@@ -789,10 +783,13 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: onPressed,
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    child: Icon(icon, color: accentColor, size: 22),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Center(
+                    child: Icon(
+                      icon,
+                      color: accentColor,
+                      size: 16, // Reduced icon size
+                    ),
                   ),
                 ),
               ),
@@ -815,6 +812,12 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 600),
               curve: Curves.elasticOut,
+              constraints: const BoxConstraints(
+                minWidth: 32,
+                minHeight: 32,
+                maxWidth: 36,
+                maxHeight: 36,
+              ),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
@@ -830,7 +833,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                             const Color(0xFF9C27B0).withOpacity(0.2),
                           ],
                 ),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color:
                       isDarkTheme
@@ -844,8 +847,8 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                         isDarkTheme
                             ? const Color(0xFFFFA726).withOpacity(0.3)
                             : const Color(0xFF3F51B5).withOpacity(0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 6),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
@@ -856,9 +859,8 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                     HapticFeedback.heavyImpact();
                     _toggleTheme();
                   },
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Center(
                     child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 400),
                       transitionBuilder: (child, animation) {
@@ -876,7 +878,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                             isDarkTheme
                                 ? const Color(0xFFFFA726)
                                 : const Color(0xFF3F51B5),
-                        size: 22,
+                        size: 16, // Reduced icon size
                       ),
                     ),
                   ),
@@ -889,162 +891,18 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
     );
   }
 
-  // Widget _buildBalanceCard() {
-  //   return TweenAnimationBuilder<double>(
-  //     duration: const Duration(milliseconds: 1800),
-  //     tween: Tween<double>(begin: 0, end: 1),
-  //     curve: Curves.elasticOut,
-  //     builder: (context, value, child) {
-  //       return Transform.scale(
-  //         scale: 0.9 + (0.1 * value),
-  //         child: Transform.translate(
-  //           offset: Offset(0, 30 * (1 - value)),
-  //           child: Opacity(
-  //             opacity: value,
-  //             child: Container(
-  //               width: double.infinity,
-  //               padding: const EdgeInsets.symmetric(
-  //                 horizontal: 20,
-  //                 vertical: 15,
-  //               ),
-  //               decoration: BoxDecoration(
-  //                 gradient: LinearGradient(
-  //                   begin: Alignment.centerLeft,
-  //                   end: Alignment.centerRight,
-  //                   colors:
-  //                       isDarkTheme
-  //                           ? [
-  //                             Colors.white.withOpacity(0.1),
-  //                             Colors.white.withOpacity(0.05),
-  //                           ]
-  //                           : [
-  //                             Colors.white.withOpacity(0.9),
-  //                             Colors.white.withOpacity(0.7),
-  //                           ],
-  //                 ),
-  //                 borderRadius: BorderRadius.circular(20),
-  //                 border: Border.all(
-  //                   color:
-  //                       isDarkTheme
-  //                           ? Colors.white.withOpacity(0.2)
-  //                           : Colors.white.withOpacity(0.5),
-  //                   width: 1,
-  //                 ),
-  //                 boxShadow: [
-  //                   BoxShadow(
-  //                     color: Colors.black.withOpacity(0.1),
-  //                     blurRadius: 20,
-  //                     offset: const Offset(0, 8),
-  //                   ),
-  //                 ],
-  //               ),
-  //               child: Row(
-  //                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  //                 children: [
-  //                   Column(
-  //                     crossAxisAlignment: CrossAxisAlignment.start,
-  //                     children: [
-  //                       Text(
-  //                         'Total Balance',
-  //                         style: TextStyle(
-  //                           color:
-  //                               isDarkTheme
-  //                                   ? Colors.white.withOpacity(0.7)
-  //                                   : const Color(0xFF667EEA).withOpacity(0.8),
-  //                           fontSize: 12,
-  //                           fontWeight: FontWeight.w500,
-  //                         ),
-  //                       ),
-  //                       const SizedBox(height: 4),
-  //                       // Animated balance amount
-  //                       TweenAnimationBuilder<double>(
-  //                         duration: const Duration(milliseconds: 2500),
-  //                         tween: Tween<double>(begin: 0, end: 42850),
-  //                         builder: (context, balanceValue, child) {
-  //                           return Text(
-  //                             '₹${balanceValue.toStringAsFixed(0)}',
-  //                             style: TextStyle(
-  //                               color:
-  //                                   isDarkTheme
-  //                                       ? Colors.white
-  //                                       : const Color(0xFF667EEA),
-  //                               fontSize: 18,
-  //                               fontWeight: FontWeight.bold,
-  //                             ),
-  //                           );
-  //                         },
-  //                       ),
-  //                     ],
-  //                   ),
-  //                   // Animated chart icon
-  //                   TweenAnimationBuilder<double>(
-  //                     duration: const Duration(milliseconds: 2000),
-  //                     tween: Tween<double>(begin: 0, end: 1),
-  //                     builder: (context, iconValue, child) {
-  //                       return Transform.rotate(
-  //                         angle: iconValue * 0.5, // Slight rotation
-  //                         child: Container(
-  //                           padding: const EdgeInsets.all(8),
-  //                           decoration: BoxDecoration(
-  //                             gradient: LinearGradient(
-  //                               colors:
-  //                                   isDarkTheme
-  //                                       ? [
-  //                                         const Color(0xFF4ECDC4),
-  //                                         const Color(0xFF44A08D),
-  //                                       ]
-  //                                       : [
-  //                                         const Color(0xFF667EEA),
-  //                                         const Color(0xFF764BA2),
-  //                                       ],
-  //                             ),
-  //                             borderRadius: BorderRadius.circular(10),
-  //                             boxShadow: [
-  //                               BoxShadow(
-  //                                 color:
-  //                                     isDarkTheme
-  //                                         ? const Color(
-  //                                           0xFF4ECDC4,
-  //                                         ).withOpacity(0.3)
-  //                                         : const Color(
-  //                                           0xFF667EEA,
-  //                                         ).withOpacity(0.3),
-  //                                 blurRadius: 8,
-  //                                 offset: const Offset(0, 4),
-  //                               ),
-  //                             ],
-  //                           ),
-  //                           child: Icon(
-  //                             Icons.trending_up_rounded,
-  //                             color: Colors.white,
-  //                             size: 20,
-  //                           ),
-  //                         ),
-  //                       );
-  //                     },
-  //                   ),
-  //                 ],
-  //               ),
-  //             ),
-  //           ),
-  //         ),
-  //       );
-  //     },
-  //   );
-  // }
-
   Widget _buildAnimatedLogo() {
     return TweenAnimationBuilder<double>(
       duration: const Duration(milliseconds: 2000),
       tween: Tween<double>(begin: 0, end: 1),
       builder: (context, value, child) {
         return Transform.rotate(
-          angle: value * 2 * 3.14159, // Full rotation
+          angle: value * 2 * 3.14159,
           child: Transform.scale(
-            scale: 0.8 + (0.2 * value), // Scale from 0.8 to 1.0
+            scale: 0.8 + (0.2 * value),
             child: Container(
-              width: 50,
-              height: 50,
+              width: 40, // Reduced size
+              height: 40,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
@@ -1062,7 +920,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                             const Color(0xFFF093FB),
                           ],
                 ),
-                borderRadius: BorderRadius.circular(25),
+                borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
                     color:
@@ -1077,15 +935,13 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  // Outer ring animation
                   TweenAnimationBuilder<double>(
                     duration: const Duration(milliseconds: 3000),
                     tween: Tween<double>(begin: 0, end: 1),
                     builder: (context, ringValue, child) {
                       return Container(
-                        width:
-                            40 + (10 * sin(ringValue * 6.28)), // Pulsing effect
-                        height: 40 + (10 * sin(ringValue * 6.28)),
+                        width: 32 + (8 * sin(ringValue * 6.28)),
+                        height: 32 + (8 * sin(ringValue * 6.28)),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
@@ -1096,20 +952,18 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                       );
                     },
                   ),
-                  // App Icon Image
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(16),
                     child: Image.asset(
-                      'assets/appicon.png', // Make sure this path matches your asset structure
-                      width: 40,
-                      height: 40,
+                      'assets/appicon.png',
+                      width: 32,
+                      height: 32,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
-                        // Fallback to the original wallet icon if image fails to load
                         return Icon(
                           Icons.account_balance_wallet_outlined,
                           color: Colors.white,
-                          size: 30,
+                          size: 24,
                         );
                       },
                     ),
@@ -1129,13 +983,13 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       tween: Tween<double>(begin: 0, end: 1),
       builder: (context, value, child) {
         return Transform.translate(
-          offset: Offset(50 * (1 - value), 0), // Slide in from right
+          offset: Offset(30 * (1 - value), 0),
           child: Opacity(
             opacity: value,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // Main title with gradient text effect
                 ShaderMask(
                   shaderCallback:
                       (bounds) => LinearGradient(
@@ -1147,39 +1001,30 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                                   const Color(0xFF764BA2),
                                 ],
                       ).createShader(bounds),
-                  child: const Text(
+                  child: Text(
                     'My Personal App',
                     style: TextStyle(
-                      fontSize: 20,
+                      fontSize: 18, // Reduced font size
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
                     overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ),
-                // Subtitle with typing animation
-                TweenAnimationBuilder<int>(
-                  duration: const Duration(milliseconds: 2000),
-                  tween: IntTween(begin: 0, end: 25),
-                  builder: (context, letterCount, child) {
-                    String subtitle = 'Your financial companion';
-                    String displayText = subtitle.substring(
-                      0,
-                      letterCount.clamp(0, subtitle.length),
-                    );
-                    return Text(
-                      displayText,
-                      style: TextStyle(
-                        color:
-                            isDarkTheme
-                                ? Colors.white.withOpacity(0.8)
-                                : const Color(0xFF667EEA).withOpacity(0.8),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    );
-                  },
+                const SizedBox(height: 2),
+                Text(
+                  'Your financial companion',
+                  style: TextStyle(
+                    color:
+                        isDarkTheme
+                            ? Colors.white.withOpacity(0.8)
+                            : const Color(0xFF667EEA).withOpacity(0.8),
+                    fontSize: 10, // Reduced font size
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
               ],
             ),
@@ -1208,10 +1053,10 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
         icon: Icon(
           icon,
           color: isDarkTheme ? Colors.white : Colors.teal,
-          size: 20,
+          size: 18,
         ),
         onPressed: onPressed,
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(6),
         constraints: const BoxConstraints(),
       ),
     );
@@ -1725,7 +1570,6 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Icon
               AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 child: Icon(
@@ -1739,10 +1583,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                           : Colors.grey.shade600,
                 ),
               ),
-
               const SizedBox(height: 4),
-
-              // Label with proper constraints
               Flexible(
                 child: AnimatedDefaultTextStyle(
                   duration: const Duration(milliseconds: 200),
@@ -1983,7 +1824,11 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       icon: Icons.smartphone,
       label: 'Mobile Recharge',
       iconColor: Colors.teal,
-      onPressed: (BuildContext context) => debugPrint('Mobile Recharge tapped'),
+      onPressed:
+          (BuildContext context) => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => MobileRechargeScreen()),
+          ),
     ),
     CategoryItem(
       icon: Icons.satellite_alt,

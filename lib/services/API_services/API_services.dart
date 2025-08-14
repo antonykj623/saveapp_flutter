@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'package:new_project_2025/services/API_services/version_check/version_model.dart';
 import 'package:new_project_2025/view/home/widget/Invoice_page/class_invoice/Model_class_invoice.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -54,6 +55,167 @@ class ApiHelper {
       );
     }
   }
+
+  // ===== NOTIFICATION METHODS =====
+
+  /// Get all notifications
+  Future<List<dynamic>> getNotifications() async {
+    final timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
+    
+    try {
+      String response = await getApiResponse(
+        "getNotificationsData.php?timestamp=$timestamp",
+      );
+      
+      final decodedResponse = json.decode(response);
+      
+      if (decodedResponse['status'] == 1 && decodedResponse['data'] is List) {
+        return decodedResponse['data'];
+      } else {
+        throw Exception('Invalid response format or no data available');
+      }
+    } catch (e) {
+      throw Exception('Failed to fetch notifications: $e');
+    }
+  }
+
+  /// Get notifications with filters
+  Future<List<dynamic>> getNotificationsWithFilters({
+    String? dateOrder,
+    String? status,
+    String? category,
+    int? limit,
+  }) async {
+    final timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
+    String url = "getNotificationsData.php?timestamp=$timestamp";
+
+    if (dateOrder != null && dateOrder.isNotEmpty) {
+      url += '&dateorder=$dateOrder';
+    }
+
+    if (status != null && status.isNotEmpty) {
+      url += '&status=$status';
+    }
+
+    if (category != null && category.isNotEmpty) {
+      url += '&category=$category';
+    }
+
+    if (limit != null && limit > 0) {
+      url += '&limit=$limit';
+    }
+
+    try {
+      String response = await getApiResponse(url);
+      final decodedResponse = json.decode(response);
+      
+      if (decodedResponse['status'] == 1 && decodedResponse['data'] is List) {
+        return decodedResponse['data'];
+      } else {
+        throw Exception('Invalid response format or no data available');
+      }
+    } catch (e) {
+      throw Exception('Failed to fetch filtered notifications: $e');
+    }
+  }
+
+  /// Get notifications by date range
+  Future<List<dynamic>> getNotificationsByDateRange({
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    final timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
+    final startDateStr = DateFormat('yyyy-MM-dd').format(startDate);
+    final endDateStr = DateFormat('yyyy-MM-dd').format(endDate);
+    
+    String url = "getNotificationsData.php?timestamp=$timestamp"
+        "&start_date=$startDateStr&end_date=$endDateStr";
+
+    try {
+      String response = await getApiResponse(url);
+      final decodedResponse = json.decode(response);
+      
+      if (decodedResponse['status'] == 1 && decodedResponse['data'] is List) {
+        return decodedResponse['data'];
+      } else {
+        throw Exception('Invalid response format or no data available');
+      }
+    } catch (e) {
+      throw Exception('Failed to fetch notifications by date range: $e');
+    }
+  }
+
+  /// Mark notification as read
+  Future<Map<String, dynamic>> markNotificationAsRead(int notificationId) async {
+    final timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
+    final postData = {
+      'notification_id': notificationId.toString(),
+      'timestamp': timestamp,
+      'status': 'read',
+    };
+
+    try {
+      String response = await postApiResponse('updateNotificationStatus.php', postData);
+      return json.decode(response);
+    } catch (e) {
+      throw Exception('Failed to mark notification as read: $e');
+    }
+  }
+
+  /// Mark all notifications as read
+  Future<Map<String, dynamic>> markAllNotificationsAsRead() async {
+    final timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
+    final postData = {
+      'timestamp': timestamp,
+      'action': 'mark_all_read',
+    };
+
+    try {
+      String response = await postApiResponse('updateAllNotificationsStatus.php', postData);
+      return json.decode(response);
+    } catch (e) {
+      throw Exception('Failed to mark all notifications as read: $e');
+    }
+  }
+
+  /// Delete notification
+  Future<Map<String, dynamic>> deleteNotification(int notificationId) async {
+    final timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
+    final postData = {
+      'notification_id': notificationId.toString(),
+      'timestamp': timestamp,
+    };
+
+    try {
+      String response = await postApiResponse('deleteNotification.php', postData);
+      return json.decode(response);
+    } catch (e) {
+      throw Exception('Failed to delete notification: $e');
+    }
+  }
+
+  /// Get notification count (unread)
+  Future<int> getUnreadNotificationCount() async {
+    final timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
+    
+    try {
+      String response = await getApiResponse(
+        "getNotificationCount.php?timestamp=$timestamp&status=unread",
+      );
+      
+      final decodedResponse = json.decode(response);
+      
+      if (decodedResponse['status'] == 1) {
+        return int.parse(decodedResponse['count'].toString());
+      } else {
+        return 0;
+      }
+    } catch (e) {
+      throw Exception('Failed to fetch notification count: $e');
+    }
+  }
+
+  // ===== EXISTING METHODS =====
 
   Future<AppVersionModel1> checkAppVersion1() async {
     // Your existing implementation

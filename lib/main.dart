@@ -42,7 +42,6 @@ class _SplashPageState extends State<SplashPage> {
 
     final prefs = await SharedPreferences.getInstance();
 
-    
     bool needsPatternVerification =
         prefs.getBool('needs_pattern_verification') ?? false;
     bool appLockEnabled = prefs.getBool('app_lock_enabled') ?? false;
@@ -59,7 +58,6 @@ class _SplashPageState extends State<SplashPage> {
     );
     debugPrint('================================');
 
-    // Priority 1: Pattern verification needed (highest priority)
     if (needsPatternVerification || appWasClosedAfterLogout) {
       if (appLockEnabled) {
         debugPrint('Pattern verification required - showing pattern lock');
@@ -71,14 +69,12 @@ class _SplashPageState extends State<SplashPage> {
         }
         return;
       } else {
-        // If app lock is disabled but verification was needed, clear the flag
         await prefs.setBool('needs_pattern_verification', false);
         await prefs.setBool('app_was_closed_after_logout', false);
         debugPrint('App lock disabled - cleared verification flags');
       }
     }
 
-    // Priority 2: If app lock is enabled, check pattern
     if (appLockEnabled) {
       if (lockPattern != null && lockPattern.isNotEmpty) {
         debugPrint('App lock enabled with pattern - showing pattern lock');
@@ -90,7 +86,6 @@ class _SplashPageState extends State<SplashPage> {
         }
         return;
       } else {
-        // No pattern set, but app lock enabled - redirect to set pattern
         debugPrint('App lock enabled but no pattern - redirect to set pattern');
         if (mounted) {
           Navigator.pushReplacement(
@@ -102,7 +97,6 @@ class _SplashPageState extends State<SplashPage> {
       }
     }
 
-    // Priority 3: Check token for login status
     debugPrint('No pattern verification needed - checking token status');
     String? token = prefs.getString('token');
 

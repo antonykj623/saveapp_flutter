@@ -54,7 +54,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   pdf: ^3.11.3
   open_file: ^3.5.10
-  permission_handler: ^11.3.1
+  permission_handler: ^11.0.13
   horizontal_data_table: ^4.3.1
   custom_linear_progress_indicator: ^0.0.4
   blurry_modal_progress_hud: ^1.1.1
@@ -69,6 +69,8 @@ dependencies:
   flutter_image_compress: ^2.1.0
   screenshot: ^3.0.0
   pattern_lock: ^2.0.0
+ 
+  
   
   
 
@@ -80,7 +82,12 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_launcher_icons: ^0.13.1  
+  flutter_launcher_icons: ^0.13.1 
+  flutter_contacts: ^1.1.9+2
+  # flutter_contacts: ^1.1.9+2
+
+ 
+   
 flutter_icons:
   android: true
   ios: true
