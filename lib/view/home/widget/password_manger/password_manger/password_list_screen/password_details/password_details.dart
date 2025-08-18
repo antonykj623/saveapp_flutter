@@ -1,49 +1,31 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui';
-import 'package:http/http.dart' as http;
-import 'package:flutter/foundation.dart';
+
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as path;
-import 'package:shared_preferences/shared_preferences.dart';
-import '../../../../services/API_services/API_services.dart';
-import 'package:intl/intl.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:flutter/widgets.dart';
+import 'package:new_project_2025/model/password_model/password_model_password.dart';
+import 'package:new_project_2025/view/home/widget/home_screen.dart';
 import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 
-import 'documentManager.dart';
+import '../Edit_password/EditPasswordManager.dart';
+import '../Edit_password/Edit_password_screen.dart';
 
-class Adddocumentmanager extends StatefulWidget {
-  const Adddocumentmanager({super.key});
+class AddPasswordPage extends StatefulWidget {
+  // final Function(PasswordEntry) onSave;
 
+  //AddPasswordPage({required this.onSave});
   @override
-  State<Adddocumentmanager> createState() => _SlidebleListState1();
+  _AddPasswordPageState createState() => _AddPasswordPageState();
 }
 
-class _SlidebleListState1 extends State<Adddocumentmanager> {
-  @override
-  void initState() {
-    super.initState();
-
-    // Schedule the dialog to be shown after the widget has been built
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      showmyDialog();
-    });
-  }
-
-  ApiHelper api = ApiHelper();
-
-  late var fileId = "";
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  final TextEditingController name = TextEditingController();
-  final TextEditingController filepick = TextEditingController();
-  static const IconData camera_alt = IconData(
-    0xe130,
-    fontFamily: 'MaterialIcons',
-  );
-  final ImagePicker _picker = ImagePicker();
+class _AddPasswordPageState extends State<AddPasswordPage> {
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _websiteController = TextEditingController();
+  final TextEditingController _remarksController = TextEditingController();
   late AnimationController _buttonHoverController;
   late AnimationController _backgroundController;
   late Animation<double> _buttonScaleAnimation;
@@ -218,372 +200,342 @@ class _SlidebleListState1 extends State<Adddocumentmanager> {
     );
   }
 
-  Future<void> getfileid(File imageFile) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? token = prefs.getString('token');
-    final url = Uri.parse(
-      'https://mysaving.in/IntegraAccount/api/uploadUserDocuments.php',
-    );
-    //final token = 'qwertyuioplkjhgfvbnmlkjiou.OTc0NzQ5Nzk2Nw==.MjVkNTVhZDI4M2FhNDAwYWY0NjRjNzZkNzEzYzA3YWQ=.qwertyuioplkjhgfvbnmlkjiou';
-    final timestamp = DateTime.now().toUtc().toIso8601String();
-
-    print('File path: ${imageFile.path}');
-    print('File exists: ${await imageFile.exists()}');
-    print('File size: ${await imageFile.length()}');
-
-    final request =
-        http.MultipartRequest('POST', url)
-          ..headers.addAll({
-            'Authorization': 'Bearer $token',
-            'x-timestamp': timestamp,
-          })
-          ..files.add(
-            await http.MultipartFile.fromPath(
-              'file',
-              imageFile.path,
-              filename: imageFile.path.split('/').last,
-            ),
-          );
-
-    try {
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-
-      print('Status code: ${response.statusCode}');
-      print('Response body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        try {
-          final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
-          print('Decoded JSON: $jsonResponse');
-
-          // Extract the file ID
-          if (jsonResponse.containsKey('fileid')) {
-            fileId = jsonResponse['fileid'].toString();
-            // updateDoc();
-            print('✅ File ID from API: $fileId');
-
-            // You can now use fileId as needed
-          } else {
-            print('⚠️ fileid key not found in response');
-          }
-        } catch (e) {
-          print('❌ Could not decode response as JSON: $e');
-        }
-      } else {
-        print('❌ Upload failed: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('❌ Error uploading: $e');
-    }
-  }
-
-  void updateDoc(File fileToUpload) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? token = prefs.getString('token');
-
-    if (token == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Token not found. Please login again.')),
-      );
-      return;
-    }
-
-    final timestamp = DateTime.now().toUtc().toIso8601String();
-
-    var uri = Uri.parse(
-      "https://mysaving.in/IntegraAccount/api/updateUserDocuments.php?timestamp=$timestamp",
-    ); // Replace with your actual URL
-    var request = http.MultipartRequest('POST', uri);
-
-    // Attach file
-    request.files.add(
-      await http.MultipartFile.fromPath(
-        'file', // this should match the key expected by your backend
-        fileToUpload.path,
-      ),
-    );
-
-    // Add other fields
-    request.fields['timestamp'] = timestamp;
-    request.fields['token'] = token;
-    request.fields['fileid'] = fileId;
-    try {
-      var response = await request.send();
-
-      if (response.statusCode == 200) {
-        var responseData = await http.Response.fromStream(response);
-        var res = json.decode(responseData.body);
-        debugPrint("Updated Profile Data: $res");
-
-        if (res['status'] == 1) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Profile updated successfully")),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(res['message'] ?? "Update failed")),
-          );
-        }
-      } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("Server error")));
-      }
-    } catch (e) {
-      debugPrint("Error updating profile: $e");
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Something went wrong")));
-    }
-  }
-
-  Future<void> _pickImageFromGallery() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      print('Picked from gallery: ${image.path}');
-    }
-  }
-
-  String _fileName = '';
-  File? _selectedFile;
-  Future<void> _pickDocument() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.any,
-    );
-
-    if (result != null && result.files.single.path != null) {
-      setState(() {
-        _selectedFile = File(result.files.single.path!);
-        _fileName = path.basename(_selectedFile!.path);
-        //filepick.text = _fileName; // 💡 Add this line
-        filepick.text = _selectedFile!.path; // full path
-        print("Selected file: $_fileName");
-      });
-    } else {
-      print("❌ No file selected");
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      key: _scaffoldKey,
-
-      // appBar: AppBar(title: const Text('Add Account Setup')),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
+      backgroundColor: Colors.blueGrey[50],
+      body: Padding(
+        padding: const EdgeInsets.all(0),
+        child: Column(
           children: [
-            DrawerHeader(
-              child: Text('Choose Option'),
-              decoration: BoxDecoration(color: Colors.blue),
+            // ✅ TOP CONTAINER (Back button + title)
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF667eea),
+                    Color(0xFF764ba2),
+                    Color(0xFFF093fb),
+                  ],
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GestureDetector(
+                    //             onTap:() =>  Navigator.pushAndRemoveUntil(
+                    //   context,
+                    //   MaterialPageRoute(builder: (context) => SaveApp()), // use your actual home widget
+                    //       (route) => false,
+                    // ),
+                    onTap: () => Navigator.pop(context),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: IconButton(
+                            icon: Icon(Icons.arrow_back, color: Colors.white),
+                            onPressed: () {
+                              // Navigator.push(
+                              //   context,
+                              //   MaterialPageRoute(
+                              //     builder: (context) => SaveApp(),
+                              //   ),
+                              // );
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Add Password Manager',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-            ListTile(
-              leading: Icon(Icons.photo),
-              title: Text('Gallery'),
-              onTap: () {
-                Navigator.pop(context);
-                //   _pickImageFromGallery();
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.folder),
-              title: Text('From Folder'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickDocument();
-              },
+            // Form content
+            Expanded(
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(18.0),
+                  child: Container(
+                    // decoration: BoxDecoration(
+                    //   gradient: LinearGradient(
+                    //     colors: [
+                    //       Colors.blue,           // Start with white
+                    //       Color(0xFFCFD1EE),      // Light BlueGrey (BlueGrey[100])
+                    //     ], // white to BlueGrey[100] // BlueGrey[700] to BlueGrey[100]
+                    //     //   colors: [Color(0xFF001010), Color(0xFF70e2f5)],
+                    //     begin: Alignment.topCenter,
+                    //     end: Alignment.bottomCenter,
+                    //   ),
+                    //   borderRadius: BorderRadius.circular(20),
+                    // ),
+                    child: Form(
+                      key: _formKey,
+
+                      child: Column(
+                        children: [
+                          SizedBox(height: 10),
+                          AnimatedTextField(
+                            controller: _titleController,
+                            labelText: 'Title',
+                            borderType: _mapBorderType("matrix"),
+                            customColors: _getCustomColors("matrix"),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Title is required';
+                              }
+                            },
+                          ),
+
+                          SizedBox(height: 10),
+                          AnimatedTextField(
+                            controller: _usernameController,
+                            labelText: 'Username',
+                            borderType: _mapBorderType("aurora"),
+                            customColors: _getCustomColors("aurora"),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Username is required';
+                              }
+                            },
+                          ),
+                          SizedBox(height: 10),
+                          _buildPasswordField(),
+                          SizedBox(height: 10),
+                          AnimatedTextField(
+                            controller: _websiteController,
+                            labelText: 'Website',
+                            borderType: _mapBorderType("cyber"),
+                            customColors: _getCustomColors("cyber"),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter Website Link';
+                              }
+                              return null;
+                            },
+                          ),
+                          SizedBox(height: 10),
+                          AnimatedTextField(
+                            controller: _remarksController,
+                            labelText: 'Remarks',
+                            borderType: _mapBorderType("plasma"),
+                            customColors: _getCustomColors("plasma"),
+                            maxLines: 3,
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Remarks is required';
+                              }
+                            },
+                          ),
+                          SizedBox(height: 32),
+                          Center(
+                            child: Container(
+                              width: 200,
+                              child: ElevatedButton(
+                                onPressed: _submitForm,
+                                style: ElevatedButton.styleFrom(
+                                  elevation: 0,
+                                  padding: EdgeInsets.zero,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(25),
+                                  ),
+                                  backgroundColor: Colors.transparent,
+                                  shadowColor: Colors.transparent,
+                                ),
+                                child: Ink(
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color(0xFF667eea),
+                                        Color(0xFF764ba2),
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(25),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(
+                                          0xFF667eea,
+                                        ).withOpacity(0.4),
+                                        blurRadius: 15,
+                                        offset: const Offset(0, 8),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Container(
+                                    alignment: Alignment.center,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 16,
+                                    ),
+                                    child: Text(
+                                      'Submit',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          SizedBox(height: 16),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
       ),
-      body: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF667eea),
-                  Color(0xFF764ba2),
-                  Color(0xFFF093fb),
-                ],
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                GestureDetector(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(Icons.arrow_back, color: Colors.white),
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        ' Add Document Manager',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 
-  void showmyDialog() {
-    showDialog(
-      context: context,
-      // barrierDismissible: false, // Prevent dismissing by tapping outside
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Center(
-            child: Text(
-              'Set Document',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.teal,
-              ),
-            ),
-          ),
-          content: Container(
-            width: 300,
-            height: 300,
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String labelText,
+    int maxLines = 1,
+  }) {
+    return AnimatedTextField(
+      controller: controller,
+      labelText: "Title",
+      borderType: _mapBorderType("neon"),
+      customColors: _getCustomColors("neon"),
 
-            //   color: const Color.fromARGB(255, 255, 255, 255),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-
-              children: [
-                AnimatedTextField(
-                  // enabled: true,
-                  controller: name,
-                  labelText: "Document Name",
-
-                  borderType: _mapBorderType("matrix"),
-                  customColors: _getCustomColors("matrix"),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return ' Name is requiered';
-                    }
-                    return null;
-                  },
-                  //    obscureText: true,
-                ),
-
-                SizedBox(height: 20),
-
-                TextField(
-                  controller: filepick,
-                  readOnly: true,
-
-                  decoration: InputDecoration(
-                    label: Text('$_fileName'),
-                    hintText:
-                        _fileName.isNotEmpty ? _fileName : "No file selected",
-                    suffixIcon: Container(
-                      width: 120,
-                      color: Colors.teal,
-                      child: IconButton(
-                        icon: Icon(Icons.camera_alt),
-                        color: Colors.white,
-                        onPressed: _pickDocument,
-                      ),
-                    ),
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                SizedBox(height: 20),
-                Padding(
-                  padding: const EdgeInsets.only(left: 100.0),
-                  child: Column(
-                    children: [
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              Colors.teal, // background (button) color
-                          foregroundColor:
-                              Colors.white, // foreground (text) color
-                        ),
-
-                        onPressed: () async {
-                          if (_selectedFile == null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text("Please select a file")),
-                            );
-                            return;
-                          }
-
-                          // First upload the file and get fileId
-                          await getfileid(_selectedFile!); // ⬅️ wait for fileId
-
-                          final docname = name.text.trim();
-                          final doclink = filepick.text.trim();
-                          final fileid =
-                              fileId; // ⬅️ now fileId will be available here
-
-                          print("keyid is $fileid");
-
-                          // Prepare your model or map
-                          Map<String, dynamic> docData = {
-                            "doc": docname,
-                            "doclink": doclink,
-                            "fileid": fileid,
-                          };
-
-                          // Save to local DB
-                          await DatabaseHelper().addData(
-                            "TABLE_DOCUMENT",
-                            jsonEncode(docData),
-                          );
-
-                          // Navigate
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => Documentmanager(),
-                            ),
-                          );
-                        },
-
-                        child: Text(
-                          "Save",
-                          style: TextStyle(
-                            color: const Color.fromARGB(255, 255, 255, 255),
-                          ),
-                        ),
-                        //   color: const Color(0xFF1BC0C5),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
+      // TextFormField(
+      // controller: controller,
+      // maxLines: maxLines,
+      // decoration: InputDecoration(
+      //   labelText: labelText,
+      //   filled: true,
+      //   fillColor: Colors.white,
+      //   labelStyle: TextStyle(color: Colors.grey[600]),
+      //   border: OutlineInputBorder(
+      //     borderRadius: BorderRadius.circular(12),
+      //     borderSide: BorderSide(color: Colors.grey[300]!),
+      //   ),
+      //   focusedBorder: OutlineInputBorder(
+      //     borderRadius: BorderRadius.circular(12),
+      //     borderSide: BorderSide(color: Color(0xFF26A69A), width: 2),
+      //   ),
+      //   contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      // ),
+      validator: (value) {
+        if (labelText == 'Title' || labelText == 'Username') {
+          if (value == null || value.isEmpty) {
+            return 'Please enter $labelText';
+          }
+        }
+        return null;
       },
     );
   }
+
+  Widget _buildPasswordField() {
+    return AnimatedTextField(
+      labelText: 'Password',
+      borderType: _mapBorderType("galaxy"),
+      customColors: _getCustomColors("galaxy"),
+      controller: _passwordController,
+      obscureText: _obscurePassword,
+      prefixIcon: Icon(Icons.lock_rounded, color: Colors.green[500], size: 26),
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'Password is required';
+        }
+      },
+    );
+  }
+
+  void _submitForm() async {
+    if (_formKey.currentState!.validate()) {
+      try {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Processing Data')));
+
+        final title = _titleController.text;
+        final username = _usernameController.text;
+        final password = _passwordController.text;
+        final website = _websiteController.text;
+        final remarks = _remarksController.text;
+        Map<String, dynamic> passwordData = {
+          "title": title,
+          "uname": username,
+          "passwd": password,
+          "website": website,
+          "remarks": remarks,
+        };
+
+        // Save to database
+        await DatabaseHelper().addData(
+          "TABLE_PASSWORD",
+          jsonEncode(passwordData),
+        );
+
+        // Show success message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('passwordData  added successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => listpasswordData()),
+          );
+        }
+      } catch (e) {
+        print('Error saving account: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error saving account: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _usernameController.dispose();
+    _passwordController.dispose();
+    _websiteController.dispose();
+    _remarksController.dispose();
+    super.dispose();
+  }
 }
+
+//Animate
 
 class AnimatedBorderWidget extends StatefulWidget {
   final Widget child;

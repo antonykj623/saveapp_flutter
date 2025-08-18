@@ -31,7 +31,6 @@ dependencies:
   flutter:
     sdk: flutter
   get: ^4.7.2
-  carousel_slider: ^5.0.0
   smooth_page_indicator: ^1.2.1 
   hexcolor: ^3.0.1
   syncfusion_flutter_charts: ^29.1.41 
@@ -69,7 +68,8 @@ dependencies:
   flutter_image_compress: ^2.1.0
   screenshot: ^3.0.0
   pattern_lock: ^2.0.0
- 
+  carousel_slider: ^5.1.1
+  
   
   
   

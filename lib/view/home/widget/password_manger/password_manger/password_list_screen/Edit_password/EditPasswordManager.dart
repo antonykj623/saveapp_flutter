@@ -1,54 +1,39 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui';
-import 'package:http/http.dart' as http;
-import 'package:flutter/foundation.dart';
+
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as path;
-import 'package:shared_preferences/shared_preferences.dart';
-import '../../../../services/API_services/API_services.dart';
-import 'package:intl/intl.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:flutter/widgets.dart';
+import 'package:get/get.dart';
+import 'package:new_project_2025/model/password_model/password_model_password.dart';
 import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 
-import 'documentManager.dart';
+import '../Edit_password/Edit_password_screen.dart';
 
-class Adddocumentmanager extends StatefulWidget {
-  const Adddocumentmanager({super.key});
+class EditPasswordPage extends StatefulWidget {
+  final passwordModel entry;
+
+  EditPasswordPage({required this.entry});
 
   @override
-  State<Adddocumentmanager> createState() => _SlidebleListState1();
+  _EditPasswordPageState createState() => _EditPasswordPageState();
 }
 
-class _SlidebleListState1 extends State<Adddocumentmanager> {
-  @override
-  void initState() {
-    super.initState();
 
-    // Schedule the dialog to be shown after the widget has been built
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      showmyDialog();
-    });
-  }
+class _EditPasswordPageState extends State<EditPasswordPage> {
 
-  ApiHelper api = ApiHelper();
-
-  late var fileId = "";
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  final TextEditingController name = TextEditingController();
-  final TextEditingController filepick = TextEditingController();
-  static const IconData camera_alt = IconData(
-    0xe130,
-    fontFamily: 'MaterialIcons',
-  );
-  final ImagePicker _picker = ImagePicker();
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController _titleController;
+  late TextEditingController _usernameController;
+  late TextEditingController _passwordController;
+  late TextEditingController _websiteController;
+  late TextEditingController _remarksController;
+  bool _obscurePassword = true;
   late AnimationController _buttonHoverController;
   late AnimationController _backgroundController;
   late Animation<double> _buttonScaleAnimation;
   late Animation<double> _backgroundAnimation;
-  bool _obscurePassword = true;
+
 
   // Map original border types to new border types
   String _mapBorderType(String originalType) {
@@ -218,206 +203,40 @@ class _SlidebleListState1 extends State<Adddocumentmanager> {
     );
   }
 
-  Future<void> getfileid(File imageFile) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? token = prefs.getString('token');
-    final url = Uri.parse(
-      'https://mysaving.in/IntegraAccount/api/uploadUserDocuments.php',
-    );
-    //final token = 'qwertyuioplkjhgfvbnmlkjiou.OTc0NzQ5Nzk2Nw==.MjVkNTVhZDI4M2FhNDAwYWY0NjRjNzZkNzEzYzA3YWQ=.qwertyuioplkjhgfvbnmlkjiou';
-    final timestamp = DateTime.now().toUtc().toIso8601String();
-
-    print('File path: ${imageFile.path}');
-    print('File exists: ${await imageFile.exists()}');
-    print('File size: ${await imageFile.length()}');
-
-    final request =
-        http.MultipartRequest('POST', url)
-          ..headers.addAll({
-            'Authorization': 'Bearer $token',
-            'x-timestamp': timestamp,
-          })
-          ..files.add(
-            await http.MultipartFile.fromPath(
-              'file',
-              imageFile.path,
-              filename: imageFile.path.split('/').last,
-            ),
-          );
-
-    try {
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-
-      print('Status code: ${response.statusCode}');
-      print('Response body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        try {
-          final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
-          print('Decoded JSON: $jsonResponse');
-
-          // Extract the file ID
-          if (jsonResponse.containsKey('fileid')) {
-            fileId = jsonResponse['fileid'].toString();
-            // updateDoc();
-            print('✅ File ID from API: $fileId');
-
-            // You can now use fileId as needed
-          } else {
-            print('⚠️ fileid key not found in response');
-          }
-        } catch (e) {
-          print('❌ Could not decode response as JSON: $e');
-        }
-      } else {
-        print('❌ Upload failed: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('❌ Error uploading: $e');
-    }
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.entry.title);
+    _usernameController = TextEditingController(text: widget.entry.uname);
+    _passwordController = TextEditingController(text: widget.entry.passwd);
+    _websiteController = TextEditingController(text: widget.entry.website);
+    _remarksController = TextEditingController(text: widget.entry.remarks);
   }
-
-  void updateDoc(File fileToUpload) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? token = prefs.getString('token');
-
-    if (token == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Token not found. Please login again.')),
-      );
-      return;
-    }
-
-    final timestamp = DateTime.now().toUtc().toIso8601String();
-
-    var uri = Uri.parse(
-      "https://mysaving.in/IntegraAccount/api/updateUserDocuments.php?timestamp=$timestamp",
-    ); // Replace with your actual URL
-    var request = http.MultipartRequest('POST', uri);
-
-    // Attach file
-    request.files.add(
-      await http.MultipartFile.fromPath(
-        'file', // this should match the key expected by your backend
-        fileToUpload.path,
-      ),
-    );
-
-    // Add other fields
-    request.fields['timestamp'] = timestamp;
-    request.fields['token'] = token;
-    request.fields['fileid'] = fileId;
-    try {
-      var response = await request.send();
-
-      if (response.statusCode == 200) {
-        var responseData = await http.Response.fromStream(response);
-        var res = json.decode(responseData.body);
-        debugPrint("Updated Profile Data: $res");
-
-        if (res['status'] == 1) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Profile updated successfully")),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(res['message'] ?? "Update failed")),
-          );
-        }
-      } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("Server error")));
-      }
-    } catch (e) {
-      debugPrint("Error updating profile: $e");
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Something went wrong")));
-    }
-  }
-
-  Future<void> _pickImageFromGallery() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      print('Picked from gallery: ${image.path}');
-    }
-  }
-
-  String _fileName = '';
-  File? _selectedFile;
-  Future<void> _pickDocument() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.any,
-    );
-
-    if (result != null && result.files.single.path != null) {
-      setState(() {
-        _selectedFile = File(result.files.single.path!);
-        _fileName = path.basename(_selectedFile!.path);
-        //filepick.text = _fileName; // 💡 Add this line
-        filepick.text = _selectedFile!.path; // full path
-        print("Selected file: $_fileName");
-      });
-    } else {
-      print("❌ No file selected");
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      key: _scaffoldKey,
-
-      // appBar: AppBar(title: const Text('Add Account Setup')),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            DrawerHeader(
-              child: Text('Choose Option'),
-              decoration: BoxDecoration(color: Colors.blue),
-            ),
-            ListTile(
-              leading: Icon(Icons.photo),
-              title: Text('Gallery'),
-              onTap: () {
-                Navigator.pop(context);
-                //   _pickImageFromGallery();
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.folder),
-              title: Text('From Folder'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickDocument();
-              },
-            ),
-          ],
-        ),
-      ),
+     // backgroundColor: Color(0xFF26A69A),
       body: Column(
         children: [
+
           Container(
+
             width: double.infinity,
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: const BoxDecoration(
+            padding:  EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 12,),
+            decoration:  BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF667eea),
-                  Color(0xFF764ba2),
-                  Color(0xFFF093fb),
-                ],
+                colors: [Color(0xFF667eea), Color(0xFF764ba2), Color(0xFFF093fb)],
               ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 GestureDetector(
+                  //onTap: () => Navigator.pop(context),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -427,11 +246,22 @@ class _SlidebleListState1 extends State<Adddocumentmanager> {
                           color: Colors.white.withOpacity(0.15),
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(Icons.arrow_back, color: Colors.white),
+                        child: IconButton(
+                          icon: Icon(Icons.arrow_back, color: Colors.white),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => listpasswordData(),
+                              ),
+                            );
+                            //Navigator.of(context).pop();
+                          },
+                        ),
                       ),
                       SizedBox(width: 8),
                       Text(
-                        ' Add Document Manager',
+                        ' Edit Password Manager',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -441,147 +271,348 @@ class _SlidebleListState1 extends State<Adddocumentmanager> {
                     ],
                   ),
                 ),
+                SizedBox(width: 8),
+
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
 
-  void showmyDialog() {
-    showDialog(
-      context: context,
-      // barrierDismissible: false, // Prevent dismissing by tapping outside
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Center(
-            child: Text(
-              'Set Document',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.teal,
-              ),
-            ),
-          ),
-          content: Container(
-            width: 300,
-            height: 300,
+          Expanded(
+          child: Padding(
+            padding: EdgeInsets.all(8),
+            child: Container(
 
-            //   color: const Color.fromARGB(255, 255, 255, 255),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
 
-              children: [
-                AnimatedTextField(
-                  // enabled: true,
-                  controller: name,
-                  labelText: "Document Name",
-
-                  borderType: _mapBorderType("matrix"),
-                  customColors: _getCustomColors("matrix"),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return ' Name is requiered';
-                    }
-                    return null;
-                  },
-                  //    obscureText: true,
-                ),
-
-                SizedBox(height: 20),
-
-                TextField(
-                  controller: filepick,
-                  readOnly: true,
-
-                  decoration: InputDecoration(
-                    label: Text('$_fileName'),
-                    hintText:
-                        _fileName.isNotEmpty ? _fileName : "No file selected",
-                    suffixIcon: Container(
-                      width: 120,
-                      color: Colors.teal,
-                      child: IconButton(
-                        icon: Icon(Icons.camera_alt),
-                        color: Colors.white,
-                        onPressed: _pickDocument,
-                      ),
-                    ),
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                SizedBox(height: 20),
-                Padding(
-                  padding: const EdgeInsets.only(left: 100.0),
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Form(
+                  key: _formKey,
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              Colors.teal, // background (button) color
-                          foregroundColor:
-                              Colors.white, // foreground (text) color
-                        ),
 
-                        onPressed: () async {
-                          if (_selectedFile == null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text("Please select a file")),
-                            );
-                            return;
-                          }
+                      SizedBox(height: 0),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: Container(
+                            // decoration: BoxDecoration(
+                            //   gradient: LinearGradient(
+                            //     colors: [
+                            //       Colors.blue,           // Start with white
+                            //       Color(0xFFCFD1EE),      // Light BlueGrey (BlueGrey[100])
+                            //     ], // white to BlueGrey[100] // BlueGrey[700] to BlueGrey[100]
+                            //     //   colors: [Color(0xFF001010), Color(0xFF70e2f5)],
+                            //     begin: Alignment.topCenter,
+                            //     end: Alignment.bottomCenter,
+                            //   ),
+                            //   borderRadius: BorderRadius.circular(20),
+                            // ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Column(
+                                children: [
+                                  AnimatedTextField(
+                                    controller: _titleController,
+                                    labelText: 'Title',
+                                    borderType: _mapBorderType("matrix"),
+                                    customColors: _getCustomColors("matrix"),
+                                  ),
+                                  SizedBox(height: 20),
+                                  AnimatedTextField(
+                                    controller: _usernameController,
+                                    labelText: 'Username',
 
-                          // First upload the file and get fileId
-                          await getfileid(_selectedFile!); // ⬅️ wait for fileId
+                                    borderType: _mapBorderType("aurora"),
+                                    customColors: _getCustomColors("aurora"),
+                                  ),
+                                  SizedBox(height: 20),
+                                  _buildPasswordField(),
+                                  SizedBox(height: 20),
+                                  AnimatedTextField(
+                                    controller: _websiteController,
+                                    labelText: 'Website',
+                                    borderType: _mapBorderType("cyber"),
+                                    customColors: _getCustomColors("cyber"),
+                                  ),
+                                  SizedBox(height: 20),
+                                  AnimatedTextField(
+                                    controller: _remarksController,
+                                    labelText: 'Remarks',
+                                    borderType: _mapBorderType("plasma"),
+                                    customColors: _getCustomColors("plasma"),
+                                    maxLines: 3,
+                                  ),
+                                  SizedBox(height: 20,),
+                                  Center(
 
-                          final docname = name.text.trim();
-                          final doclink = filepick.text.trim();
-                          final fileid =
-                              fileId; // ⬅️ now fileId will be available here
+                                    child: Container(
+                                      width: 200,
+                                      child: ElevatedButton(
+                                        onPressed: _submitForm,
+                                        style: ElevatedButton.styleFrom(
+                                          elevation: 0,
+                                          padding: EdgeInsets.zero,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(25),
+                                          ),
+                                          backgroundColor: Colors.transparent,
+                                          shadowColor: Colors.transparent,
+                                        ),
+                                        child: Ink(
+                                          decoration: BoxDecoration(
+                                            gradient: const LinearGradient(
+                                              colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                            ),
+                                            borderRadius: BorderRadius.circular(25),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: const Color(0xFF667eea).withOpacity(0.4),
+                                                blurRadius: 15,
+                                                offset: const Offset(0, 8),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Container(
+                                            alignment: Alignment.center,
+                                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                                            child: Text(
+                                              'Update',
+                                              style: TextStyle(color: Colors.white, fontSize: 18),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
 
-                          print("keyid is $fileid");
+                                  // ElevatedButton(
+                                  //   onPressed: _submitForm,
+                                  //   style: ElevatedButton.styleFrom(
+                                  //     elevation: 0, // Remove default shadow
+                                  //     padding: EdgeInsets.only(left:160,right: 300),
+                                  //     shape: RoundedRectangleBorder(
+                                  //       borderRadius: BorderRadius.circular(25),
+                                  //     ),
+                                  //     backgroundColor: Colors.transparent, // Important for showing gradient
+                                  //     shadowColor: Colors.transparent,
+                                  //   ),
+                                  //   child: Ink(
+                                  //     decoration: BoxDecoration(
+                                  //       gradient: const LinearGradient(
+                                  //         colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                                  //         begin: Alignment.topLeft,
+                                  //         end: Alignment.bottomRight,
+                                  //       ),
+                                  //       borderRadius: BorderRadius.circular(25),
+                                  //       boxShadow: [
+                                  //         BoxShadow(
+                                  //           color: const Color(0xFF667eea).withOpacity(0.4),
+                                  //           blurRadius: 15,
+                                  //           offset: const Offset(0, 8),
+                                  //         ),
+                                  //       ],
+                                  //     ),
+                                  //     child: Container(
+                                  //       alignment: Alignment.center,
+                                  //       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                                  //       child: Text( 'Update',style: TextStyle(color: Colors.white,fontSize: 18),),
+                                  //     ),
+                                  //   ),
+                                  //
+                                  //
+                                  //   // child: Text(
+                                  //   //   'Update',
+                                  //   //   style: TextStyle(
+                                  //   //     fontSize: 18,
+                                  //   //     fontWeight: FontWeight.w600,
+                                  //   //     color: Colors.white,
+                                  //   //   ),
+                                  //   // ),
+                                  // ),
 
-                          // Prepare your model or map
-                          Map<String, dynamic> docData = {
-                            "doc": docname,
-                            "doclink": doclink,
-                            "fileid": fileid,
-                          };
-
-                          // Save to local DB
-                          await DatabaseHelper().addData(
-                            "TABLE_DOCUMENT",
-                            jsonEncode(docData),
-                          );
-
-                          // Navigate
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => Documentmanager(),
+                                ],
+                              ),
                             ),
-                          );
-                        },
-
-                        child: Text(
-                          "Save",
-                          style: TextStyle(
-                            color: const Color.fromARGB(255, 255, 255, 255),
                           ),
                         ),
-                        //   color: const Color(0xFF1BC0C5),
                       ),
+
+
+
+
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
           ),
-        );
+          ),
+     ] ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String labelText,
+    int maxLines = 1,
+  }) {
+    return AnimatedTextField(
+      controller: controller,
+   labelText: labelText,
+      maxLines: maxLines,
+      // decoration: InputDecoration(
+      //   labelText: labelText,
+      //   filled: true,
+      //   fillColor: Colors.white,
+      //   labelStyle: TextStyle(color: Colors.grey[600]),
+      //   border: OutlineInputBorder(
+      //     borderRadius: BorderRadius.circular(12),
+      //     borderSide: BorderSide(color: Colors.grey[300]!),
+      //   ),
+      //   focusedBorder: OutlineInputBorder(
+      //     borderRadius: BorderRadius.circular(12),
+      //     borderSide: BorderSide(color: Color(0xFF26A69A), width: 2),
+      //   ),
+      //   contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      // ),
+      validator: (value) {
+        if (labelText == 'Title' || labelText == 'Username') {
+          if (value == null || value.isEmpty) {
+            return 'Please enter $labelText';
+          }
+        }
+        return null;
       },
     );
+  }
+
+  Widget _buildPasswordField() {
+    return AnimatedTextField(
+      controller: _passwordController,
+     labelText: 'Password',
+      obscureText: _obscurePassword,
+      // decoration: InputDecoration(
+      //   labelText: 'Password',
+      //   filled: true,
+      //   fillColor: Colors.white,
+      //   labelStyle: TextStyle(color: Colors.grey[600]),
+      //   border: OutlineInputBorder(
+      //     borderRadius: BorderRadius.circular(12),
+      //     borderSide: BorderSide(color: Colors.grey[300]!),
+      //   ),
+      //   focusedBorder: OutlineInputBorder(
+      //     borderRadius: BorderRadius.circular(12),
+      //     borderSide: BorderSide(color: Color(0xFF26A69A), width: 2),
+      //   ),
+      //   contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      //   suffixIcon: IconButton(
+      //     icon: Icon(
+      //       _obscurePassword ? Icons.visibility_off : Icons.visibility,
+      //       color: Colors.grey[600],
+      //     ),
+      //     onPressed: () {
+      //       setState(() {
+      //         _obscurePassword = !_obscurePassword;
+      //       });
+      //     },
+      //   ),
+      // ),
+    );
+  }
+
+  void _submitForm() async{
+    if (_formKey.currentState!.validate()) {
+      try {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Processing Data')),
+        );
+
+        final title = _titleController.text;
+        final username = _usernameController.text;
+        final password =  _passwordController.text;
+        final website =  _websiteController.text;
+        final remarks =  _remarksController.text;
+        final keyid = widget.entry.keyid;
+        Map<String, dynamic> passwordupdateData = {
+          "title": title,
+          "uname": username,
+          "passwd": password,
+          "website":website,
+          "remarks": remarks,
+        };
+
+      await DatabaseHelper().updateData(
+          "TABLE_PASSWORD",
+          {'data': jsonEncode(passwordupdateData)},
+          keyid!,
+        );
+
+
+
+
+        // Navigator.push(
+        //   context,
+        //   MaterialPageRoute(
+        //     builder: (context) => Editpasswordmanager( ),
+        //     // builder: (context) => AddPasswordPage(onSave: _addNewEntry),
+        //   ),
+        // );
+        print('Updated Datas are ...$passwordupdateData');
+        // Show success message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'passwordData  updated successfully!',
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.of(context).pop(true);
+
+
+
+
+          // Return true to indicate success and pop the page
+          //Navigator.pop(context, true);
+
+        }
+      } catch (e) {
+        print('Error saving account: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error saving account: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+    // if (_formKey.currentState!.validate()) {
+    //   PasswordEntry newEntry = PasswordEntry(
+    //     title: _titleController.text,
+    //     username: _usernameController.text,
+    //     password: _passwordController.text,
+    //     website: _websiteController.text,
+    //     remarks: _remarksController.text,
+    //   );
+    //
+    //   widget.onSave(newEntry);
+    //   Navigator.pop(context);
+    // }
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _usernameController.dispose();
+    _passwordController.dispose();
+    _websiteController.dispose();
+    _remarksController.dispose();
+    super.dispose();
   }
 }
 
@@ -758,7 +789,7 @@ class _AnimatedBorderWidgetState extends State<AnimatedBorderWidget>
           borderSize: widget.isActive ? widget.borderWidth : 1.0,
           glowSize: widget.isActive ? widget.glowSize : 0.0,
           gradientColors:
-              widget.isActive ? _getGradientColors() : [Colors.grey.shade300],
+          widget.isActive ? _getGradientColors() : [Colors.grey.shade300],
           animationProgress: _animationController.value,
           borderRadius: widget.borderRadius ?? BorderRadius.circular(12),
           child: widget.child,
@@ -792,37 +823,37 @@ class CustomAnimatedBorder extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: borderRadius,
         boxShadow:
-            glowSize > 0
-                ? [
-                  BoxShadow(
-                    color:
-                        gradientColors.isNotEmpty
-                            ? gradientColors[gradientColors.length ~/ 2]
-                                .withOpacity(0.8)
-                            : Colors.blue.withOpacity(0.8),
-                    blurRadius: glowSize,
-                    spreadRadius: glowSize / 4,
-                  ),
-                  BoxShadow(
-                    color:
-                        gradientColors.isNotEmpty
-                            ? gradientColors[gradientColors.length ~/ 3]
-                                .withOpacity(0.5)
-                            : Colors.blue.withOpacity(0.5),
-                    blurRadius: glowSize * 1.5,
-                    spreadRadius: glowSize / 3,
-                  ),
-                  BoxShadow(
-                    color:
-                        gradientColors.isNotEmpty
-                            ? gradientColors[gradientColors.length ~/ 4]
-                                .withOpacity(0.3)
-                            : Colors.blue.withOpacity(0.3),
-                    blurRadius: glowSize * 2,
-                    spreadRadius: glowSize / 2,
-                  ),
-                ]
-                : null,
+        glowSize > 0
+            ? [
+          BoxShadow(
+            color:
+            gradientColors.isNotEmpty
+                ? gradientColors[gradientColors.length ~/ 2]
+                .withOpacity(0.8)
+                : Colors.blue.withOpacity(0.8),
+            blurRadius: glowSize,
+            spreadRadius: glowSize / 4,
+          ),
+          BoxShadow(
+            color:
+            gradientColors.isNotEmpty
+                ? gradientColors[gradientColors.length ~/ 3]
+                .withOpacity(0.5)
+                : Colors.blue.withOpacity(0.5),
+            blurRadius: glowSize * 1.5,
+            spreadRadius: glowSize / 3,
+          ),
+          BoxShadow(
+            color:
+            gradientColors.isNotEmpty
+                ? gradientColors[gradientColors.length ~/ 4]
+                .withOpacity(0.3)
+                : Colors.blue.withOpacity(0.3),
+            blurRadius: glowSize * 2,
+            spreadRadius: glowSize / 2,
+          ),
+        ]
+            : null,
       ),
       child: CustomPaint(
         painter: AnimatedBorderPainter(
@@ -855,11 +886,11 @@ class AnimatedBorderPainter extends CustomPainter {
     if (gradientColors.length <= 1) {
       // Static border for inactive state
       final paint =
-          Paint()
-            ..color =
-                gradientColors.isNotEmpty ? gradientColors.first : Colors.grey
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = borderSize;
+      Paint()
+        ..color =
+        gradientColors.isNotEmpty ? gradientColors.first : Colors.grey
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = borderSize;
 
       final rect = Rect.fromLTWH(
         borderSize / 2,
@@ -876,7 +907,7 @@ class AnimatedBorderPainter extends CustomPainter {
     final rrect = RRect.fromRectAndRadius(rect, borderRadius.topLeft);
     final path = Path()..addRRect(rrect);
     final pathMetrics =
-        path.computeMetrics().toList(); // Fixed typo: toockedList -> toList
+    path.computeMetrics().toList(); // Fixed typo: toockedList -> toList
 
     if (pathMetrics.isNotEmpty) {
       final pathMetric = pathMetrics.first;
@@ -917,12 +948,12 @@ class AnimatedBorderPainter extends CustomPainter {
   }
 
   void _drawGradientTrain(
-    Canvas canvas,
-    PathMetric pathMetric,
-    double totalLength,
-    double trainLength,
-    double trainPosition,
-  ) {
+      Canvas canvas,
+      PathMetric pathMetric,
+      double totalLength,
+      double trainLength,
+      double trainPosition,
+      ) {
     for (int i = 0; i < gradientColors.length; i++) {
       final segmentLength = trainLength / gradientColors.length;
       final segmentStart =
@@ -930,11 +961,11 @@ class AnimatedBorderPainter extends CustomPainter {
       final segmentEnd = (segmentStart + segmentLength) % totalLength;
 
       final paint =
-          Paint()
-            ..color = gradientColors[i]
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = borderSize
-            ..strokeCap = StrokeCap.round;
+      Paint()
+        ..color = gradientColors[i]
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = borderSize
+        ..strokeCap = StrokeCap.round;
 
       try {
         if (segmentStart < segmentEnd && segmentEnd <= totalLength) {
@@ -963,12 +994,12 @@ class AnimatedBorderPainter extends CustomPainter {
   }
 
   void _drawSparkleEffects(
-    Canvas canvas,
-    PathMetric pathMetric,
-    double totalLength,
-    double trainPosition,
-    double trainLength,
-  ) {
+      Canvas canvas,
+      PathMetric pathMetric,
+      double totalLength,
+      double trainPosition,
+      double trainLength,
+      ) {
     final sparklePositions = [
       (trainPosition + trainLength * 0.2) % totalLength,
       (trainPosition + trainLength * 0.5) % totalLength,
@@ -976,14 +1007,14 @@ class AnimatedBorderPainter extends CustomPainter {
     ];
 
     final sparklePaint =
-        Paint()
-          ..color = Colors.white.withOpacity(0.9)
-          ..style = PaintingStyle.fill;
+    Paint()
+      ..color = Colors.white.withOpacity(0.9)
+      ..style = PaintingStyle.fill;
 
     final sparkleGlowPaint =
-        Paint()
-          ..color = Colors.white.withOpacity(0.3)
-          ..style = PaintingStyle.fill;
+    Paint()
+      ..color = Colors.white.withOpacity(0.3)
+      ..style = PaintingStyle.fill;
 
     for (int i = 0; i < sparklePositions.length; i++) {
       final pos = sparklePositions[i];
@@ -1002,24 +1033,24 @@ class AnimatedBorderPainter extends CustomPainter {
   }
 
   void _drawTrailingGlow(
-    Canvas canvas,
-    PathMetric pathMetric,
-    double totalLength,
-    double trainPosition,
-    double trainLength,
-  ) {
+      Canvas canvas,
+      PathMetric pathMetric,
+      double totalLength,
+      double trainPosition,
+      double trainLength,
+      ) {
     final trailStart = (trainPosition - trainLength * 0.6) % totalLength;
     final trailEnd = (trainPosition - trainLength * 0.3) % totalLength;
 
     final trailPaint =
-        Paint()
-          ..color =
-              gradientColors.isNotEmpty
-                  ? gradientColors[gradientColors.length ~/ 2].withOpacity(0.3)
-                  : Colors.white.withOpacity(0.3)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = borderSize * 1.5
-          ..strokeCap = StrokeCap.round;
+    Paint()
+      ..color =
+      gradientColors.isNotEmpty
+          ? gradientColors[gradientColors.length ~/ 2].withOpacity(0.3)
+          : Colors.white.withOpacity(0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = borderSize * 1.5
+      ..strokeCap = StrokeCap.round;
 
     try {
       if (trailStart < trailEnd && trailEnd <= totalLength) {
@@ -1052,6 +1083,7 @@ class AnimatedTextField extends StatefulWidget {
   final Color backgroundColor;
   final List<Color>? customColors;
 
+
   const AnimatedTextField({
     Key? key,
     required this.controller,
@@ -1065,6 +1097,7 @@ class AnimatedTextField extends StatefulWidget {
     this.borderRadius = 12,
     this.backgroundColor = Colors.white,
     this.customColors,
+
   }) : super(key: key);
 
   @override
@@ -1104,19 +1137,19 @@ class _AnimatedTextFieldState extends State<AnimatedTextField> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(widget.borderRadius.toDouble()),
           color:
-              _isFocused
-                  ? widget.backgroundColor.withOpacity(0.95)
-                  : widget.backgroundColor.withOpacity(0.92),
+          _isFocused
+              ? widget.backgroundColor.withOpacity(0.95)
+              : widget.backgroundColor.withOpacity(0.92),
           boxShadow:
-              _isFocused
-                  ? [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: Offset(0, 4),
-                    ),
-                  ]
-                  : null,
+          _isFocused
+              ? [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: Offset(0, 4),
+            ),
+          ]
+              : null,
         ),
         child: TextFormField(
           controller: widget.controller,
@@ -1132,12 +1165,12 @@ class _AnimatedTextFieldState extends State<AnimatedTextField> {
               fontSize: 16,
             ),
             prefixIcon:
-                widget.prefixIcon != null
-                    ? Padding(
-                      padding: EdgeInsets.only(left: 8, right: 12),
-                      child: widget.prefixIcon,
-                    )
-                    : null,
+            widget.prefixIcon != null
+                ? Padding(
+              padding: EdgeInsets.only(left: 8, right: 12),
+              child: widget.prefixIcon,
+            )
+                : null,
             border: InputBorder.none,
             contentPadding: EdgeInsets.symmetric(
               horizontal: widget.prefixIcon != null ? 8 : 24,

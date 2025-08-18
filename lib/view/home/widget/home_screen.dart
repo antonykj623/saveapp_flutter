@@ -1,6 +1,5 @@
-import 'dart:math';
+import 'dart:math' as math;
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:carousel_slider/carousel_slider.dart';
@@ -8,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:new_project_2025/view/home/dream_page/dream_class/db_class.dart';
 import 'package:new_project_2025/view/home/widget/More_page/More_page.dart';
 import 'package:new_project_2025/view/home/widget/insurance/insurance_database/Insurance_list_page/insurance_list_page.dart';
+import 'package:new_project_2025/view/home/widget/password_manger/password_manger/password_list_screen/Edit_password/Edit_password_screen.dart';
 import 'package:new_project_2025/view/home/widget/payment_recharge/Recharge_screen.dart';
 import 'package:new_project_2025/view_model/Accountfiles/CashAccount.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -36,7 +36,6 @@ import 'package:new_project_2025/view_model/Task/task.dart';
 import 'package:new_project_2025/view_model/VisitingCard/visitingcard.dart';
 import 'package:new_project_2025/view_model/Liabilities/listofLiabilities.dart';
 import 'package:new_project_2025/view/home/widget/investment/Assetdetails_page/assets_details_screen.dart';
-import 'package:new_project_2025/view/home/widget/password_manger/password_list_screen/password_list_screens.dart';
 import 'package:new_project_2025/view/home/widget/website_link_page/Website_link_page.dart';
 import 'package:new_project_2025/view/home/widget/Emergency_numbers_screen/Emergency_screen.dart';
 import 'package:new_project_2025/view/home/dream_page/dream_main_page/dream_page_main.dart';
@@ -78,7 +77,6 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
 
   int _currentIndex = 0;
   PageController _pageController = PageController(initialPage: 0);
-  int _currentCarouselIndex = 0;
   String selectedYear = '2025';
   final List<String> years = ['2023', '2024', '2025', '2026'];
   bool isDarkTheme = true; // Default theme
@@ -683,7 +681,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
         ],
       ),
       padding: const EdgeInsets.only(
-        top: 20.0, // Reduced top padding
+        top: 20.0,
         left: 12.0,
         right: 12.0,
         bottom: 12.0,
@@ -696,12 +694,9 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Logo
                   _buildAnimatedLogo(),
                   const SizedBox(width: 8),
-                  // Title
                   Expanded(child: _buildAnimatedTitle()),
-                  // Action buttons
                   _buildActionButtons(),
                 ],
               );
@@ -785,11 +780,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                   onTap: onPressed,
                   borderRadius: BorderRadius.circular(8),
                   child: Center(
-                    child: Icon(
-                      icon,
-                      color: accentColor,
-                      size: 16, // Reduced icon size
-                    ),
+                    child: Icon(icon, color: accentColor, size: 16),
                   ),
                 ),
               ),
@@ -878,7 +869,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                             isDarkTheme
                                 ? const Color(0xFFFFA726)
                                 : const Color(0xFF3F51B5),
-                        size: 16, // Reduced icon size
+                        size: 16,
                       ),
                     ),
                   ),
@@ -901,7 +892,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
           child: Transform.scale(
             scale: 0.8 + (0.2 * value),
             child: Container(
-              width: 40, // Reduced size
+              width: 40,
               height: 40,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -940,8 +931,8 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                     tween: Tween<double>(begin: 0, end: 1),
                     builder: (context, ringValue, child) {
                       return Container(
-                        width: 32 + (8 * sin(ringValue * 6.28)),
-                        height: 32 + (8 * sin(ringValue * 6.28)),
+                        width: 32 + (8 * math.sin(ringValue * 6.28)),
+                        height: 32 + (8 * math.sin(ringValue * 6.28)),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
@@ -1004,7 +995,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                   child: Text(
                     'My Personal App',
                     style: TextStyle(
-                      fontSize: 18, // Reduced font size
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
@@ -1020,7 +1011,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                         isDarkTheme
                             ? Colors.white.withOpacity(0.8)
                             : const Color(0xFF667EEA).withOpacity(0.8),
-                    fontSize: 10, // Reduced font size
+                    fontSize: 10,
                     fontWeight: FontWeight.w500,
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -1031,34 +1022,6 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
           ),
         );
       },
-    );
-  }
-
-  Widget _buildAppBarButton(IconData icon, VoidCallback onPressed) {
-    return Container(
-      decoration: BoxDecoration(
-        color:
-            isDarkTheme
-                ? Colors.white.withOpacity(0.15)
-                : Colors.teal.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color:
-              isDarkTheme
-                  ? Colors.white.withOpacity(0.2)
-                  : Colors.teal.withOpacity(0.2),
-        ),
-      ),
-      child: IconButton(
-        icon: Icon(
-          icon,
-          color: isDarkTheme ? Colors.white : Colors.teal,
-          size: 18,
-        ),
-        onPressed: onPressed,
-        padding: const EdgeInsets.all(6),
-        constraints: const BoxConstraints(),
-      ),
     );
   }
 
@@ -1097,158 +1060,12 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
   }
 
   Widget _buildCarouselSlider() {
-    return Column(
-      children: [
-        const SizedBox(height: 10),
-        CarouselSlider(
-          options: CarouselOptions(
-            height: 200.0,
-            autoPlay: true,
-            enlargeCenterPage: true,
-            viewportFraction: 0.85,
-            aspectRatio: 16 / 9,
-            autoPlayInterval: const Duration(seconds: 4),
-            autoPlayCurve: Curves.fastOutSlowIn,
-            onPageChanged: (index, reason) {
-              setState(() {
-                _currentCarouselIndex = index;
-              });
-            },
-          ),
-          items:
-              _carouselImages.map((imageUrl) {
-                return Builder(
-                  builder: (BuildContext context) {
-                    return Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 8.0),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF008080).withOpacity(0.3),
-                            spreadRadius: 2,
-                            blurRadius: 15,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
-                        child: Stack(
-                          children: [
-                            Image.network(
-                              imageUrl,
-                              fit: BoxFit.cover,
-                              width: double.infinity,
-                              height: double.infinity,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors:
-                                          isDarkTheme
-                                              ? [
-                                                Colors.grey.shade800,
-                                                Colors.grey.shade600,
-                                              ]
-                                              : [
-                                                Colors.grey.shade300,
-                                                Colors.grey.shade100,
-                                              ],
-                                    ),
-                                  ),
-                                  child: const Center(
-                                    child: Icon(
-                                      Icons.image_not_supported,
-                                      color: Colors.white,
-                                      size: 40,
-                                    ),
-                                  ),
-                                );
-                              },
-                              loadingBuilder: (
-                                context,
-                                child,
-                                loadingProgress,
-                              ) {
-                                if (loadingProgress == null) return child;
-                                return Container(
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors:
-                                          isDarkTheme
-                                              ? [
-                                                Colors.grey.shade800,
-                                                Colors.grey.shade600,
-                                              ]
-                                              : [
-                                                Colors.grey.shade300,
-                                                Colors.grey.shade100,
-                                              ],
-                                    ),
-                                  ),
-                                  child: Center(
-                                    child: CircularProgressIndicator(
-                                      value:
-                                          loadingProgress.expectedTotalBytes !=
-                                                  null
-                                              ? loadingProgress
-                                                      .cumulativeBytesLoaded /
-                                                  loadingProgress
-                                                      .expectedTotalBytes!
-                                              : null,
-                                      valueColor:
-                                          const AlwaysStoppedAnimation<Color>(
-                                            Color(0xFF008080),
-                                          ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Colors.transparent,
-                                    Colors.black.withOpacity(0.3),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                );
-              }).toList(),
-        ),
-        const SizedBox(height: 15),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children:
-              _carouselImages.asMap().entries.map((entry) {
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  width: _currentCarouselIndex == entry.key ? 24.0 : 8.0,
-                  height: 8.0,
-                  margin: const EdgeInsets.symmetric(horizontal: 4.0),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(4),
-                    color:
-                        _currentCarouselIndex == entry.key
-                            ? const Color(0xFF008080)
-                            : (isDarkTheme
-                                ? Colors.grey.withOpacity(0.3)
-                                : Colors.grey.withOpacity(0.5)),
-                  ),
-                );
-              }).toList(),
-        ),
-      ],
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: ModernCarouselSlider(
+        images: _carouselImages,
+        isDarkTheme: isDarkTheme,
+      ),
     );
   }
 
@@ -1733,7 +1550,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       onPressed: (BuildContext context) {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => PasswordListPage()),
+          MaterialPageRoute(builder: (context) => listpasswordData()),
         );
       },
     ),
@@ -1892,4 +1709,511 @@ class FinancialData {
   final double expense;
 
   FinancialData(this.month, this.income, this.expense);
+}
+
+class ModernCarouselSlider extends StatefulWidget {
+  final List<String> images;
+  final bool isDarkTheme;
+
+  const ModernCarouselSlider({
+    Key? key,
+    required this.images,
+    required this.isDarkTheme,
+  }) : super(key: key);
+
+  @override
+  State<ModernCarouselSlider> createState() => _ModernCarouselSliderState();
+}
+
+class _ModernCarouselSliderState extends State<ModernCarouselSlider>
+    with TickerProviderStateMixin {
+  int _currentIndex = 0;
+  final CarouselController _carouselController = CarouselController();
+  late AnimationController _backgroundController;
+  late AnimationController _indicatorController;
+  late AnimationController _slideController;
+
+  @override
+  void initState() {
+    super.initState();
+    _backgroundController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat();
+
+    _indicatorController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+
+    _slideController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+
+    _slideController.forward();
+  }
+
+  @override
+  void dispose() {
+    _backgroundController.dispose();
+    _indicatorController.dispose();
+    _slideController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _slideController,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, 30 * (1 - _slideController.value)),
+          child: Opacity(
+            opacity: _slideController.value,
+            child: Container(
+              height: 280,
+              child: Stack(
+                children: [
+                  _buildAnimatedBackground(),
+                  _buildCarouselContent(),
+                  _buildModernIndicators(),
+                  _buildNavigationButtons(),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAnimatedBackground() {
+    return AnimatedBuilder(
+      animation: _backgroundController,
+      builder: (context, child) {
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(25),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors:
+                  widget.isDarkTheme
+                      ? [
+                        Color(0xFF1A1A2E).withOpacity(0.8),
+                        Color(0xFF16213E).withOpacity(0.6),
+                        Color(0xFF0F3460).withOpacity(0.8),
+                      ]
+                      : [
+                        Color(0xFFE3FDFD).withOpacity(0.8),
+                        Color(0xFFCBF1F5).withOpacity(0.6),
+                        Color(0xFFA6E3E9).withOpacity(0.8),
+                      ],
+              transform: GradientRotation(
+                _backgroundController.value * 2 * math.pi,
+              ),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color:
+                    widget.isDarkTheme
+                        ? Colors.cyan.withOpacity(0.3)
+                        : Colors.teal.withOpacity(0.3),
+                blurRadius: 20,
+                spreadRadius: 2,
+                offset: Offset(
+                  5 * math.sin(_backgroundController.value * 2 * math.pi),
+                  5 * math.cos(_backgroundController.value * 2 * math.pi),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCarouselContent() {
+    return Container(
+      margin: EdgeInsets.all(20),
+      child: CarouselSlider.builder(
+        carouselController: CarouselSliderController(),
+        itemCount: widget.images.length,
+        options: CarouselOptions(
+          height: 240,
+          autoPlay: true,
+          enlargeCenterPage: true,
+          viewportFraction: 0.85,
+          aspectRatio: 16 / 9,
+          autoPlayInterval: const Duration(seconds: 4),
+          autoPlayAnimationDuration: const Duration(milliseconds: 1200),
+          autoPlayCurve: Curves.elasticInOut,
+          scrollDirection: Axis.horizontal,
+          enableInfiniteScroll: true,
+          onPageChanged: (index, reason) {
+            setState(() {
+              _currentIndex = index;
+            });
+            _indicatorController.reset();
+            _indicatorController.forward();
+          },
+        ),
+        itemBuilder: (context, index, realIndex) {
+          return _buildCarouselItem(widget.images[index], index);
+        },
+      ),
+    );
+  }
+
+  Widget _buildCarouselItem(String imageUrl, int index) {
+    bool isActive = index == _currentIndex;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeInOutCubic,
+      margin: EdgeInsets.symmetric(
+        horizontal: isActive ? 5 : 10,
+        vertical: isActive ? 10 : 20,
+      ),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color:
+                widget.isDarkTheme
+                    ? Colors.cyan.withOpacity(0.4)
+                    : Colors.teal.withOpacity(0.4),
+            blurRadius: isActive ? 25 : 15,
+            spreadRadius: isActive ? 3 : 1,
+            offset: const Offset(0, 10),
+          ),
+          if (isActive)
+            BoxShadow(
+              color: Colors.white.withOpacity(0.1),
+              blurRadius: 10,
+              spreadRadius: -5,
+              offset: const Offset(0, -5),
+            ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Stack(
+          children: [
+            Transform.scale(
+              scale: isActive ? 1.05 : 1.0,
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
+                errorBuilder: (context, error, stackTrace) {
+                  return _buildErrorWidget();
+                },
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return _buildLoadingWidget(loadingProgress);
+                },
+              ),
+            ),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 600),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withOpacity(isActive ? 0.4 : 0.6),
+                  ],
+                ),
+              ),
+            ),
+            if (isActive) _buildFloatingElements(),
+            _buildContentOverlay(index, isActive),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFloatingElements() {
+    return Stack(
+      children: List.generate(6, (index) {
+        return AnimatedBuilder(
+          animation: _backgroundController,
+          builder: (context, child) {
+            double animValue = _backgroundController.value;
+            double delay = index * 0.1;
+            double offsetX = 30 * math.sin((animValue + delay) * 2 * math.pi);
+            double offsetY = 20 * math.cos((animValue + delay) * 3 * math.pi);
+
+            return Positioned(
+              left: 20 + (index * 30) + offsetX,
+              top: 20 + (index * 25) + offsetY,
+              child: Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.3),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.cyan.withOpacity(0.5),
+                      blurRadius: 10,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      }),
+    );
+  }
+
+  Widget _buildContentOverlay(int index, bool isActive) {
+    return Positioned(
+      bottom: 20,
+      left: 20,
+      right: 20,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 400),
+        opacity: isActive ? 1.0 : 0.7,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withOpacity(0.3)),
+              ),
+              child: Text(
+                'Slide ${index + 1}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Modern Finance App',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: isActive ? 18 : 16,
+                fontWeight: FontWeight.bold,
+                shadows: [
+                  Shadow(
+                    color: Colors.black.withOpacity(0.5),
+                    blurRadius: 5,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModernIndicators() {
+    return Positioned(
+      bottom: 20,
+      left: 0,
+      right: 0,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children:
+            widget.images.asMap().entries.map((entry) {
+              int index = entry.key;
+              bool isActive = index == _currentIndex;
+
+              return AnimatedBuilder(
+                animation: _indicatorController,
+                builder: (context, child) {
+                  return GestureDetector(
+                    onTap: () {
+                      CarouselSliderController().animateToPage(
+                        index,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 400),
+                      width: isActive ? 40 : 12,
+                      height: 8,
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(4),
+                        color:
+                            isActive
+                                ? Colors.white
+                                : Colors.white.withOpacity(0.4),
+                        boxShadow:
+                            isActive
+                                ? [
+                                  BoxShadow(
+                                    color: Colors.white.withOpacity(0.8),
+                                    blurRadius: 8,
+                                    spreadRadius: 1,
+                                  ),
+                                ]
+                                : null,
+                      ),
+                      child:
+                          isActive
+                              ? Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(4),
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Colors.cyan.withOpacity(0.8),
+                                      Colors.teal.withOpacity(0.8),
+                                    ],
+                                  ),
+                                ),
+                              )
+                              : null,
+                    ),
+                  );
+                },
+              );
+            }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildNavigationButtons() {
+    return Positioned.fill(
+      child: Row(
+        children: [
+          Expanded(
+            flex: 1,
+            child: GestureDetector(
+              onTap: () {
+                CarouselSliderController().previousPage(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                );
+              },
+              child: Container(
+                color: Colors.transparent,
+                child: const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: EdgeInsets.only(left: 30),
+                    child: Icon(
+                      Icons.arrow_back_ios,
+                      color: Colors.white70,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 1,
+            child: GestureDetector(
+              onTap: () {
+                CarouselSliderController().nextPage(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                );
+              },
+              child: Container(
+                color: Colors.transparent,
+                child: const Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: EdgeInsets.only(right: 30),
+                    child: Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.white70,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorWidget() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors:
+              widget.isDarkTheme
+                  ? [Colors.grey.shade800, Colors.grey.shade600]
+                  : [Colors.grey.shade300, Colors.grey.shade100],
+        ),
+      ),
+      child: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.image_not_supported, color: Colors.white, size: 40),
+            SizedBox(height: 8),
+            Text(
+              'Image not available',
+              style: TextStyle(color: Colors.white, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingWidget(ImageChunkEvent loadingProgress) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors:
+              widget.isDarkTheme
+                  ? [Colors.grey.shade800, Colors.grey.shade600]
+                  : [Colors.grey.shade300, Colors.grey.shade100],
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 40,
+              height: 40,
+              child: CircularProgressIndicator(
+                value:
+                    loadingProgress.expectedTotalBytes != null
+                        ? loadingProgress.cumulativeBytesLoaded /
+                            loadingProgress.expectedTotalBytes!
+                        : null,
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  Color(0xFF008080),
+                ),
+                strokeWidth: 3,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Loading...',
+              style: TextStyle(color: Colors.white, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

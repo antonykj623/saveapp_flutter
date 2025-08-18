@@ -1878,9 +1878,39 @@ Future<List<Map<String, dynamic>>> fetchAllData() async {
 
   // Usage Examples:
 
-  /*
+    Future<List<Map<String, dynamic>>> fetchAllDocData() async {
+    Database db = await database;
+    var res = await db.query('TABLE_DOCUMENT');
 
-*/
+    List<Map<String, dynamic>> s = res.toList();
+    print("Document datas are: $s");
+
+    return s;
+  }
+
+  Future<int> deletedocData(String tableName, String id) async {
+    final db = await database;
+    return await db.delete(tableName, where: 'fileid = ?', whereArgs: [id]);
+  }
+  Future<int> deleteByFieldId(String tableName, dynamic fieldId) async {
+    final db = await database;
+    return await db.delete(
+      tableName,
+      where: 'keyid = ?',
+      whereArgs: [fieldId],
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> fetchAllpassData() async {
+    Database db = await database;
+    var res = await db.query('TABLE_PASSWORD');
+
+    List<Map<String, dynamic>> s = res.toList();
+    print("Password datas are: $s");
+
+    return s;
+  }
+
 }
 
 class TargetCategory {
