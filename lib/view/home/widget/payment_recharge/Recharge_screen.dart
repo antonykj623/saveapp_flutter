@@ -55,6 +55,7 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
       vsync: this,
     );
 
+    // Use safer animation curves and ensure values are in valid ranges
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
     );
@@ -66,7 +67,8 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
       CurvedAnimation(parent: _slideController, curve: Curves.elasticOut),
     );
 
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
+    // Safer pulse animation with smaller range
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
@@ -74,10 +76,15 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
       CurvedAnimation(parent: _operatorController, curve: Curves.elasticOut),
     );
 
-    _fadeController.forward();
-    _slideController.forward();
-    _operatorController.forward();
-    _pulseController.repeat(reverse: true);
+    // Start animations safely
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _fadeController.forward();
+        _slideController.forward();
+        _operatorController.forward();
+        _pulseController.repeat(reverse: true);
+      }
+    });
   }
 
   void _onMobileNumberChanged() {
@@ -109,10 +116,18 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
   void dispose() {
     _mobileController.removeListener(_onMobileNumberChanged);
     _mobileController.dispose();
+
+    // Safely dispose animation controllers
+    if (_fadeController.isAnimating) _fadeController.stop();
+    if (_slideController.isAnimating) _slideController.stop();
+    if (_pulseController.isAnimating) _pulseController.stop();
+    if (_operatorController.isAnimating) _operatorController.stop();
+
     _fadeController.dispose();
     _slideController.dispose();
     _pulseController.dispose();
     _operatorController.dispose();
+
     super.dispose();
   }
 
@@ -404,7 +419,7 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
     }
   }
 
-  void _showSuccessSnackBar(String message) {   
+  void _showSuccessSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -565,12 +580,15 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
         child: SafeArea(
           child: Column(
             children: [
-              // Header Section
+              // Header Section - FIX 1: Added clamp for fade animation
               AnimatedBuilder(
                 animation: _fadeAnimation,
                 builder: (context, child) {
                   return Opacity(
-                    opacity: _fadeAnimation.value,
+                    opacity: _fadeAnimation.value.clamp(
+                      0.0,
+                      1.0,
+                    ), // ✅ FIXED LINE
                     child: Container(
                       padding: EdgeInsets.symmetric(
                         horizontal: 24,
@@ -924,16 +942,20 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
 
                                     SizedBox(height: 32),
 
-                                    // Operator Selection Section
+                                    // Operator Selection Section - FIX 2: Added clamp for operator animation
                                     _buildSectionTitle('Select Operator'),
                                     SizedBox(height: 16),
                                     AnimatedBuilder(
                                       animation: _operatorAnimation,
                                       builder: (context, child) {
                                         return Transform.scale(
-                                          scale: _operatorAnimation.value,
+                                          scale: _operatorAnimation.value.clamp(
+                                            0.1,
+                                            1.0,
+                                          ), // ✅ FIXED
                                           child: Opacity(
-                                            opacity: _operatorAnimation.value,
+                                            opacity: _operatorAnimation.value
+                                                .clamp(0.0, 1.0), // ✅ FIXED
                                             child: GridView.builder(
                                               shrinkWrap: true,
                                               physics:
@@ -1198,7 +1220,7 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
 
                                     SizedBox(height: 40),
 
-                                    // Recharge Button
+                                    // Recharge Button - FIX 3: Added clamp for pulse animation
                                     AnimatedBuilder(
                                       animation: _pulseAnimation,
                                       builder: (context, child) {
@@ -1211,7 +1233,10 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                                         return Transform.scale(
                                           scale:
                                               canRecharge
-                                                  ? _pulseAnimation.value
+                                                  ? _pulseAnimation.value.clamp(
+                                                    0.8,
+                                                    1.2,
+                                                  ) // ✅ FIXED
                                                   : 1.0,
                                           child: Container(
                                             width: double.infinity,

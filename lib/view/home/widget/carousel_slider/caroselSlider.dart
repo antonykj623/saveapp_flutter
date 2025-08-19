@@ -1,7 +1,5 @@
 import 'dart:math' as math;
 
-import 'package:carousel_slider/carousel_controller.dart';
-import 'package:carousel_slider/carousel_options.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 
@@ -198,17 +196,14 @@ class _ModernCarouselSliderState extends State<ModernCarouselSlider>
           children: [
             Transform.scale(
               scale: isActive ? 1.05 : 1.0,
-              child: Image.network(
+              child: Image.asset(
+                // Changed from Image.network to Image.asset
                 imageUrl,
                 fit: BoxFit.cover,
                 width: double.infinity,
                 height: double.infinity,
                 errorBuilder: (context, error, stackTrace) {
                   return _buildErrorWidget();
-                },
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return _buildLoadingWidget(loadingProgress);
                 },
               ),
             ),
@@ -297,21 +292,6 @@ class _ModernCarouselSliderState extends State<ModernCarouselSlider>
               ),
             ),
             const SizedBox(height: 8),
-            Text(
-              'Modern Finance App',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: isActive ? 18 : 16,
-                fontWeight: FontWeight.bold,
-                shadows: [
-                  Shadow(
-                    color: Colors.black.withOpacity(0.5),
-                    blurRadius: 5,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),
