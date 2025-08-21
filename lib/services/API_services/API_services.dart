@@ -7,7 +7,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:new_project_2025/view/home/widget/setting_page/app_update/app_update_class.dart';
 
 class ApiHelper {
-  final String baseurl = "https://mysaving.in/IntegraAccount/api/";
+  // API endpoint constants
+  static const String baseUrl = "https://mysaving.in/IntegraAccount/api/";
+  static const String generateHash = "generateHash.php";
+
+  // Generate timestamp for API requests
+  String getTimeStamp() {
+    return DateTime.now().millisecondsSinceEpoch.toString();
+  }
 
   // General GET request method
   Future<String> getApiResponse(String method) async {
@@ -19,7 +26,7 @@ class ApiHelper {
     };
 
     final response = await http.get(
-      Uri.parse(baseurl + method),
+      Uri.parse(baseUrl + method),
       headers: headers,
     );
 
@@ -32,7 +39,7 @@ class ApiHelper {
     }
   }
 
-  // General POST request method
+  // General POST request method (existing)
   Future<String> postApiResponse(String method, dynamic postData) async {
     final prefs = await SharedPreferences.getInstance();
     String? token = await prefs.getString('token');
@@ -42,9 +49,33 @@ class ApiHelper {
     };
 
     final response = await http.post(
-      Uri.parse(baseurl + method),
+      Uri.parse(baseUrl + method),
       headers: headers,
       body: postData,
+    );
+
+    if (response.statusCode == 200) {
+      return response.body;
+    } else {
+      throw Exception(
+        'Failed to post data: ${response.statusCode} - ${response.body}',
+      );
+    }
+  }
+
+  // POST request for Ecommerce APIs (from EcommerceApiHelper)
+  Future<String> postEcommerce(String endpoint, {required Map<String, String> formDataPayload}) async {
+    final prefs = await SharedPreferences.getInstance();
+    String? token = await prefs.getString('token');
+    Map<String, String> headers = {
+      "Authorization": (token != null && token.isNotEmpty) ? token : "",
+      "Content-Type": "application/x-www-form-urlencoded",
+    };
+
+    final response = await http.post(
+      Uri.parse(baseUrl + endpoint),
+      headers: headers,
+      body: formDataPayload,
     );
 
     if (response.statusCode == 200) {
@@ -61,14 +92,14 @@ class ApiHelper {
   /// Get all notifications
   Future<List<dynamic>> getNotifications() async {
     final timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
-    
+
     try {
       String response = await getApiResponse(
         "getNotificationsData.php?timestamp=$timestamp",
       );
-      
+
       final decodedResponse = json.decode(response);
-      
+
       if (decodedResponse['status'] == 1 && decodedResponse['data'] is List) {
         return decodedResponse['data'];
       } else {
@@ -108,7 +139,7 @@ class ApiHelper {
     try {
       String response = await getApiResponse(url);
       final decodedResponse = json.decode(response);
-      
+
       if (decodedResponse['status'] == 1 && decodedResponse['data'] is List) {
         return decodedResponse['data'];
       } else {
@@ -127,14 +158,14 @@ class ApiHelper {
     final timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
     final startDateStr = DateFormat('yyyy-MM-dd').format(startDate);
     final endDateStr = DateFormat('yyyy-MM-dd').format(endDate);
-    
+
     String url = "getNotificationsData.php?timestamp=$timestamp"
         "&start_date=$startDateStr&end_date=$endDateStr";
 
     try {
       String response = await getApiResponse(url);
       final decodedResponse = json.decode(response);
-      
+
       if (decodedResponse['status'] == 1 && decodedResponse['data'] is List) {
         return decodedResponse['data'];
       } else {
@@ -197,14 +228,14 @@ class ApiHelper {
   /// Get notification count (unread)
   Future<int> getUnreadNotificationCount() async {
     final timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
-    
+
     try {
       String response = await getApiResponse(
         "getNotificationCount.php?timestamp=$timestamp&status=unread",
       );
-      
+
       final decodedResponse = json.decode(response);
-      
+
       if (decodedResponse['status'] == 1) {
         return int.parse(decodedResponse['count'].toString());
       } else {
@@ -218,9 +249,9 @@ class ApiHelper {
   // ===== EXISTING METHODS =====
 
   Future<AppVersionModel1> checkAppVersion1() async {
-    // Your existing implementation
+    // Placeholder for existing implementation
     throw UnimplementedError(
-      'Use your existing ApiHelper checkAppVersion method',
+      'Use your existing ApiHelper checkAppVersion1 method',
     );
   }
 
@@ -245,7 +276,7 @@ class ApiHelper {
     };
 
     final response = await http.post(
-      Uri.parse(baseurl + "UserLogin.php"),
+      Uri.parse(baseUrl + "UserLogin.php"),
       headers: headers,
       body: postData,
     );
@@ -271,7 +302,7 @@ class ApiHelper {
     };
 
     final response = await http.get(
-      Uri.parse(baseurl + "deleteAccount.php?timestamp=$timestamp"),
+      Uri.parse(baseUrl + "deleteAccount.php?timestamp=$timestamp"),
       headers: headers,
     );
 
@@ -305,11 +336,7 @@ class ApiHelper {
   // Check app version
   Future<AppVersionModel> checkAppVersion() async {
     final timestamp =
-        DateTime.now().day.toString().padLeft(2, '0') +
-        '-' +
-        DateTime.now().month.toString().padLeft(2, '0') +
-        '-' +
-        DateTime.now().year.toString();
+        DateFormat('dd-MM-yyyy').format(DateTime.now());
 
     try {
       final response = await getApiResponse(

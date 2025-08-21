@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +9,7 @@ import 'package:new_project_2025/view/home/widget/payment_recharge/Rechargeapicl
 import 'package:new_project_2025/view/home/widget/payment_recharge/Request_class.dart';
 import 'package:new_project_2025/view/home/widget/payment_recharge/payment_type.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:weipl_checkout_flutter/weipl_checkout_flutter.dart';
 
 class RechargePlansScreen extends StatefulWidget {
   final String mobileNumber;
@@ -236,6 +238,8 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
     }, response);
   }
 
+  // Replace the existing _processPayment method with this updated version
+
   Future<void> _processPayment(
     Map<String, dynamic> planData,
     String paymentType,
@@ -255,6 +259,10 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
       );
       return;
     }
+
+    print(
+      '🔔 Payment process initiated for user: $userId, amount: $totalAmount, payment type: $paymentType',
+    );
 
     showDialog(
       context: context,
@@ -310,34 +318,42 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
 
       print('📥 Raw API Response (PostTransactionata.php): $response');
 
-      // Parse the response
       final jsonResponse = await _parseJsonInIsolate(response);
       print('✅ Parsed JSON Response (PostTransactionata.php): $jsonResponse');
+      print(
+        '🔍 Status Type: ${jsonResponse['status'].runtimeType}, Value: ${jsonResponse['status']}',
+      );
 
-      if (jsonResponse['status'] == 'success' ||
-          jsonResponse['status'] == '1' ||
-          jsonResponse['status'] == '2') {
-        // Save the API response to SharedPreferences
-        await prefs.setString('payment_status', jsonResponse['status']);
+      if (jsonResponse['status'].toString() == 'success' ||
+          jsonResponse['status'].toString() == '1' ||
+          jsonResponse['status'].toString() == '2') {
+        await prefs.setString(
+          'payment_status',
+          jsonResponse['status'].toString(),
+        );
         await prefs.setString('payment_message', jsonResponse['message'] ?? '');
-        if (jsonResponse['id'] != null) {
-          await prefs.setInt('payment_id', jsonResponse['id']);
+
+        int? transactionId = int.tryParse(jsonResponse['id']?.toString() ?? '');
+        if (transactionId != null) {
+          await prefs.setInt('payment_id', transactionId);
+        } else {
+          print(
+            '⚠️ Warning: Transaction ID is null or invalid: ${jsonResponse['id']}',
+          );
         }
 
-        print('💾 Saved payment data to SharedPreferences');
-
-        // STEP 2: Call getPaymentCredentials.php API - This is where you want to see the response
-        print('🚀 STEP 2: Initiating getPaymentCredentials.php API call...');
         print(
-          '🌐 Full API URL: https://mysaving.in/IntegraAccount/api/getPaymentCredentials.php',
+          '💾 Saved payment data to SharedPreferences (transactionId: $transactionId)',
         );
+
+        // STEP 2: Call getPaymentCredentials.php API
+        print('🚀 STEP 2: Initiating getPaymentCredentials.php API call...');
 
         try {
           final credentialsResponse = await apiHelper.getApiResponse(
             'getPaymentCredentials.php',
           );
 
-          // ✅ THIS IS THE MAIN DEBUG OUTPUT YOU WANT TO SEE
           print('🎯 ===== PAYMENT CREDENTIALS RESPONSE START =====');
           print('📥 Raw Response: $credentialsResponse');
           print('📏 Response Length: ${credentialsResponse.length}');
@@ -348,65 +364,205 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
             _showErrorSnackBar(
               'Failed to fetch payment credentials: Empty response',
             );
-          } else {
-            try {
-              final credentialsJson = await _parseJsonInIsolate(
-                credentialsResponse,
-              );
+            Navigator.pop(context);
+            return;
+          }
 
-              // ✅ PARSED JSON DEBUG OUTPUT
-              print('🎯 ===== PARSED PAYMENT CREDENTIALS START =====');
-              print('📊 Parsed JSON: $credentialsJson');
+          final credentialsJson = await _parseJsonInIsolate(
+            credentialsResponse,
+          );
+          print('🎯 ===== PARSED PAYMENT CREDENTIALS START =====');
+          print('📊 Parsed JSON: $credentialsJson');
 
-              // Extract specific fields if they exist
-              if (credentialsJson.containsKey('merchantcode')) {
-                print('🏪 Merchant Code: ${credentialsJson['merchantcode']}');
-              }
-              if (credentialsJson.containsKey('saltkey')) {
-                print('🔐 Salt Key: ${credentialsJson['saltkey']}');
-              }
-              if (credentialsJson.containsKey('transactionid')) {
-                print('💳 Transaction ID: ${credentialsJson['transactionid']}');
-              }
-              if (credentialsJson.containsKey('customerid')) {
-                print('👤 Customer ID: ${credentialsJson['customerid']}');
-              }
-              print('🎯 ===== PARSED PAYMENT CREDENTIALS END =====');
+          String merchantCode =
+              credentialsJson['merchantcode']?.toString() ?? '';
+          String saltKey = credentialsJson['saltkey']?.toString() ?? '';
+          String customerId = credentialsJson['customerid']?.toString() ?? '';
 
-              // Save credentials to SharedPreferences for later use
-              await prefs.setString('payment_credentials', credentialsResponse);
-              print('💾 Saved payment credentials to SharedPreferences');
-            } catch (parseError) {
-              print(
-                '❌ Error parsing getPaymentCredentials response: $parseError',
-              );
-              print(
-                '📄 Raw response that failed to parse: $credentialsResponse',
-              );
-              _showErrorSnackBar(
-                'Failed to parse payment credentials: $parseError',
-              );
+          print('🏪 Merchant Code: $merchantCode');
+          print('🔐 Salt Key: $saltKey');
+          print('👤 Customer ID: $customerId');
+          print('🎯 ===== PARSED PAYMENT CREDENTIALS END =====');
+
+          if (merchantCode.isEmpty || saltKey.isEmpty || customerId.isEmpty) {
+            print('❌ Error: Missing required payment credentials');
+            _showErrorSnackBar('Failed to fetch valid payment credentials');
+            Navigator.pop(context);
+            return;
+          }
+
+          await prefs.setString('payment_credentials', credentialsResponse);
+          print('💾 Saved payment credentials to SharedPreferences');
+
+          // STEP 3: Generate token using generateHash.php
+          print('🚀 STEP 3: Initiating generateHash.php API call...');
+          String paidAmount = totalAmount.toStringAsFixed(2);
+          String a =
+              '$merchantCode|$transactionId|$paidAmount||$customerId|${widget.mobileNumber}|||||||||||$saltKey';
+
+          Map<String, String> tokenPayload = {'data': a};
+          print('📤 Token Generation Data: $a');
+
+          final timestamp = apiHelper.getTimeStamp();
+          print('⏰ Timestamp for generateHash.php: $timestamp');
+
+          try {
+            final tokenResponse = await apiHelper.postEcommerce(
+              '${ApiHelper.generateHash}?q=$timestamp',
+              formDataPayload: tokenPayload,
+            );
+
+            print('🎯 ===== TOKEN GENERATION RESPONSE START =====');
+            print('📥 Raw Response (generateHash.php): $tokenResponse');
+            print('📏 Response Length: ${tokenResponse.length}');
+            print('🔍 Response Type: ${tokenResponse.runtimeType}');
+            print('📋 Response is Empty: ${tokenResponse.isEmpty}');
+            print('🎯 ===== TOKEN GENERATION RESPONSE END =====');
+
+            if (tokenResponse.isEmpty) {
+              print('❌ Error: generateHash.php returned empty response');
+              _showErrorSnackBar('Failed to generate token: Empty response');
+              Navigator.pop(context);
+              return;
             }
+
+            final tokenJson = await _parseJsonInIsolate(tokenResponse);
+            print('✅ Parsed JSON Response (generateHash.php): $tokenJson');
+            print('📊 JSON Response Keys: ${tokenJson.keys.join(", ")}');
+
+            // FIX: Look for 'value' field instead of 'hash' or 'token'
+            String? generatedToken =
+                tokenJson['value']?.toString() ??
+                tokenJson['hash']?.toString() ??
+                tokenJson['token']?.toString() ??
+                tokenJson['generated_hash']?.toString();
+
+            if (generatedToken == null) {
+              print('❌ Error: Token not found in response');
+              print(
+                '🔍 Available keys in response: ${tokenJson.keys.join(", ")}',
+              );
+              _showErrorSnackBar('Failed to generate token: Token not found');
+              Navigator.pop(context);
+              return;
+            }
+
+            print('🔑 Generated Token: $generatedToken');
+            print('📏 Token Length: ${generatedToken.length}');
+
+            await prefs.setString('payment_token', generatedToken);
+            print('💾 Saved payment token to SharedPreferences');
+
+            Navigator.pop(context);
+
+            // STEP 4: Prepare and open payment gateway with weipl_checkout_flutter
+            String deviceID = "";
+            if (Platform.isAndroid) {
+              deviceID = "AndroidSH2";
+            } else if (Platform.isIOS) {
+              deviceID = "iOSSH2";
+            }
+
+            var reqJson = {
+              "features": {
+                "enableAbortResponse": true,
+                "enableExpressPay": true,
+                "enableInstrumentDeRegistration": true,
+                "enableMerTxnDetails": true,
+              },
+              "consumerData": {
+                "deviceId": deviceID,
+                "token": generatedToken,
+                "paymentMode": "all",
+                "merchantLogoUrl":
+                    "https://www.paynimo.com/CompanyDocs/company-logo-vertical.png",
+                "merchantId": merchantCode,
+                "currency": "INR",
+                "consumerId": customerId,
+                "consumerMobileNo": widget.mobileNumber,
+                // consumerEmailId is removed as per requirement (not wanted)
+                "txnId":
+                    transactionId
+                        .toString(), // Use the id from PostTransactionata.php as txnId
+                "items": [
+                  {
+                    "itemId": "first",
+                    "amount": totalAmount.toStringAsFixed(
+                      2,
+                    ), // Use the actual payment amount
+                    "comAmt": "0",
+                  },
+                ],
+                "customStyle": {
+                  "PRIMARY_COLOR_CODE": "#45beaa",
+                  "SECONDARY_COLOR_CODE": "#FFFFFF",
+                  "BUTTON_COLOR_CODE_1": "#2d8c8c",
+                  "BUTTON_COLOR_CODE_2": "#FFFFFF",
+                },
+              },
+            };
+
+            // Print the full JSON object to console for verification
+            print('🎯 ===== FULL PAYMENT GATEWAY REQUEST JSON START =====');
+            print('📤 Full Payment Gateway Request JSON:');
+            print(json.encode(reqJson));
+            print('🎯 ===== FULL PAYMENT GATEWAY REQUEST JSON END =====');
+
+            // Print individual components for verification
+            print('🔍 ===== JSON COMPONENTS VERIFICATION =====');
+            print('🆔 Device ID: $deviceID');
+            print('🔑 Token: $generatedToken');
+            print('🏪 Merchant ID: $merchantCode');
+            print('👤 Consumer ID: $customerId');
+            print('📱 Consumer Mobile: ${widget.mobileNumber}');
+            print('🆔 Transaction ID: $transactionId');
+            print('💰 Amount: ${totalAmount.toStringAsFixed(2)}');
+            print('🔍 ===== JSON COMPONENTS VERIFICATION END =====');
+
+            // Initialize weipl_checkout_flutter and open payment gateway
+            WeiplCheckoutFlutter wlCheckoutFlutter = WeiplCheckoutFlutter();
+            wlCheckoutFlutter.on(WeiplCheckoutFlutter.wlResponse, (response) {
+              print('🎯 Payment Gateway Response: $response');
+              if (response['status'] == 'success' ||
+                  response['status'] == '1') {
+                _showPaymentSuccessDialog(planData, paymentType, totalAmount);
+              } else {
+                _showErrorSnackBar(
+                  'Payment failed: ${response['message'] ?? 'Unknown error'}',
+                );
+              }
+            });
+
+            print('🚀 Opening payment gateway...');
+            wlCheckoutFlutter.open(reqJson);
+          } catch (tokenError) {
+            print('❌ Error during generateHash.php API call: $tokenError');
+            print('🔍 Error Details: ${tokenError.toString()}');
+            _showErrorSnackBar('Failed to generate token: $tokenError');
+            Navigator.pop(context);
+            return;
           }
         } catch (apiError) {
           print('❌ Error fetching payment credentials: $apiError');
           print('🔍 API Error Details: ${apiError.toString()}');
           _showErrorSnackBar('Failed to fetch payment credentials: $apiError');
+          Navigator.pop(context);
         }
-
-        // Close loading dialog and show success
-        Navigator.pop(context);
-        _showPaymentSuccessDialog(planData, paymentType, totalAmount);
       } else {
+        print(
+          '❌ PostTransactionata.php did not return a success status: ${jsonResponse['status']}',
+        );
+        print('🔍 Full Response: $jsonResponse');
         Navigator.pop(context);
         _showErrorSnackBar(
-          'Payment failed: ${jsonResponse['message'] ?? 'Unknown error'}',
+          'Payment initiation failed: ${jsonResponse['message'] ?? 'Unknown error'}',
         );
       }
     } catch (e) {
+      print('❌ Critical error in payment process: $e');
+      print('🔍 Error Details: ${e.toString()}');
       Navigator.pop(context);
       _showErrorSnackBar('Payment error: $e');
-      print('❌ Error processing payment: $e');
     }
   }
 
@@ -2064,6 +2220,10 @@ class _PaymentTypeDialogState extends State<PaymentTypeDialog>
       selectedPaymentType = option.id;
     });
     HapticFeedback.mediumImpact();
+    // Action triggered when user taps a payment option
+    print(
+      '🔔 User selected payment option: ${option.title} (ID: ${option.id}, Charges: ${option.charges}%)',
+    );
   }
 
   void _proceedWithPayment() {
