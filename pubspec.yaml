@@ -69,7 +69,7 @@ dependencies:
   screenshot: ^3.0.0
   pattern_lock: ^2.0.0
   carousel_slider: ^5.1.1
-  weipl_checkout_flutter: ^1.2.0
+  weipl_checkout_flutter: 
   
   
   

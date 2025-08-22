@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'dart:io' show Platform;
+import 'dart:io';
+import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +9,7 @@ import 'package:new_project_2025/services/API_services/API_services.dart';
 import 'package:new_project_2025/view/home/widget/payment_recharge/Rechargeapiclass.dart';
 import 'package:new_project_2025/view/home/widget/payment_recharge/Request_class.dart';
 import 'package:new_project_2025/view/home/widget/payment_recharge/payment_type.dart';
+import 'package:new_project_2025/view/home/widget/payment_recharge/weilpaymentscreen/paymentoption.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:weipl_checkout_flutter/weipl_checkout_flutter.dart';
 
@@ -32,7 +34,7 @@ class RechargePlansScreen extends StatefulWidget {
 }
 
 class _RechargePlansScreenState extends State<RechargePlansScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late TabController _tabController;
   late AnimationController _heroController;
   late AnimationController _listController;
@@ -48,6 +50,7 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
   List<Map<String, dynamic>> convertedPlans = [];
   List<String> availableCategories = [];
 
+  static const String rechargeBaseUrl = "https://mysaveapp.com/easyrecharge/";
   static const List<String> arroperators = ["Airtel", "Vi", "Jio", "BSNL"];
   static const List<String> arroperator_code = ["AT", "VI", "RJ", "CG"];
   static const List<String> arrspkey = ["3", "37", "116", "4"];
@@ -55,12 +58,7 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
   @override
   void initState() {
     super.initState();
-    void _debugTestPaymentCredentials() {
-      _testGetPaymentCredentials();
-    }
-
-    _immediateTestPaymentCredentials();
-
+    WidgetsBinding.instance.addObserver(this);
     _convertApiPlansToLocal();
     _setupCategories();
 
@@ -150,12 +148,25 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
     _heroController.dispose();
     _listController.dispose();
     _fabController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    print('📱 App Lifecycle State: $state');
+    if (state == AppLifecycleState.paused) {
+      _fabController.stop();
+      _heroController.stop();
+      _listController.stop();
+    } else if (state == AppLifecycleState.resumed) {
+      _fabController.repeat(reverse: true);
+    }
   }
 
   List<Map<String, dynamic>> getFilteredPlans(String category) {
@@ -238,7 +249,103 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
     }, response);
   }
 
-  // Replace the existing _processPayment method with this updated version
+  Future<String> getRechargeApi(String url) async {
+    final prefs = await SharedPreferences.getInstance();
+    String? token = await prefs.getString('token');
+
+    if (token == null || token.isEmpty) {
+      print('⚠️ Token is missing or empty');
+      throw Exception('Authentication token is missing');
+    }
+
+    Map<String, String> headers = {
+      "Authorization": token,
+      "Content-Type": "application/x-www-form-urlencoded",
+    };
+
+    final uri = Uri.parse(url);
+    print('🌐 GET Request URL: $uri');
+    print('📤 Headers: $headers');
+
+    try {
+      final response = await http
+          .get(uri, headers: headers)
+          .timeout(Duration(seconds: 30));
+
+      print('📥 Response Status: ${response.statusCode}');
+      print('📥 Response Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        return response.body;
+      } else if (response.statusCode == 404) {
+        throw Exception(
+          'Endpoint not found: ${response.statusCode} - ${response.body}',
+        );
+      } else if (response.statusCode == 401) {
+        throw Exception('Unauthorized: Invalid or expired token');
+      } else if (response.statusCode == 403) {
+        throw Exception('Forbidden: Access denied');
+      } else {
+        throw Exception(
+          'Failed to fetch data: ${response.statusCode} - ${response.body}',
+        );
+      }
+    } catch (e) {
+      print('❌ GET Request Error: $e');
+      rethrow;
+    }
+  }
+
+  Future<String> postRechargeApi(
+    String endpoint,
+    Map<String, String> postData,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    String? token = await prefs.getString('token');
+
+    if (token == null || token.isEmpty) {
+      print('⚠️ Token is missing or empty');
+      throw Exception('Authentication token is missing');
+    }
+
+    Map<String, String> headers = {
+      "Authorization": token,
+      "Content-Type": "application/x-www-form-urlencoded",
+    };
+
+    final url = Uri.parse(rechargeBaseUrl + endpoint);
+    print('🌐 POST Request URL: $url');
+    print('📤 Headers: $headers');
+    print('📤 Body: $postData');
+
+    try {
+      final response = await http
+          .post(url, headers: headers, body: postData)
+          .timeout(Duration(seconds: 30));
+
+      print('📥 Response Status: ${response.statusCode}');
+      print('📥 Response Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        return response.body;
+      } else if (response.statusCode == 404) {
+        throw Exception(
+          'Endpoint not found: ${response.statusCode} - ${response.body}',
+        );
+      } else if (response.statusCode == 401) {
+        throw Exception('Unauthorized: Invalid or expired token');
+      } else if (response.statusCode == 403) {
+        throw Exception('Forbidden: Access denied');
+      } else {
+        throw Exception(
+          'Failed to post data: ${response.statusCode} - ${response.body}',
+        );
+      }
+    } catch (e) {
+      print('❌ POST Request Error: $e');
+      rethrow;
+    }
+  }
 
   Future<void> _processPayment(
     Map<String, dynamic> planData,
@@ -307,7 +414,6 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
 
       final apiHelper = ApiHelper();
 
-      // STEP 1: Call PostTransactionata.php
       print('🚀 STEP 1: Initiating PostTransactionata.php API call...');
       print('📤 Request Data: ${rechargeRequest.toJson()}');
 
@@ -346,7 +452,6 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
           '💾 Saved payment data to SharedPreferences (transactionId: $transactionId)',
         );
 
-        // STEP 2: Call getPaymentCredentials.php API
         print('🚀 STEP 2: Initiating getPaymentCredentials.php API call...');
 
         try {
@@ -394,9 +499,10 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
           await prefs.setString('payment_credentials', credentialsResponse);
           print('💾 Saved payment credentials to SharedPreferences');
 
-          // STEP 3: Generate token using generateHash.php
           print('🚀 STEP 3: Initiating generateHash.php API call...');
-          String paidAmount = totalAmount.toStringAsFixed(2);
+          String paidAmount = "1.00";
+          // totalAmount.toStringAsFixed(2);
+
           String a =
               '$merchantCode|$transactionId|$paidAmount||$customerId|${widget.mobileNumber}|||||||||||$saltKey';
 
@@ -430,7 +536,6 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
             print('✅ Parsed JSON Response (generateHash.php): $tokenJson');
             print('📊 JSON Response Keys: ${tokenJson.keys.join(", ")}');
 
-            // FIX: Look for 'value' field instead of 'hash' or 'token'
             String? generatedToken =
                 tokenJson['value']?.toString() ??
                 tokenJson['hash']?.toString() ??
@@ -455,7 +560,6 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
 
             Navigator.pop(context);
 
-            // STEP 4: Prepare and open payment gateway with weipl_checkout_flutter
             String deviceID = "";
             if (Platform.isAndroid) {
               deviceID = "AndroidSH2";
@@ -480,18 +584,9 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
                 "currency": "INR",
                 "consumerId": customerId,
                 "consumerMobileNo": widget.mobileNumber,
-                // consumerEmailId is removed as per requirement (not wanted)
-                "txnId":
-                    transactionId
-                        .toString(), // Use the id from PostTransactionata.php as txnId
+                "txnId": transactionId.toString(),
                 "items": [
-                  {
-                    "itemId": "first",
-                    "amount": totalAmount.toStringAsFixed(
-                      2,
-                    ), // Use the actual payment amount
-                    "comAmt": "0",
-                  },
+                  {"itemId": "first", "amount": paidAmount, "comAmt": "0"},
                 ],
                 "customStyle": {
                   "PRIMARY_COLOR_CODE": "#45beaa",
@@ -502,13 +597,11 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
               },
             };
 
-            // Print the full JSON object to console for verification
             print('🎯 ===== FULL PAYMENT GATEWAY REQUEST JSON START =====');
             print('📤 Full Payment Gateway Request JSON:');
             print(json.encode(reqJson));
             print('🎯 ===== FULL PAYMENT GATEWAY REQUEST JSON END =====');
 
-            // Print individual components for verification
             print('🔍 ===== JSON COMPONENTS VERIFICATION =====');
             print('🆔 Device ID: $deviceID');
             print('🔑 Token: $generatedToken');
@@ -516,35 +609,25 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
             print('👤 Consumer ID: $customerId');
             print('📱 Consumer Mobile: ${widget.mobileNumber}');
             print('🆔 Transaction ID: $transactionId');
-            print('💰 Amount: ${totalAmount.toStringAsFixed(2)}');
+            print('💰 Amount: $paidAmount');
             print('🔍 ===== JSON COMPONENTS VERIFICATION END =====');
 
-            // Initialize weipl_checkout_flutter and open payment gateway
             WeiplCheckoutFlutter wlCheckoutFlutter = WeiplCheckoutFlutter();
             wlCheckoutFlutter.on(WeiplCheckoutFlutter.wlResponse, (response) {
               print('🎯 Payment Gateway Response: $response');
-              if (response['status'] == 'success' ||
-                  response['status'] == '1') {
-                _showPaymentSuccessDialog(planData, paymentType, totalAmount);
-              } else {
-                _showErrorSnackBar(
-                  'Payment failed: ${response['message'] ?? 'Unknown error'}',
-                );
-              }
+              handleResponse(response, planData, paymentType, totalAmount);
             });
 
             print('🚀 Opening payment gateway...');
             wlCheckoutFlutter.open(reqJson);
           } catch (tokenError) {
             print('❌ Error during generateHash.php API call: $tokenError');
-            print('🔍 Error Details: ${tokenError.toString()}');
             _showErrorSnackBar('Failed to generate token: $tokenError');
             Navigator.pop(context);
             return;
           }
         } catch (apiError) {
           print('❌ Error fetching payment credentials: $apiError');
-          print('🔍 API Error Details: ${apiError.toString()}');
           _showErrorSnackBar('Failed to fetch payment credentials: $apiError');
           Navigator.pop(context);
         }
@@ -552,7 +635,6 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
         print(
           '❌ PostTransactionata.php did not return a success status: ${jsonResponse['status']}',
         );
-        print('🔍 Full Response: $jsonResponse');
         Navigator.pop(context);
         _showErrorSnackBar(
           'Payment initiation failed: ${jsonResponse['message'] ?? 'Unknown error'}',
@@ -560,105 +642,247 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
       }
     } catch (e) {
       print('❌ Critical error in payment process: $e');
-      print('🔍 Error Details: ${e.toString()}');
       Navigator.pop(context);
       _showErrorSnackBar('Payment error: $e');
     }
   }
 
-  Future<void> _testGetPaymentCredentials() async {
-    print('🧪 TESTING: getPaymentCredentials.php API call...');
-
+  void handleResponse(
+    dynamic response,
+    Map<String, dynamic> planData,
+    String paymentType,
+    double totalAmount,
+  ) async {
     try {
-      final apiHelper = ApiHelper();
-      final response = await apiHelper.getApiResponse(
-        'getPaymentCredentials.php',
-      );
+      print('📥 Raw Payment Response: $response');
 
-      print('🎯 ===== TEST RESPONSE START =====');
-      print('📥 Raw Response: $response');
-      print('📏 Response Length: ${response.length}');
-
-      if (response.isNotEmpty) {
-        try {
-          final jsonResponse = await _parseJsonInIsolate(response);
-          print('📊 Parsed JSON: $jsonResponse');
-        } catch (e) {
-          print('❌ Failed to parse JSON: $e');
-        }
+      if (response == null || response['msg'] == null) {
+        print('❌ Invalid response format');
+        _showErrorSnackBar('Payment response invalid');
+        return;
       }
-      print('🎯 ===== TEST RESPONSE END =====');
+
+      List<String> parts = response['msg']!.split('|');
+
+      if (parts.length < 16) {
+        print('❌ Insufficient response parts: ${parts.length}');
+        _showErrorSnackBar('Invalid payment response format');
+        return;
+      }
+
+      String statusCode = parts[0];
+      String statusMessage = parts[1];
+      String description = parts[2];
+      String transactionId = parts[3];
+      String orderId = parts[4];
+      String customerId = parts[5];
+      String amount = parts[6];
+      String mobileInfo = parts[7];
+      String txnDateTime = parts[8];
+      String uuid = parts[14];
+      String hashValue = parts[15];
+
+      String paymentStatus = "6"; // Default failed status
+      String msg1 = "Transaction failed";
+
+      if (statusCode.compareTo("0300") == 0) {
+        if (statusMessage.compareTo("SUCCESS") == 0) {
+          paymentStatus = "5";
+          msg1 = "Your transaction is successful";
+          print('✅ Payment Successful!');
+
+          await _storePaymentSuccess(
+            transactionId,
+            orderId,
+            customerId,
+            txnDateTime,
+            amount,
+          );
+
+          _showPaymentSuccessDialogWithDetails(
+            planData,
+            paymentType,
+            totalAmount,
+            transactionId,
+            orderId,
+            customerId,
+            txnDateTime,
+            statusMessage,
+          );
+        } else {
+          paymentStatus = "6";
+          msg1 = "Transaction failed: $statusMessage";
+          print('❌ Payment Failed: $statusMessage');
+          _showErrorSnackBar('Payment failed: $statusMessage');
+        }
+      } else {
+        paymentStatus = "6";
+        msg1 = "Transaction failed: $description";
+        print('❌ Payment Failed with status code: $statusCode');
+        _showErrorSnackBar('Payment failed: $description');
+      }
+
+      await updatePaymentStatus(transactionId, amount, paymentStatus, msg1);
+
+      await _updatePaymentStatus1(
+        paymentStatus,
+        "Transaction ID: $transactionId\nOrder ID: $orderId\nCustomer ID: $customerId\nTransaction Date: $txnDateTime",
+        msg1,
+      );
     } catch (e) {
-      print('❌ Test API call failed: $e');
+      print('❌ Error handling payment response: $e');
+      _showErrorSnackBar('Error processing payment response: $e');
     }
   }
 
-  Future<void> _immediateTestPaymentCredentials() async {
-    print('🧪 IMMEDIATE TEST: Calling getPaymentCredentials.php directly...');
-    print(
-      '🌐 Testing URL: https://mysaving.in/IntegraAccount/api/getPaymentCredentials.php',
-    );
-
+  Future<void> updatePaymentStatus(
+    String transactionId,
+    String amount,
+    String paymentStatus,
+    String msg,
+  ) async {
     try {
-      final apiHelper = ApiHelper();
+      print('🚀 Initiating updatePaymentdetailsToRecharge.php API call...');
 
-      // Add timestamp to track the request
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      print('⏰ Request started at: $timestamp');
+      final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+      final params = {
+        'transaction_amount': amount,
+        'paymentstatus': paymentStatus,
+        'order_id': transactionId,
+        'msg': msg,
+        'timestamp': timestamp,
+      };
 
-      final response = await apiHelper.getApiResponse(
-        'getPaymentCredentials.php',
+      // Step 1: POST to updatePaymentdetailsToRecharge.php
+      final postResponse = await postRechargeApi(
+        'updatePaymentdetailsToRecharge.php?timestamp=$timestamp',
+        params,
       );
 
-      final endTime = DateTime.now().millisecondsSinceEpoch;
-      print('⏰ Request completed at: $endTime (took ${endTime - timestamp}ms)');
+      print('🎯 ===== UPDATE PAYMENT STATUS POST RESPONSE START =====');
+      print('📥 Raw POST Response: $postResponse');
+      print('📏 Response Length: ${postResponse.length}');
+      print('🔍 Response Type: ${postResponse.runtimeType}');
+      print('📋 Response is Empty: ${postResponse.isEmpty}');
+      print('🎯 ===== UPDATE PAYMENT STATUS POST RESPONSE END =====');
 
-      print('🎯 ===== IMMEDIATE TEST RESPONSE START =====');
-      print('📥 Raw Response: $response');
-      print('📏 Response Length: ${response.length}');
-      print('🔍 Response Type: ${response.runtimeType}');
-      print('📋 Response is Empty: ${response.isEmpty}');
+      if (postResponse.isNotEmpty) {
+        final postJsonResponse = await _parseJsonInIsolate(postResponse);
+        print('✅ Parsed POST JSON Response: $postJsonResponse');
+        print('📊 POST Response Keys: ${postJsonResponse.keys.join(", ")}');
 
-      if (response.isNotEmpty) {
-        try {
-          final jsonResponse = await _parseJsonInIsolate(response);
-          print('📊 Parsed JSON: $jsonResponse');
+        if (postJsonResponse['status'] == 'success' ||
+            postJsonResponse['urltoLoad'] != null) {
+          print('✅ POST Payment status updated successfully');
 
-          // Check for specific fields
-          if (jsonResponse is Map<String, dynamic>) {
-            print(
-              '🏪 Merchant Code: ${jsonResponse['merchantcode'] ?? 'Not found'}',
-            );
-            print('🔐 Salt Key: ${jsonResponse['saltkey'] ?? 'Not found'}');
-            print(
-              '💳 Transaction ID: ${jsonResponse['transactionid'] ?? 'Not found'}',
-            );
-            print(
-              '👤 Customer ID: ${jsonResponse['customerid'] ?? 'Not found'}',
-            );
+          // Step 2: Check for urltoLoad and handle Recharge Amount mismatch
+          String? urltoLoad = postJsonResponse['urltoLoad']?.toString();
+          if (urltoLoad != null && urltoLoad.isNotEmpty) {
+            try {
+              final uri = Uri.parse(urltoLoad);
+              final message = uri.queryParameters['message'];
+              print('🔍 Extracted message from urltoLoad: $message');
+
+              if (message == 'Recharge Amount mismatch') {
+                print('⚠️ Recharge Amount mismatch detected in urltoLoad');
+                _showErrorSnackBar('Recharge failed: $message');
+                return; // Skip GET request
+              }
+
+              // Proceed with GET request for other cases
+              print('🚀 Initiating GET request to urltoLoad: $urltoLoad');
+              final getResponse = await getRechargeApi(urltoLoad);
+
+              print('🎯 ===== URLTOLOAD GET RESPONSE START =====');
+              print('📥 Raw GET Response: $getResponse');
+              print('📏 Response Length: ${getResponse.length}');
+              print('🔍 Response Type: ${getResponse.runtimeType}');
+              print('📋 Response is Empty: ${getResponse.isEmpty}');
+              print('🎯 ===== URLTOLOAD GET RESPONSE END =====');
+
+              if (getResponse.isNotEmpty) {
+                final getJsonResponse = await _parseJsonInIsolate(getResponse);
+                print('✅ Parsed GET JSON Response: $getJsonResponse');
+                print(
+                  '📊 GET Response Keys: ${getJsonResponse.keys.join(", ")}',
+                );
+
+                if (getJsonResponse['status'] == 'success' ||
+                    getJsonResponse['status'] == '1') {
+                  print('✅ GET request to urltoLoad successful');
+                  _showSuccessSnackBar('Payment status finalized successfully');
+                } else {
+                  print(
+                    '❌ GET request to urltoLoad failed: ${getJsonResponse['message'] ?? 'Unknown error'}',
+                  );
+                  _showErrorSnackBar(
+                    'Failed to finalize payment status: ${getJsonResponse['message'] ?? 'Unknown error'}',
+                  );
+                }
+              } else {
+                print('❌ Empty GET response from urltoLoad');
+                _showErrorSnackBar('Empty response from urltoLoad API');
+              }
+            } catch (getError) {
+              print('❌ Error calling urltoLoad: $getError');
+              _showErrorSnackBar('Failed to fetch urltoLoad: $getError');
+            }
+          } else {
+            print('✅ No urltoLoad provided, POST success assumed');
+            _showSuccessSnackBar('Payment status updated successfully');
           }
-        } catch (parseError) {
-          print('❌ JSON Parse Error: $parseError');
-          print('📄 Raw response that failed to parse: "$response"');
+        } else {
+          print(
+            '❌ Failed to update payment status (POST): ${postJsonResponse['message'] ?? 'Unknown error'}',
+          );
+          _showErrorSnackBar(
+            'Failed to update payment status: ${postJsonResponse['message'] ?? 'Unknown error'}',
+          );
         }
       } else {
-        print('⚠️ Empty response received from API');
-      }
-      print('🎯 ===== IMMEDIATE TEST RESPONSE END =====');
-
-      // Show result in a snackbar too
-      if (response.isNotEmpty) {
-        _showSuccessSnackBar(
-          'API Response received! Check console for details.',
-        );
-      } else {
-        _showErrorSnackBar('Empty response from getPaymentCredentials API');
+        print('❌ Empty POST response received');
+        _showErrorSnackBar('Empty response from payment status update API');
       }
     } catch (e) {
-      print('❌ Immediate test API call failed: $e');
-      print('🔍 Error details: ${e.toString()}');
-      print('📋 Error type: ${e.runtimeType}');
-      _showErrorSnackBar('API test failed: $e');
+      print('❌ Error calling updatePaymentdetailsToRecharge.php: $e');
+      print('🔍 Error Details: ${e.toString()}');
+      _showErrorSnackBar('Failed to update payment status: $e');
+    }
+  }
+
+  Future<void> _storePaymentSuccess(
+    String transactionId,
+    String orderId,
+    String customerId,
+    String txnDateTime,
+    String amount,
+  ) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('last_transaction_id', transactionId);
+      await prefs.setString('last_order_id', orderId);
+      await prefs.setString('last_customer_id', customerId);
+      await prefs.setString('last_transaction_date', txnDateTime);
+      await prefs.setString('last_paid_amount', amount);
+      print('💾 Payment success details stored in SharedPreferences');
+    } catch (e) {
+      print('❌ Error storing payment success details: $e');
+    }
+  }
+
+  Future<void> _updatePaymentStatus1(
+    String paymentStatus,
+    String transactionDetails,
+    String msg,
+  ) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('final_payment_status', paymentStatus);
+      await prefs.setString('transaction_details', transactionDetails);
+      await prefs.setString('final_payment_message', msg);
+      print('💾 Final payment status updated: $paymentStatus');
+    } catch (e) {
+      print('❌ Error updating payment status: $e');
     }
   }
 
@@ -787,186 +1011,6 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
           ],
         ),
       ),
-    );
-  }
-
-  void _showPaymentSuccessDialog(
-    Map<String, dynamic> planData,
-    String paymentType,
-    double totalAmount,
-  ) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder:
-          (context) => Dialog(
-            backgroundColor: Colors.transparent,
-            child: Container(
-              padding: EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.white, Color(0xFFF0FDF4)],
-                ),
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 30,
-                    offset: Offset(0, 15),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Color(0xFF10B981), Color(0xFF059669)],
-                      ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Color(0xFF10B981).withOpacity(0.3),
-                          blurRadius: 20,
-                          offset: Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Icon(Icons.check, color: Colors.white, size: 40),
-                  ),
-                  SizedBox(height: 24),
-                  Text(
-                    'Payment Successful! 🎉',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1A202C),
-                    ),
-                  ),
-                  SizedBox(height: 12),
-                  Text(
-                    'Your recharge has been completed successfully',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Color(0xFF4A5568),
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  SizedBox(height: 24),
-                  Container(
-                    width: double.infinity,
-                    padding: EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Color(0xFFF8F9FA), Color(0xFFE2E8F0)],
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Color(0xFFE2E8F0)),
-                    ),
-                    child: Column(
-                      children: [
-                        _buildSuccessDetailRow(
-                          'Mobile Number',
-                          widget.mobileNumber,
-                        ),
-                        Divider(height: 20, color: Color(0xFFCBD5E0)),
-                        _buildSuccessDetailRow(
-                          'Amount Paid',
-                          '₹${totalAmount.toStringAsFixed(2)}',
-                        ),
-                        Divider(height: 20, color: Color(0xFFCBD5E0)),
-                        _buildSuccessDetailRow(
-                          'Payment Method',
-                          _getPaymentTypeDisplayName(paymentType),
-                        ),
-                        Divider(height: 20, color: Color(0xFFCBD5E0)),
-                        _buildSuccessDetailRow(
-                          'Transaction ID',
-                          '#TXN${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}',
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          height: 48,
-                          child: OutlinedButton(
-                            style: OutlinedButton.styleFrom(
-                              side: BorderSide(
-                                color: Color(0xFF10B981),
-                                width: 2,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            onPressed: () {
-                              Navigator.pop(context);
-                            },
-                            child: Text(
-                              'View Receipt',
-                              style: TextStyle(
-                                color: Color(0xFF10B981),
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: Container(
-                          height: 48,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [Color(0xFF10B981), Color(0xFF059669)],
-                            ),
-                            borderRadius: BorderRadius.circular(14),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Color(0xFF10B981).withOpacity(0.3),
-                                blurRadius: 12,
-                                offset: Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.transparent,
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            onPressed: () {
-                              Navigator.pop(context);
-                              Navigator.pop(context);
-                            },
-                            child: Text(
-                              'Done',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
     );
   }
 
@@ -2094,587 +2138,158 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
       ),
     );
   }
-}
 
-// PaymentOption class to define payment method details
-class PaymentOption {
-  final String id;
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final List<Color> gradient;
-  final double charges;
-  final bool isRecommended;
-
-  PaymentOption({
-    required this.id,
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.gradient,
-    required this.charges,
-    this.isRecommended = false,
-  });
-}
-
-// PaymentTypeDialog class to display payment options
-class PaymentTypeDialog extends StatefulWidget {
-  final double amount;
-  final Function(String paymentType, double totalAmount) onPaymentSelected;
-
-  const PaymentTypeDialog({
-    Key? key,
-    required this.amount,
-    required this.onPaymentSelected,
-  }) : super(key: key);
-
-  @override
-  _PaymentTypeDialogState createState() => _PaymentTypeDialogState();
-}
-
-class _PaymentTypeDialogState extends State<PaymentTypeDialog>
-    with TickerProviderStateMixin {
-  late AnimationController _slideController;
-  late AnimationController _fadeController;
-  late Animation<Offset> _slideAnimation;
-  late Animation<double> _fadeAnimation;
-
-  String? selectedPaymentType;
-  final List<PaymentOption> paymentOptions = [
-    PaymentOption(
-      id: 'upi',
-      title: 'UPI',
-      subtitle: '(no convenience charges)',
-      icon: Icons.account_balance_wallet,
-      gradient: [Color(0xFF4CAF50), Color(0xFF2E7D32)],
-      charges: 0.0,
-      isRecommended: true,
-    ),
-    PaymentOption(
-      id: 'net_banking',
-      title: 'NET Banking',
-      subtitle: '(payment gateway charge @1.5% applicable)',
-      icon: Icons.account_balance,
-      gradient: [Color(0xFF2196F3), Color(0xFF0D47A1)],
-      charges: 1.5,
-    ),
-    PaymentOption(
-      id: 'debit_card',
-      title: 'Debit Card',
-      subtitle: '(payment gateway charge @0.4% applicable)',
-      icon: Icons.credit_card,
-      gradient: [Color(0xFF9C27B0), Color(0xFF4A148C)],
-      charges: 0.4,
-    ),
-    PaymentOption(
-      id: 'credit_card',
-      title: 'Credit Card',
-      subtitle: '(payment gateway charge @2.1% applicable)',
-      icon: Icons.credit_card_outlined,
-      gradient: [Color(0xFFFF5722), Color(0xFFBF360C)],
-      charges: 2.1,
-    ),
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _slideController = AnimationController(
-      duration: Duration(milliseconds: 600),
-      vsync: this,
-    );
-    _fadeController = AnimationController(
-      duration: Duration(milliseconds: 800),
-      vsync: this,
-    );
-
-    _slideAnimation = Tween<Offset>(
-      begin: Offset(0, 1),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _slideController, curve: Curves.elasticOut),
-    );
-
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
-    );
-
-    _slideController.forward();
-    _fadeController.forward();
-  }
-
-  @override
-  void dispose() {
-    _slideController.dispose();
-    _fadeController.dispose();
-    super.dispose();
-  }
-
-  double _calculateTotalAmount(double charges) {
-    if (charges == 0) return widget.amount;
-    return widget.amount + (widget.amount * charges / 100);
-  }
-
-  void _selectPaymentType(PaymentOption option) {
-    setState(() {
-      selectedPaymentType = option.id;
-    });
-    HapticFeedback.mediumImpact();
-    // Action triggered when user taps a payment option
-    print(
-      '🔔 User selected payment option: ${option.title} (ID: ${option.id}, Charges: ${option.charges}%)',
-    );
-  }
-
-  void _proceedWithPayment() {
-    if (selectedPaymentType != null) {
-      final selectedOption = paymentOptions.firstWhere(
-        (option) => option.id == selectedPaymentType,
-      );
-      final totalAmount = _calculateTotalAmount(selectedOption.charges);
-      widget.onPaymentSelected(selectedOption.id, totalAmount);
-      Navigator.pop(context);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final double screenHeight = MediaQuery.of(context).size.height;
-    final double dialogHeight = screenHeight * 0.85;
-
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: SlideTransition(
-        position: _slideAnimation,
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: Container(
-            constraints: BoxConstraints(maxHeight: dialogHeight),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Colors.white, Color(0xFFFAFBFC), Color(0xFFF8F9FA)],
-              ),
-              borderRadius: BorderRadius.circular(32),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
-                  blurRadius: 40,
-                  offset: Offset(0, 20),
-                  spreadRadius: 0,
+  void _showPaymentSuccessDialogWithDetails(
+    Map<String, dynamic> planData,
+    String paymentType,
+    double totalAmount,
+    String transactionId,
+    String orderId,
+    String customerId,
+    String txnDateTime,
+    String statusMessage,
+  ) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => Dialog(
+            backgroundColor: Colors.transparent,
+            child: Container(
+              padding: EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.white, Color(0xFFF0FDF4)],
                 ),
-              ],
-            ),
-            child: SingleChildScrollView(
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 30,
+                    offset: Offset(0, 15),
+                  ),
+                ],
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    width: double.infinity,
-                    padding: EdgeInsets.fromLTRB(32, 32, 32, 24),
+                    width: 80,
+                    height: 80,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                        colors: [Color(0xFF10B981), Color(0xFF059669)],
                       ),
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(32),
-                        topRight: Radius.circular(32),
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                'Payment Type',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            GestureDetector(
-                              onTap: () => Navigator.pop(context),
-                              child: Container(
-                                padding: EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Icon(
-                                  Icons.close,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 16),
-                        Container(
-                          width: double.infinity,
-                          padding: EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.3),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Amount to Pay',
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(0.8),
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    SizedBox(height: 4),
-                                    Text(
-                                      '₹${widget.amount.toStringAsFixed(0)}',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 28,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                padding: EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Icon(
-                                  Icons.payments,
-                                  color: Colors.white,
-                                  size: 24,
-                                ),
-                              ),
-                            ],
-                          ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0xFF10B981).withOpacity(0.3),
+                          blurRadius: 20,
+                          offset: Offset(0, 8),
                         ),
                       ],
                     ),
+                    child: Icon(Icons.check, color: Colors.white, size: 40),
                   ),
-                  Padding(
-                    padding: EdgeInsets.all(24),
+                  SizedBox(height: 24),
+                  Text(
+                    'Payment Successful! 🎉',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A202C),
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  Text(
+                    statusMessage,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Color(0xFF4A5568),
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 24),
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFFF8F9FA), Color(0xFFE2E8F0)],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Color(0xFFE2E8F0)),
+                    ),
                     child: Column(
                       children: [
-                        Text(
-                          'Choose your preferred payment method',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Color(0xFF4A5568),
-                            fontWeight: FontWeight.w500,
-                          ),
-                          textAlign: TextAlign.center,
+                        _buildSuccessDetailRow(
+                          'Mobile Number',
+                          widget.mobileNumber,
                         ),
-                        SizedBox(height: 24),
-                        ...paymentOptions.asMap().entries.map((entry) {
-                          int index = entry.key;
-                          PaymentOption option = entry.value;
-                          bool isSelected = selectedPaymentType == option.id;
-
-                          return AnimatedContainer(
-                            duration: Duration(milliseconds: 300),
-                            margin: EdgeInsets.only(bottom: 16),
-                            child: GestureDetector(
-                              onTap: () => _selectPaymentType(option),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  gradient:
-                                      isSelected
-                                          ? LinearGradient(
-                                            colors: [
-                                              option.gradient[0].withOpacity(
-                                                0.1,
-                                              ),
-                                              option.gradient[1].withOpacity(
-                                                0.05,
-                                              ),
-                                            ],
-                                          )
-                                          : LinearGradient(
-                                            colors: [
-                                              Colors.white,
-                                              Color(0xFFFAFBFC),
-                                            ],
-                                          ),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color:
-                                        isSelected
-                                            ? option.gradient[0]
-                                            : Color(0xFFE2E8F0),
-                                    width: isSelected ? 2.5 : 1.5,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color:
-                                          isSelected
-                                              ? option.gradient[0].withOpacity(
-                                                0.25,
-                                              )
-                                              : Colors.black.withOpacity(0.05),
-                                      blurRadius: isSelected ? 20 : 10,
-                                      offset: Offset(0, isSelected ? 8 : 4),
-                                    ),
-                                  ],
-                                ),
-                                child: Stack(
-                                  children: [
-                                    if (option.isRecommended)
-                                      Positioned(
-                                        top: 0,
-                                        right: 0,
-                                        child: Container(
-                                          padding: EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 6,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              colors: [
-                                                Colors.orange,
-                                                Colors.deepOrange,
-                                              ],
-                                            ),
-                                            borderRadius: BorderRadius.only(
-                                              topRight: Radius.circular(20),
-                                              bottomLeft: Radius.circular(16),
-                                            ),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.orange
-                                                    .withOpacity(0.3),
-                                                blurRadius: 8,
-                                                offset: Offset(0, 3),
-                                              ),
-                                            ],
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.star,
-                                                color: Colors.white,
-                                                size: 12,
-                                              ),
-                                              SizedBox(width: 4),
-                                              Text(
-                                                'RECOMMENDED',
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    Padding(
-                                      padding: EdgeInsets.all(20),
-                                      child: Row(
-                                        children: [
-                                          Container(
-                                            width: 60,
-                                            height: 60,
-                                            decoration: BoxDecoration(
-                                              gradient: LinearGradient(
-                                                colors: option.gradient,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(16),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: option.gradient[0]
-                                                      .withOpacity(0.3),
-                                                  blurRadius: 12,
-                                                  offset: Offset(0, 6),
-                                                ),
-                                              ],
-                                            ),
-                                            child: Icon(
-                                              option.icon,
-                                              color: Colors.white,
-                                              size: 24,
-                                            ),
-                                          ),
-                                          SizedBox(width: 16),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  option.title,
-                                                  style: TextStyle(
-                                                    fontSize: 18,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Color(0xFF1A202C),
-                                                  ),
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                                SizedBox(height: 4),
-                                                Text(
-                                                  option.subtitle,
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: Color(0xFF718096),
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  maxLines: 2,
-                                                ),
-                                                SizedBox(height: 8),
-                                                Wrap(
-                                                  crossAxisAlignment:
-                                                      WrapCrossAlignment.center,
-                                                  children: [
-                                                    Text(
-                                                      'Total: ',
-                                                      style: TextStyle(
-                                                        fontSize: 14,
-                                                        color: Color(
-                                                          0xFF4A5568,
-                                                        ),
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                      ),
-                                                    ),
-                                                    Text(
-                                                      '₹${_calculateTotalAmount(option.charges).toStringAsFixed(2)}',
-                                                      style: TextStyle(
-                                                        fontSize: 16,
-                                                        color:
-                                                            option.gradient[0],
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
-                                                    ),
-                                                    if (option.charges > 0) ...[
-                                                      SizedBox(width: 8),
-                                                      Container(
-                                                        padding:
-                                                            EdgeInsets.symmetric(
-                                                              horizontal: 6,
-                                                              vertical: 2,
-                                                            ),
-                                                        decoration: BoxDecoration(
-                                                          color: Colors.red
-                                                              .withOpacity(0.1),
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                8,
-                                                              ),
-                                                        ),
-                                                        child: Text(
-                                                          '+${option.charges}%',
-                                                          style: TextStyle(
-                                                            fontSize: 10,
-                                                            color: Colors.red,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          Container(
-                                            width: 40,
-                                            height: 40,
-                                            decoration: BoxDecoration(
-                                              gradient:
-                                                  isSelected
-                                                      ? LinearGradient(
-                                                        colors: option.gradient,
-                                                      )
-                                                      : LinearGradient(
-                                                        colors: [
-                                                          Color(0xFFF8F9FA),
-                                                          Color(0xFFE2E8F0),
-                                                        ],
-                                                      ),
-                                              shape: BoxShape.circle,
-                                              boxShadow:
-                                                  isSelected
-                                                      ? [
-                                                        BoxShadow(
-                                                          color: option
-                                                              .gradient[0]
-                                                              .withOpacity(0.4),
-                                                          blurRadius: 12,
-                                                          offset: Offset(0, 4),
-                                                        ),
-                                                      ]
-                                                      : [],
-                                            ),
-                                            child: Icon(
-                                              isSelected
-                                                  ? Icons.check_circle
-                                                  : Icons
-                                                      .radio_button_unchecked,
-                                              color:
-                                                  isSelected
-                                                      ? Colors.white
-                                                      : Color(0xFF718096),
-                                              size: 20,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                        Divider(height: 20, color: Color(0xFFCBD5E0)),
+                        _buildSuccessDetailRow(
+                          'Amount Paid',
+                          '₹${totalAmount.toStringAsFixed(2)}',
+                        ),
+                        Divider(height: 20, color: Color(0xFFCBD5E0)),
+                        _buildSuccessDetailRow(
+                          'Payment Method',
+                          _getPaymentTypeDisplayName(paymentType),
+                        ),
+                        Divider(height: 20, color: Color(0xFFCBD5E0)),
+                        _buildSuccessDetailRow('Transaction ID', transactionId),
+                        Divider(height: 20, color: Color(0xFFCBD5E0)),
+                        _buildSuccessDetailRow('Order ID', orderId),
+                        Divider(height: 20, color: Color(0xFFCBD5E0)),
+                        _buildSuccessDetailRow('Transaction Date', txnDateTime),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          height: 48,
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(
+                                color: Color(0xFF10B981),
+                                width: 2,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
                               ),
                             ),
-                          );
-                        }).toList(),
-                        SizedBox(height: 24),
-                        Container(
-                          height: 56,
-                          width: double.infinity,
+                            onPressed: () {
+                              Navigator.pop(context);
+                            },
+                            child: Text(
+                              'View Receipt',
+                              style: TextStyle(
+                                color: Color(0xFF10B981),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Container(
+                          height: 48,
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
-                              colors:
-                                  selectedPaymentType != null
-                                      ? [Color(0xFF10B981), Color(0xFF059669)]
-                                      : [Color(0xFFB0BEC5), Color(0xFF78909C)],
+                              colors: [Color(0xFF10B981), Color(0xFF059669)],
                             ),
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(14),
                             boxShadow: [
                               BoxShadow(
-                                color:
-                                    selectedPaymentType != null
-                                        ? Color(0xFF10B981).withOpacity(0.3)
-                                        : Colors.black.withOpacity(0.1),
+                                color: Color(0xFF10B981).withOpacity(0.3),
                                 blurRadius: 12,
-                                offset: Offset(0, 6),
+                                offset: Offset(0, 4),
                               ),
                             ],
                           ),
@@ -2684,41 +2299,29 @@ class _PaymentTypeDialogState extends State<PaymentTypeDialog>
                               foregroundColor: Colors.white,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(14),
                               ),
                             ),
-                            onPressed:
-                                selectedPaymentType != null
-                                    ? _proceedWithPayment
-                                    : null,
+                            onPressed: () {
+                              Navigator.pop(context);
+                              Navigator.pop(context);
+                            },
                             child: Text(
-                              'Proceed to Pay',
+                              'Done',
                               style: TextStyle(
-                                fontSize: 16,
                                 fontWeight: FontWeight.w600,
+                                fontSize: 14,
                               ),
                             ),
                           ),
                         ),
-                        SizedBox(height: 16),
-                        Text(
-                          'All transactions are secure and encrypted',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF718096),
-                            fontWeight: FontWeight.w500,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
           ),
-        ),
-      ),
     );
   }
 }
