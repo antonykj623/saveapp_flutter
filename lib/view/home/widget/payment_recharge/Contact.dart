@@ -775,7 +775,7 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
             postJsonResponse['urltoLoad'] != null) {
           print('✅ POST Payment status updated successfully');
 
-          // Step 2: Check for urltoLoad and handle Recharge Amount mismatch
+          // Step 2: Check for urltoLoad and handle different scenarios
           String? urltoLoad = postJsonResponse['urltoLoad']?.toString();
           if (urltoLoad != null && urltoLoad.isNotEmpty) {
             try {
@@ -783,13 +783,31 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
               final message = uri.queryParameters['message'];
               print('🔍 Extracted message from urltoLoad: $message');
 
+              // Handle Recharge Amount mismatch specifically
               if (message == 'Recharge Amount mismatch') {
-                print('⚠️ Recharge Amount mismatch detected in urltoLoad');
-                _showErrorSnackBar('Recharge failed: $message');
-                return; // Skip GET request
+                print('❌ Recharge Amount mismatch detected in urltoLoad');
+                _showRechargeFailureDialog(
+                  'Recharge Failed',
+                  'Your payment was successful, but the recharge could not be completed due to an amount mismatch. Please contact customer support for assistance.',
+                  transactionId,
+                  amount,
+                );
+                return; // Skip GET request for amount mismatch
               }
 
-              // Proceed with GET request for other cases
+              // Handle other error messages from urltoLoad
+              if (message != null && message.toLowerCase().contains('failed')) {
+                print('❌ Recharge failed message detected: $message');
+                _showRechargeFailureDialog(
+                  'Recharge Failed',
+                  message,
+                  transactionId,
+                  amount,
+                );
+                return; // Skip GET request for failed recharges
+              }
+
+              // Proceed with GET request for successful cases or other scenarios
               print('🚀 Initiating GET request to urltoLoad: $urltoLoad');
               final getResponse = await getRechargeApi(urltoLoad);
 
@@ -807,25 +825,466 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
                   '📊 GET Response Keys: ${getJsonResponse.keys.join(", ")}',
                 );
 
-                if (getJsonResponse['status'] == 'success' ||
+                // Check if GET response contains another urltoLoad (nested error)
+                String? nestedUrlToLoad =
+                    getJsonResponse['urltoLoad']?.toString();
+                if (nestedUrlToLoad != null && nestedUrlToLoad.isNotEmpty) {
+                  try {
+                    final nestedUri = Uri.parse(nestedUrlToLoad);
+                    final nestedMessage = nestedUri.queryParameters['message'];
+                    print(
+                      '🔍 Nested message from GET response urltoLoad: $nestedMessage',
+                    );
+
+                    if (nestedMessage == 'Recharge Amount mismatch') {
+                      print('❌ Nested Recharge Amount mismatch detected');
+                      _showRechargeFailureDialog(
+                        'Recharge Failed',
+                        'Your payment was successful, but the recharge could not be completed due to an amount mismatch. Please contact customer support for assistance.',
+                        transactionId,
+                        amount,
+                      );
+                      return;
+                    } else if (nestedMessage != null) {
+                      print('❌ Other nested error message: $nestedMessage');
+                      _showRechargeFailureDialog(
+                        'Recharge Failed',
+                        'Your payment was successful, but the recharge could not be completed: $nestedMessage',
+                        transactionId,
+                        amount,
+                      );
+                      return;
+                    }
+                  } catch (nestedParseError) {
+                    print(
+                      '❌ Error parsing nested urltoLoad: $nestedParseError',
+                    );
+                  }
+                }
+
+                // Handle structured recharge response with status codes
+                if (getJsonResponse.containsKey('status') &&
+                    getJsonResponse.containsKey('account')) {
+                  final rechargeStatus = getJsonResponse['status'];
+                  final accountNumber =
+                      getJsonResponse['account']?.toString() ?? '';
+                  final rechargeAmount =
+                      getJsonResponse['amount']?.toString() ?? '';
+                  final rpid = getJsonResponse['rpid']?.toString() ?? '';
+                  final message = getJsonResponse['msg']?.toString() ?? '';
+                  final balance = getJsonResponse['bal']?.toString() ?? '';
+                  final agentId = getJsonResponse['agentid']?.toString();
+                  final opId = getJsonResponse['opid']?.toString();
+                  final isRefundStatusShow =
+                      getJsonResponse['isRefundStatusShow'] as bool?;
+                  final errorCode = getJsonResponse['errorcode']?.toString();
+
+                  print('🔍 Recharge Status Code: $rechargeStatus');
+                  print('🔍 Account: $accountNumber');
+                  print('🔍 Amount: $rechargeAmount');
+                  print('🔍 Message: $message');
+                  print('🔍 Error Code: $errorCode');
+                  print('🔍 Agent ID: $agentId');
+                  print('🔍 OP ID: $opId');
+                  print('🔍 Refund Status Show: $isRefundStatusShow');
+
+                  if (rechargeStatus == 2) {
+                    // Status 2 = Recharge Successful
+                    print('✅ Recharge completed successfully (Status: 2)');
+                    await _storeRechargeSuccess(
+                      accountNumber,
+                      rechargeAmount,
+                      rpid,
+                      message,
+                      balance,
+                      agentId,
+                      opId,
+                      isRefundStatusShow,
+                      errorCode,
+                    );
+                    _showRechargeSuccessDialog(
+                      accountNumber,
+                      rechargeAmount,
+                      rpid,
+                      message,
+                      balance,
+                      transactionId,
+                    );
+
+                    // Call updateRechargeStatus.php for successful recharge
+                    print('🚀 Initiating updateRechargeStatus.php API call...');
+                    final rechargeStatusParams = {
+                      'timestamp':
+                          DateTime.now().millisecondsSinceEpoch.toString(),
+                      'status': '1', // Success status for updateRechargeStatus
+                      'id': transactionId,
+                      'rp_id': rpid,
+                      'agent_id': agentId ?? '',
+                    };
+
+                    try {
+                      final rechargeStatusResponse = await postRechargeApi(
+                        'https://mysaving.in/IntegraAccount/api/updateRechargeStatus.php',
+                        rechargeStatusParams,
+                      );
+
+                      print(
+                        '🎯 ===== UPDATE RECHARGE STATUS RESPONSE START =====',
+                      );
+                      print(
+                        '📥 Raw Response (updateRechargeStatus.php): $rechargeStatusResponse',
+                      );
+                      print(
+                        '📏 Response Length: ${rechargeStatusResponse.length}',
+                      );
+                      print(
+                        '🔍 Response Type: ${rechargeStatusResponse.runtimeType}',
+                      );
+                      print(
+                        '📋 Response is Empty: ${rechargeStatusResponse.isEmpty}',
+                      );
+                      print(
+                        '🎯 ===== UPDATE RECHARGE STATUS RESPONSE END =====',
+                      );
+
+                      if (rechargeStatusResponse.isNotEmpty) {
+                        final rechargeStatusJson = await _parseJsonInIsolate(
+                          rechargeStatusResponse,
+                        );
+                        print(
+                          '✅ Parsed JSON Response (updateRechargeStatus.php): $rechargeStatusJson',
+                        );
+                        print(
+                          '📊 Response Keys: ${rechargeStatusJson.keys.join(", ")}',
+                        );
+
+                        if (rechargeStatusJson['status'] == 1 &&
+                            rechargeStatusJson['message'] == 'Success') {
+                          print(
+                            '✅ updateRechargeStatus.php successful, proceeding to updateGenStatus.php',
+                          );
+
+                          // Call updateGenStatus.php
+                          print(
+                            '🚀 Initiating updateGenStatus.php API call...',
+                          );
+                          final genStatusParams = {
+                            'timestamp':
+                                DateTime.now().millisecondsSinceEpoch
+                                    .toString(),
+                            'id': transactionId,
+                          };
+
+                          try {
+                            final genStatusResponse = await postRechargeApi(
+                              'https://mysaving.in/IntegraAccount/api/updateGenStatus.php',
+                              genStatusParams,
+                            );
+
+                            print(
+                              '🎯 ===== UPDATE GEN STATUS RESPONSE START =====',
+                            );
+                            print(
+                              '📥 Raw Response (updateGenStatus.php): $genStatusResponse',
+                            );
+                            print(
+                              '📏 Response Length: ${genStatusResponse.length}',
+                            );
+                            print(
+                              '🔍 Response Type: ${genStatusResponse.runtimeType}',
+                            );
+                            print(
+                              '📋 Response is Empty: ${genStatusResponse.isEmpty}',
+                            );
+                            print(
+                              '🎯 ===== UPDATE GEN STATUS RESPONSE END =====',
+                            );
+
+                            if (genStatusResponse.isNotEmpty) {
+                              final genStatusJson = await _parseJsonInIsolate(
+                                genStatusResponse,
+                              );
+                              print(
+                                '✅ Parsed JSON Response (updateGenStatus.php): $genStatusJson',
+                              );
+                              print(
+                                '📊 Response Keys: ${genStatusJson.keys.join(", ")}',
+                              );
+
+                              if (genStatusJson['status'] == 'success') {
+                                print(
+                                  '✅ updateGenStatus.php completed successfully',
+                                );
+                                _showSuccessSnackBar(
+                                  'Recharge and status updates completed successfully',
+                                );
+                              } else {
+                                print(
+                                  '❌ updateGenStatus.php failed: ${genStatusJson['message'] ?? 'Unknown error'}',
+                                );
+                                _showErrorSnackBar(
+                                  'Failed to update general status: ${genStatusJson['message'] ?? 'Unknown error'}',
+                                );
+                              }
+                            } else {
+                              print(
+                                '❌ Empty response from updateGenStatus.php',
+                              );
+                              _showErrorSnackBar(
+                                'Empty response from general status update API',
+                              );
+                            }
+                          } catch (genStatusError) {
+                            print(
+                              '❌ Error calling updateGenStatus.php: $genStatusError',
+                            );
+                            _showErrorSnackBar(
+                              'Failed to update general status: $genStatusError',
+                            );
+                          }
+                        } else {
+                          print(
+                            '❌ updateRechargeStatus.php failed: ${rechargeStatusJson['message'] ?? 'Unknown error'}',
+                          );
+                          _showErrorSnackBar(
+                            'Failed to update recharge status: ${rechargeStatusJson['message'] ?? 'Unknown error'}',
+                          );
+                        }
+                      } else {
+                        print('❌ Empty response from updateRechargeStatus.php');
+                        _showErrorSnackBar(
+                          'Empty response from recharge status update API',
+                        );
+                      }
+                    } catch (rechargeStatusError) {
+                      print(
+                        '❌ Error calling updateRechargeStatus.php: $rechargeStatusError',
+                      );
+                      _showErrorSnackBar(
+                        'Failed to update recharge status: $rechargeStatusError',
+                      );
+                    }
+                  } else if (rechargeStatus == 1) {
+                    // Status 1 = Recharge Pending
+                    print('⏳ Recharge is pending (Status: 1)');
+                    _showRechargePendingDialog(
+                      accountNumber,
+                      rechargeAmount,
+                      rpid,
+                      message,
+                      transactionId,
+                    );
+
+                    // Call updateRechargeStatus.php for pending recharge
+                    print(
+                      '🚀 Initiating updateRechargeStatus.php API call for pending...',
+                    );
+                    final rechargeStatusParams = {
+                      'timestamp':
+                          DateTime.now().millisecondsSinceEpoch.toString(),
+                      'status': '2', // Pending status for updateRechargeStatus
+                      'id': transactionId,
+                      'rp_id': rpid,
+                      'agent_id': agentId ?? '',
+                    };
+
+                    try {
+                      final rechargeStatusResponse = await postRechargeApi(
+                        'https://mysaving.in/IntegraAccount/api/updateRechargeStatus.php',
+                        rechargeStatusParams,
+                      );
+
+                      print(
+                        '🎯 ===== UPDATE RECHARGE STATUS RESPONSE START =====',
+                      );
+                      print(
+                        '📥 Raw Response (updateRechargeStatus.php): $rechargeStatusResponse',
+                      );
+                      print(
+                        '📏 Response Length: ${rechargeStatusResponse.length}',
+                      );
+                      print(
+                        '🔍 Response Type: ${rechargeStatusResponse.runtimeType}',
+                      );
+                      print(
+                        '📋 Response is Empty: ${rechargeStatusResponse.isEmpty}',
+                      );
+                      print(
+                        '🎯 ===== UPDATE RECHARGE STATUS RESPONSE END =====',
+                      );
+
+                      if (rechargeStatusResponse.isNotEmpty) {
+                        final rechargeStatusJson = await _parseJsonInIsolate(
+                          rechargeStatusResponse,
+                        );
+                        print(
+                          '✅ Parsed JSON Response (updateRechargeStatus.php): $rechargeStatusJson',
+                        );
+                        print(
+                          '📊 Response Keys: ${rechargeStatusJson.keys.join(", ")}',
+                        );
+
+                        if (rechargeStatusJson['status'] == 1 &&
+                            rechargeStatusJson['message'] == 'Success') {
+                          print(
+                            '✅ updateRechargeStatus.php successful for pending status',
+                          );
+                        } else {
+                          print(
+                            '❌ updateRechargeStatus.php failed for pending: ${rechargeStatusJson['message'] ?? 'Unknown error'}',
+                          );
+                          _showErrorSnackBar(
+                            'Failed to update pending recharge status: ${rechargeStatusJson['message'] ?? 'Unknown error'}',
+                          );
+                        }
+                      } else {
+                        print(
+                          '❌ Empty response from updateRechargeStatus.php for pending',
+                        );
+                        _showErrorSnackBar(
+                          'Empty response from recharge status update API for pending',
+                        );
+                      }
+                    } catch (rechargeStatusError) {
+                      print(
+                        '❌ Error calling updateRechargeStatus.php for pending: $rechargeStatusError',
+                      );
+                      _showErrorSnackBar(
+                        'Failed to update pending recharge status: $rechargeStatusError',
+                      );
+                    }
+                  } else {
+                    // Other status = Recharge Failed
+                    print('❌ Recharge failed (Status: $rechargeStatus)');
+                    _showRechargeFailureDialog(
+                      'Recharge Failed',
+                      message.isNotEmpty
+                          ? message
+                          : 'Recharge could not be completed. Please try again.',
+                      transactionId,
+                      rechargeAmount.isNotEmpty ? rechargeAmount : amount,
+                    );
+
+                    // Call updateRechargeStatus.php for failed recharge
+                    print(
+                      '🚀 Initiating updateRechargeStatus.php API call for failed...',
+                    );
+                    final rechargeStatusParams = {
+                      'timestamp':
+                          DateTime.now().millisecondsSinceEpoch.toString(),
+                      'status': '0', // Failed status for updateRechargeStatus
+                      'id': transactionId,
+                      'rp_id': rpid,
+                      'agent_id': agentId ?? '',
+                    };
+
+                    try {
+                      final rechargeStatusResponse = await postRechargeApi(
+                        'https://mysaving.in/IntegraAccount/api/updateRechargeStatus.php',
+                        rechargeStatusParams,
+                      );
+
+                      print(
+                        '🎯 ===== UPDATE RECHARGE STATUS RESPONSE START =====',
+                      );
+                      print(
+                        '📥 Raw Response (updateRechargeStatus.php): $rechargeStatusResponse',
+                      );
+                      print(
+                        '📏 Response Length: ${rechargeStatusResponse.length}',
+                      );
+                      print(
+                        '🔍 Response Type: ${rechargeStatusResponse.runtimeType}',
+                      );
+                      print(
+                        '📋 Response is Empty: ${rechargeStatusResponse.isEmpty}',
+                      );
+                      print(
+                        '🎯 ===== UPDATE RECHARGE STATUS RESPONSE END =====',
+                      );
+
+                      if (rechargeStatusResponse.isNotEmpty) {
+                        final rechargeStatusJson = await _parseJsonInIsolate(
+                          rechargeStatusResponse,
+                        );
+                        print(
+                          '✅ Parsed JSON Response (updateRechargeStatus.php): $rechargeStatusJson',
+                        );
+                        print(
+                          '📊 Response Keys: ${rechargeStatusJson.keys.join(", ")}',
+                        );
+
+                        if (rechargeStatusJson['status'] == 1 &&
+                            rechargeStatusJson['message'] == 'Success') {
+                          print(
+                            '✅ updateRechargeStatus.php successful for failed status',
+                          );
+                        } else {
+                          print(
+                            '❌ updateRechargeStatus.php failed for failed: ${rechargeStatusJson['message'] ?? 'Unknown error'}',
+                          );
+                          _showErrorSnackBar(
+                            'Failed to update failed recharge status: ${rechargeStatusJson['message'] ?? 'Unknown error'}',
+                          );
+                        }
+                      } else {
+                        print(
+                          '❌ Empty response from updateRechargeStatus.php for failed',
+                        );
+                        _showErrorSnackBar(
+                          'Empty response from recharge status update API for failed',
+                        );
+                      }
+                    } catch (rechargeStatusError) {
+                      print(
+                        '❌ Error calling updateRechargeStatus.php for failed: $rechargeStatusError',
+                      );
+                      _showErrorSnackBar(
+                        'Failed to update failed recharge status: $rechargeStatusError',
+                      );
+                    }
+                  }
+                  return;
+                }
+
+                // Fallback: Check legacy response format
+                if (getJsonResponse['status'] == 'failed' ||
+                    getJsonResponse['status'] == '0' ||
+                    getJsonResponse['message']
+                            ?.toString()
+                            .toLowerCase()
+                            .contains('failed') ==
+                        true) {
+                  print(
+                    '❌ GET request indicates recharge failed: ${getJsonResponse['message']}',
+                  );
+                  _showRechargeFailureDialog(
+                    'Recharge Failed',
+                    'Your payment was successful, but the recharge could not be completed: ${getJsonResponse['message']?.toString() ?? 'Unknown error occurred'}',
+                    transactionId,
+                    amount,
+                  );
+                } else if (getJsonResponse['status'] == 'success' ||
                     getJsonResponse['status'] == '1') {
                   print('✅ GET request to urltoLoad successful');
-                  _showSuccessSnackBar('Payment status finalized successfully');
+                  _showSuccessSnackBar('Recharge completed successfully');
                 } else {
                   print(
-                    '❌ GET request to urltoLoad failed: ${getJsonResponse['message'] ?? 'Unknown error'}',
+                    '⚠️ GET request returned unknown status: ${getJsonResponse['status']}',
                   );
                   _showErrorSnackBar(
-                    'Failed to finalize payment status: ${getJsonResponse['message'] ?? 'Unknown error'}',
+                    'Recharge status unclear: ${getJsonResponse['message'] ?? 'Unknown response'}',
                   );
                 }
               } else {
                 print('❌ Empty GET response from urltoLoad');
-                _showErrorSnackBar('Empty response from urltoLoad API');
+                _showErrorSnackBar(
+                  'Empty response from recharge verification API',
+                );
               }
             } catch (getError) {
               print('❌ Error calling urltoLoad: $getError');
-              _showErrorSnackBar('Failed to fetch urltoLoad: $getError');
+              _showErrorSnackBar('Failed to verify recharge status: $getError');
             }
           } else {
             print('✅ No urltoLoad provided, POST success assumed');
@@ -848,6 +1307,251 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
       print('🔍 Error Details: ${e.toString()}');
       _showErrorSnackBar('Failed to update payment status: $e');
     }
+  }
+
+  Future<void> _storeRechargeSuccess(
+    String accountNumber,
+    String rechargeAmount,
+    String rpid,
+    String message,
+    String balance,
+    String? agentId, // Nullable to handle cases where agentid is not provided
+    String? opId, // Nullable to handle cases where opid is not provided
+    bool?
+    isRefundStatusShow, // Nullable to handle cases where isRefundStatusShow is not provided
+    String?
+    errorCode, // Nullable to handle cases where errorcode is not provided
+  ) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('recharge_account', accountNumber);
+      await prefs.setString('recharge_amount', rechargeAmount);
+      await prefs.setString('recharge_rpid', rpid);
+      await prefs.setString('recharge_message', message);
+      await prefs.setString('recharge_balance', balance);
+      await prefs.setString(
+        'recharge_timestamp',
+        DateTime.now().toIso8601String(),
+      );
+
+      // Store additional fields
+      if (agentId != null) {
+        await prefs.setString('recharge_agentid', agentId);
+      } else {
+        await prefs.remove('recharge_agentid'); // Clear if not provided
+      }
+
+      if (opId != null) {
+        await prefs.setString('recharge_opid', opId);
+      } else {
+        await prefs.remove('recharge_opid'); // Clear if not provided
+      }
+
+      if (isRefundStatusShow != null) {
+        await prefs.setBool('recharge_isRefundStatusShow', isRefundStatusShow);
+      } else {
+        await prefs.remove(
+          'recharge_isRefundStatusShow',
+        ); // Clear if not provided
+      }
+
+      if (errorCode != null) {
+        await prefs.setString('recharge_errorcode', errorCode);
+      } else {
+        await prefs.remove('recharge_errorcode'); // Clear if not provided
+      }
+
+      print('💾 Recharge success details stored in SharedPreferences');
+      print('📋 Stored Fields:');
+      print('  - Account: $accountNumber');
+      print('  - Amount: $rechargeAmount');
+      print('  - RPID: $rpid');
+      print('  - Message: $message');
+      print('  - Balance: $balance');
+      print('  - Agent ID: ${agentId ?? "Not provided"}');
+      print('  - OP ID: ${opId ?? "Not provided"}');
+      print('  - Refund Status Show: ${isRefundStatusShow ?? "Not provided"}');
+      print('  - Error Code: ${errorCode ?? "Not provided"}');
+    } catch (e) {
+      print('❌ Error storing recharge success details: $e');
+    }
+  }
+
+  void _showRechargeFailureDialog(
+    String title,
+    String message,
+    String transactionId,
+    String amount,
+  ) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => Dialog(
+            backgroundColor: Colors.transparent,
+            child: Container(
+              padding: EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.white, Color(0xFFFEF2F2)],
+                ),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 30,
+                    offset: Offset(0, 15),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+                      ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0xFFEF4444).withOpacity(0.3),
+                          blurRadius: 20,
+                          offset: Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.error_outline,
+                      color: Colors.white,
+                      size: 40,
+                    ),
+                  ),
+                  SizedBox(height: 24),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A202C),
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  Text(
+                    message,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Color(0xFF4A5568),
+                      fontWeight: FontWeight.w500,
+                      height: 1.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 24),
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFFF8F9FA), Color(0xFFE2E8F0)],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      children: [
+                        _buildSuccessDetailRow(
+                          'Mobile Number',
+                          widget.mobileNumber,
+                        ),
+                        Divider(height: 20, color: Color(0xFFCBD5E0)),
+                        _buildSuccessDetailRow('Transaction ID', transactionId),
+                        Divider(height: 20, color: Color(0xFFCBD5E0)),
+                        _buildSuccessDetailRow('Amount', '₹$amount'),
+                        Divider(height: 20, color: Color(0xFFCBD5E0)),
+                        _buildSuccessDetailRow('Status', 'Failed'),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          height: 48,
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(
+                                color: Color(0xFF6B7280),
+                                width: 2,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            onPressed: () {
+                              Navigator.pop(context);
+                            },
+                            child: Text(
+                              'Contact Support',
+                              style: TextStyle(
+                                color: Color(0xFF6B7280),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Container(
+                          height: 48,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Color(0xFF4285F4), Color(0xFF1a73e8)],
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Color(0xFF4285F4).withOpacity(0.3),
+                                blurRadius: 12,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            onPressed: () {
+                              Navigator.pop(context);
+                              Navigator.pop(context);
+                            },
+                            child: Text(
+                              'Try Again',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+    );
   }
 
   Future<void> _storePaymentSuccess(
@@ -884,6 +1588,372 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
     } catch (e) {
       print('❌ Error updating payment status: $e');
     }
+  }
+
+  void _showRechargeSuccessDialog(
+    String accountNumber,
+    String rechargeAmount,
+    String rpid,
+    String message,
+    String balance,
+    String transactionId,
+  ) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => Dialog(
+            backgroundColor: Colors.transparent,
+            child: Container(
+              padding: EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.white, Color(0xFFF0FDF4)],
+                ),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 30,
+                    offset: Offset(0, 15),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFF10B981), Color(0xFF059669)],
+                      ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0xFF10B981).withOpacity(0.3),
+                          blurRadius: 20,
+                          offset: Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.check_circle,
+                      color: Colors.white,
+                      size: 40,
+                    ),
+                  ),
+                  SizedBox(height: 24),
+                  Text(
+                    'Recharge Successful!',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A202C),
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  Text(
+                    message,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Color(0xFF4A5568),
+                      fontWeight: FontWeight.w500,
+                      height: 1.4,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 24),
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFFF8F9FA), Color(0xFFE2E8F0)],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      children: [
+                        _buildSuccessDetailRow('Mobile Number', accountNumber),
+                        Divider(height: 20, color: Color(0xFFCBD5E0)),
+                        _buildSuccessDetailRow(
+                          'Recharge Amount',
+                          '₹$rechargeAmount',
+                        ),
+                        Divider(height: 20, color: Color(0xFFCBD5E0)),
+                        _buildSuccessDetailRow('Transaction ID', transactionId),
+                        Divider(height: 20, color: Color(0xFFCBD5E0)),
+                        _buildSuccessDetailRow('Recharge ID', rpid),
+                        if (balance.isNotEmpty) ...[
+                          Divider(height: 20, color: Color(0xFFCBD5E0)),
+                          _buildSuccessDetailRow(
+                            'Account Balance',
+                            '₹$balance',
+                          ),
+                        ],
+                        Divider(height: 20, color: Color(0xFFCBD5E0)),
+                        _buildSuccessDetailRow('Status', 'Successful'),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          height: 48,
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(
+                                color: Color(0xFF10B981),
+                                width: 2,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            onPressed: () {
+                              Navigator.pop(context);
+                            },
+                            child: Text(
+                              'View Receipt',
+                              style: TextStyle(
+                                color: Color(0xFF10B981),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Container(
+                          height: 48,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Color(0xFF10B981), Color(0xFF059669)],
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Color(0xFF10B981).withOpacity(0.3),
+                                blurRadius: 12,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            onPressed: () {
+                              Navigator.pop(context);
+                              Navigator.pop(context);
+                            },
+                            child: Text(
+                              'Done',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+    );
+  }
+
+  void _showRechargePendingDialog(
+    String accountNumber,
+    String rechargeAmount,
+    String rpid,
+    String message,
+    String transactionId,
+  ) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => Dialog(
+            backgroundColor: Colors.transparent,
+            child: Container(
+              padding: EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.white, Color(0xFFFEF3C7)],
+                ),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 30,
+                    offset: Offset(0, 15),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                      ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0xFFF59E0B).withOpacity(0.3),
+                          blurRadius: 20,
+                          offset: Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Icon(Icons.pending, color: Colors.white, size: 40),
+                  ),
+                  SizedBox(height: 24),
+                  Text(
+                    'Recharge Pending',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A202C),
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  Text(
+                    message.isNotEmpty
+                        ? message
+                        : 'Your recharge is being processed. You will receive a confirmation shortly.',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Color(0xFF4A5568),
+                      fontWeight: FontWeight.w500,
+                      height: 1.4,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 24),
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFFF8F9FA), Color(0xFFE2E8F0)],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      children: [
+                        _buildSuccessDetailRow('Mobile Number', accountNumber),
+                        Divider(height: 20, color: Color(0xFFCBD5E0)),
+                        _buildSuccessDetailRow(
+                          'Recharge Amount',
+                          '₹$rechargeAmount',
+                        ),
+                        Divider(height: 20, color: Color(0xFFCBD5E0)),
+                        _buildSuccessDetailRow('Transaction ID', transactionId),
+                        Divider(height: 20, color: Color(0xFFCBD5E0)),
+                        _buildSuccessDetailRow('Recharge ID', rpid),
+                        Divider(height: 20, color: Color(0xFFCBD5E0)),
+                        _buildSuccessDetailRow('Status', 'Pending'),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          height: 48,
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(
+                                color: Color(0xFF6B7280),
+                                width: 2,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            onPressed: () {
+                              Navigator.pop(context);
+                            },
+                            child: Text(
+                              'Check Status',
+                              style: TextStyle(
+                                color: Color(0xFF6B7280),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Container(
+                          height: 48,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Color(0xFFF59E0B).withOpacity(0.3),
+                                blurRadius: 12,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            onPressed: () {
+                              Navigator.pop(context);
+                              Navigator.pop(context);
+                            },
+                            child: Text(
+                              'OK',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+    );
   }
 
   void _showSuccessSnackBar(String message) {
