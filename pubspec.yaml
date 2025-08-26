@@ -69,7 +69,8 @@ dependencies:
   screenshot: ^3.0.0
   pattern_lock: ^2.0.0
   carousel_slider: ^5.1.1
-  weipl_checkout_flutter: 
+  weipl_checkout_flutter: ^1.0.0
+  flutter_launcher_icons: ^0.14.4
   
   
   
@@ -83,7 +84,6 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_launcher_icons: ^0.13.1 
   flutter_contacts: ^1.1.9+2
   # flutter_contacts: ^1.1.9+2
 

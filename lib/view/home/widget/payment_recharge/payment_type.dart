@@ -500,8 +500,7 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
           print('💾 Saved payment credentials to SharedPreferences');
 
           print('🚀 STEP 3: Initiating generateHash.php API call...');
-          String paidAmount = "1.00";
-          // totalAmount.toStringAsFixed(2);
+          String paidAmount = totalAmount.toStringAsFixed(2);
 
           String a =
               '$merchantCode|$transactionId|$paidAmount||$customerId|${widget.mobileNumber}|||||||||||$saltKey';
@@ -735,578 +734,580 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
     }
   }
 
-Future<void> updatePaymentStatus(
-  String transactionId,
-  String amount,
-  String paymentStatus,
-  String msg,
-) async {
-  try {
-    print('🚀 Initiating updatePaymentdetailsToRecharge.php API call...');
+  Future<void> updatePaymentStatus(
+    String transactionId,
+    String amount,
+    String paymentStatus,
+    String msg,
+  ) async {
+    try {
+      print('🚀 Initiating updatePaymentdetailsToRecharge.php API call...');
 
-    final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-    final params = {
-      'transaction_amount': amount,
-      'paymentstatus': paymentStatus,
-      'order_id': transactionId,
-      'msg': msg,
-      'timestamp': timestamp,
-    };
+      final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+      final params = {
+        'transaction_amount': amount,
+        'paymentstatus': paymentStatus,
+        'order_id': transactionId,
+        'msg': msg,
+        'timestamp': timestamp,
+      };
 
-    // Step 1: POST to updatePaymentdetailsToRecharge.php
-    final postResponse = await postRechargeApi(
-      'updatePaymentdetailsToRecharge.php?timestamp=$timestamp',
-      params,
-    );
+      // Step 1: POST to updatePaymentdetailsToRecharge.php
+      final postResponse = await postRechargeApi(
+        'updatePaymentdetailsToRecharge.php?timestamp=$timestamp',
+        params,
+      );
 
-    print('🎯 ===== UPDATE PAYMENT STATUS POST RESPONSE START =====');
-    print('📥 Raw POST Response: $postResponse');
-    print('📏 Response Length: ${postResponse.length}');
-    print('🔍 Response Type: ${postResponse.runtimeType}');
-    print('📋 Response is Empty: ${postResponse.isEmpty}');
-    print('🎯 ===== UPDATE PAYMENT STATUS POST RESPONSE END =====');
+      print('🎯 ===== UPDATE PAYMENT STATUS POST RESPONSE START =====');
+      print('📥 Raw POST Response: $postResponse');
+      print('📏 Response Length: ${postResponse.length}');
+      print('🔍 Response Type: ${postResponse.runtimeType}');
+      print('📋 Response is Empty: ${postResponse.isEmpty}');
+      print('🎯 ===== UPDATE PAYMENT STATUS POST RESPONSE END =====');
 
-    if (postResponse.isNotEmpty) {
-      final postJsonResponse = await _parseJsonInIsolate(postResponse);
-      print('✅ Parsed POST JSON Response: $postJsonResponse');
-      print('📊 POST Response Keys: ${postJsonResponse.keys.join(", ")}');
+      if (postResponse.isNotEmpty) {
+        final postJsonResponse = await _parseJsonInIsolate(postResponse);
+        print('✅ Parsed POST JSON Response: $postJsonResponse');
+        print('📊 POST Response Keys: ${postJsonResponse.keys.join(", ")}');
 
-      if (postJsonResponse['status'] == 'success' ||
-          postJsonResponse['urltoLoad'] != null) {
-        print('✅ POST Payment status updated successfully');
+        if (postJsonResponse['status'] == 'success' ||
+            postJsonResponse['urltoLoad'] != null) {
+          print('✅ POST Payment status updated successfully');
 
-        // Step 2: Check for urltoLoad and handle different scenarios
-        String? urltoLoad = postJsonResponse['urltoLoad']?.toString();
-        if (urltoLoad != null && urltoLoad.isNotEmpty) {
-          try {
-            final uri = Uri.parse(urltoLoad);
-            final message = uri.queryParameters['message'];
-            print('🔍 Extracted message from urltoLoad: $message');
+          // Step 2: Check for urltoLoad and handle different scenarios
+          String? urltoLoad = postJsonResponse['urltoLoad']?.toString();
+          if (urltoLoad != null && urltoLoad.isNotEmpty) {
+            try {
+              final uri = Uri.parse(urltoLoad);
+              final message = uri.queryParameters['message'];
+              print('🔍 Extracted message from urltoLoad: $message');
 
-            // Handle Recharge Amount mismatch specifically
-            if (message == 'Recharge Amount mismatch') {
-              print('❌ Recharge Amount mismatch detected in urltoLoad');
-              _showRechargeFailureDialog(
-                'Recharge Failed',
-                'Your payment was successful, but the recharge could not be completed due to an amount mismatch. Please contact customer support for assistance.',
-                transactionId,
-                amount,
-              );
-              return; // Skip GET request for amount mismatch
-            }
-
-            // Handle other error messages from urltoLoad
-            if (message != null && message.toLowerCase().contains('failed')) {
-              print('❌ Recharge failed message detected: $message');
-              _showRechargeFailureDialog(
-                'Recharge Failed',
-                message,
-                transactionId,
-                amount,
-              );
-              return; // Skip GET request for failed recharges
-            }
-
-            // Proceed with GET request for successful cases or other scenarios
-            print('🚀 Initiating GET request to urltoLoad: $urltoLoad');
-            final getResponse = await getRechargeApi(urltoLoad);
-
-            print('🎯 ===== URLTOLOAD GET RESPONSE START =====');
-            print('📥 Raw GET Response: $getResponse');
-            print('📏 Response Length: ${getResponse.length}');
-            print('🔍 Response Type: ${getResponse.runtimeType}');
-            print('📋 Response is Empty: ${getResponse.isEmpty}');
-            print('🎯 ===== URLTOLOAD GET RESPONSE END =====');
-
-            if (getResponse.isNotEmpty) {
-              final getJsonResponse = await _parseJsonInIsolate(getResponse);
-              print('✅ Parsed GET JSON Response: $getJsonResponse');
-              print(
-                '📊 GET Response Keys: ${getJsonResponse.keys.join(", ")}',
-              );
-
-              // Check if GET response contains another urltoLoad (nested error)
-              String? nestedUrlToLoad =
-                  getJsonResponse['urltoLoad']?.toString();
-              if (nestedUrlToLoad != null && nestedUrlToLoad.isNotEmpty) {
-                try {
-                  final nestedUri = Uri.parse(nestedUrlToLoad);
-                  final nestedMessage = nestedUri.queryParameters['message'];
-                  print(
-                    '🔍 Nested message from GET response urltoLoad: $nestedMessage',
-                  );
-
-                  if (nestedMessage == 'Recharge Amount mismatch') {
-                    print('❌ Nested Recharge Amount mismatch detected');
-                    _showRechargeFailureDialog(
-                      'Recharge Failed',
-                      'Your payment was successful, but the recharge could not be completed due to an amount mismatch. Please contact customer support for assistance.',
-                      transactionId,
-                      amount,
-                    );
-                    return;
-                  } else if (nestedMessage != null) {
-                    print('❌ Other nested error message: $nestedMessage');
-                    _showRechargeFailureDialog(
-                      'Recharge Failed',
-                      'Your payment was successful, but the recharge could not be completed: $nestedMessage',
-                      transactionId,
-                      amount,
-                    );
-                    return;
-                  }
-                } catch (nestedParseError) {
-                  print(
-                    '❌ Error parsing nested urltoLoad: $nestedParseError',
-                  );
-                }
+              // Handle Recharge Amount mismatch specifically
+              if (message == 'Recharge Amount mismatch') {
+                print('❌ Recharge Amount mismatch detected in urltoLoad');
+                _showRechargeFailureDialog(
+                  'Recharge Failed',
+                  'Your payment was successful, but the recharge could not be completed due to an amount mismatch. Please contact customer support for assistance.',
+                  transactionId,
+                  amount,
+                );
+                return; // Skip GET request for amount mismatch
               }
 
-              // Handle structured recharge response with status codes
-              if (getJsonResponse.containsKey('status') &&
-                  getJsonResponse.containsKey('account')) {
-                final rechargeStatus = getJsonResponse['status'];
-                final accountNumber =
-                    getJsonResponse['account']?.toString() ?? '';
-                final rechargeAmount =
-                    getJsonResponse['amount']?.toString() ?? '';
-                final rpid = getJsonResponse['rpid']?.toString() ?? '';
-                final message = getJsonResponse['msg']?.toString() ?? '';
-                final balance = getJsonResponse['bal']?.toString() ?? '';
-                final agentId = getJsonResponse['agentid']?.toString();
-                final opId = getJsonResponse['opid']?.toString();
-                final isRefundStatusShow =
-                    getJsonResponse['isRefundStatusShow'] as bool?;
-                final errorCode = getJsonResponse['errorcode']?.toString();
+              // Handle other error messages from urltoLoad
+              if (message != null && message.toLowerCase().contains('failed')) {
+                print('❌ Recharge failed message detected: $message');
+                _showRechargeFailureDialog(
+                  'Recharge Failed',
+                  message,
+                  transactionId,
+                  amount,
+                );
+                return; // Skip GET request for failed recharges
+              }
 
-                print('🔍 Recharge Status Code: $rechargeStatus');
-                print('🔍 Account: $accountNumber');
-                print('🔍 Amount: $rechargeAmount');
-                print('🔍 Message: $message');
-                print('🔍 Error Code: $errorCode');
-                print('🔍 Agent ID: $agentId');
-                print('🔍 OP ID: $opId');
-                print('🔍 Refund Status Show: $isRefundStatusShow');
+              // Proceed with GET request for successful cases or other scenarios
+              print('🚀 Initiating GET request to urltoLoad: $urltoLoad');
+              final getResponse = await getRechargeApi(urltoLoad);
 
-                if (rechargeStatus == 2) {
-                  // Status 2 = Recharge Successful
-                  print('✅ Recharge completed successfully (Status: 2)');
-                  await _storeRechargeSuccess(
-                    accountNumber,
-                    rechargeAmount,
-                    rpid,
-                    message,
-                    balance,
-                    agentId,
-                    opId,
-                    isRefundStatusShow,
-                    errorCode,
-                  );
-                  _showRechargeSuccessDialog(
-                    accountNumber,
-                    rechargeAmount,
-                    rpid,
-                    message,
-                    balance,
-                    transactionId,
-                  );
+              print('🎯 ===== URLTOLOAD GET RESPONSE START =====');
+              print('📥 Raw GET Response: $getResponse');
+              print('📏 Response Length: ${getResponse.length}');
+              print('🔍 Response Type: ${getResponse.runtimeType}');
+              print('📋 Response is Empty: ${getResponse.isEmpty}');
+              print('🎯 ===== URLTOLOAD GET RESPONSE END =====');
 
-                  // Call updateRechargeStatus.php for successful recharge
-                  print(
-                    '🚀 Initiating updateRechargeStatus.php API call...',
-                  );
-                  final rechargeStatusParams = {
-                    'timestamp':
-                        DateTime.now().millisecondsSinceEpoch.toString(),
-                    'status': '1', // Success status for updateRechargeStatus
-                    'id': transactionId,
-                    'rp_id': rpid,
-                    'agent_id': agentId ?? '',
-                  };
+              if (getResponse.isNotEmpty) {
+                final getJsonResponse = await _parseJsonInIsolate(getResponse);
+                print('✅ Parsed GET JSON Response: $getJsonResponse');
+                print(
+                  '📊 GET Response Keys: ${getJsonResponse.keys.join(", ")}',
+                );
 
+                // Check if GET response contains another urltoLoad (nested error)
+                String? nestedUrlToLoad =
+                    getJsonResponse['urltoLoad']?.toString();
+                if (nestedUrlToLoad != null && nestedUrlToLoad.isNotEmpty) {
                   try {
-                    final rechargeStatusResponse = await postRechargeApi(
-                      'https://mysaving.in/IntegraAccount/api/updateRechargeStatus.php',
-                      rechargeStatusParams,
+                    final nestedUri = Uri.parse(nestedUrlToLoad);
+                    final nestedMessage = nestedUri.queryParameters['message'];
+                    print(
+                      '🔍 Nested message from GET response urltoLoad: $nestedMessage',
                     );
 
+                    if (nestedMessage == 'Recharge Amount mismatch') {
+                      print('❌ Nested Recharge Amount mismatch detected');
+                      _showRechargeFailureDialog(
+                        'Recharge Failed',
+                        'Your payment was successful, but the recharge could not be completed due to an amount mismatch. Please contact customer support for assistance.',
+                        transactionId,
+                        amount,
+                      );
+                      return;
+                    } else if (nestedMessage != null) {
+                      print('❌ Other nested error message: $nestedMessage');
+                      _showRechargeFailureDialog(
+                        'Recharge Failed',
+                        'Your payment was successful, but the recharge could not be completed: $nestedMessage',
+                        transactionId,
+                        amount,
+                      );
+                      return;
+                    }
+                  } catch (nestedParseError) {
                     print(
-                      '🎯 ===== UPDATE RECHARGE STATUS RESPONSE START =====',
+                      '❌ Error parsing nested urltoLoad: $nestedParseError',
                     );
-                    print(
-                      '📥 Raw Response (updateRechargeStatus.php): $rechargeStatusResponse',
+                  }
+                }
+
+                // Handle structured recharge response with status codes
+                if (getJsonResponse.containsKey('status') &&
+                    getJsonResponse.containsKey('account')) {
+                  final rechargeStatus = getJsonResponse['status'];
+                  final accountNumber =
+                      getJsonResponse['account']?.toString() ?? '';
+                  final rechargeAmount =
+                      getJsonResponse['amount']?.toString() ?? '';
+                  final rpid = getJsonResponse['rpid']?.toString() ?? '';
+                  final message = getJsonResponse['msg']?.toString() ?? '';
+                  final balance = getJsonResponse['bal']?.toString() ?? '';
+                  final agentId = getJsonResponse['agentid']?.toString();
+                  final opId = getJsonResponse['opid']?.toString();
+                  final isRefundStatusShow =
+                      getJsonResponse['isRefundStatusShow'] as bool?;
+                  final errorCode = getJsonResponse['errorcode']?.toString();
+
+                  print('🔍 Recharge Status Code: $rechargeStatus');
+                  print('🔍 Account: $accountNumber');
+                  print('🔍 Amount: $rechargeAmount');
+                  print('🔍 Message: $message');
+                  print('🔍 Error Code: $errorCode');
+                  print('🔍 Agent ID: $agentId');
+                  print('🔍 OP ID: $opId');
+                  print('🔍 Refund Status Show: $isRefundStatusShow');
+
+                  if (rechargeStatus == 2) {
+                    // Status 2 = Recharge Successful
+                    print('✅ Recharge completed successfully (Status: 2)');
+                    await _storeRechargeSuccess(
+                      accountNumber,
+                      rechargeAmount,
+                      rpid,
+                      message,
+                      balance,
+                      agentId,
+                      opId,
+                      isRefundStatusShow,
+                      errorCode,
                     );
-                    print(
-                      '📏 Response Length: ${rechargeStatusResponse.length}',
-                    );
-                    print(
-                      '🔍 Response Type: ${rechargeStatusResponse.runtimeType}',
-                    );
-                    print(
-                      '📋 Response is Empty: ${rechargeStatusResponse.isEmpty}',
-                    );
-                    print(
-                      '🎯 ===== UPDATE RECHARGE STATUS RESPONSE END =====',
+                    _showRechargeSuccessDialog(
+                      accountNumber,
+                      rechargeAmount,
+                      rpid,
+                      message,
+                      balance,
+                      transactionId,
                     );
 
-                    if (rechargeStatusResponse.isNotEmpty) {
-                      final rechargeStatusJson =
-                          await _parseJsonInIsolate(rechargeStatusResponse);
+                    // Call updateRechargeStatus.php for successful recharge
+                    print('🚀 Initiating updateRechargeStatus.php API call...');
+                    final rechargeStatusParams = {
+                      'timestamp':
+                          DateTime.now().millisecondsSinceEpoch.toString(),
+                      'status': '1', // Success status for updateRechargeStatus
+                      'id': transactionId,
+                      'rp_id': rpid,
+                      'agent_id': agentId ?? '',
+                    };
+
+                    try {
+                      final rechargeStatusResponse = await postRechargeApi(
+                        'https://mysaving.in/IntegraAccount/api/updateRechargeStatus.php',
+                        rechargeStatusParams,
+                      );
+
                       print(
-                        '✅ Parsed JSON Response (updateRechargeStatus.php): $rechargeStatusJson',
+                        '🎯 ===== UPDATE RECHARGE STATUS RESPONSE START =====',
                       );
                       print(
-                        '📊 Response Keys: ${rechargeStatusJson.keys.join(", ")}',
+                        '📥 Raw Response (updateRechargeStatus.php): $rechargeStatusResponse',
+                      );
+                      print(
+                        '📏 Response Length: ${rechargeStatusResponse.length}',
+                      );
+                      print(
+                        '🔍 Response Type: ${rechargeStatusResponse.runtimeType}',
+                      );
+                      print(
+                        '📋 Response is Empty: ${rechargeStatusResponse.isEmpty}',
+                      );
+                      print(
+                        '🎯 ===== UPDATE RECHARGE STATUS RESPONSE END =====',
                       );
 
-                      if (rechargeStatusJson['status'] == 1 &&
-                          rechargeStatusJson['message'] == 'Success') {
+                      if (rechargeStatusResponse.isNotEmpty) {
+                        final rechargeStatusJson = await _parseJsonInIsolate(
+                          rechargeStatusResponse,
+                        );
                         print(
-                          '✅ updateRechargeStatus.php successful, proceeding to updateGenStatus.php',
+                          '✅ Parsed JSON Response (updateRechargeStatus.php): $rechargeStatusJson',
+                        );
+                        print(
+                          '📊 Response Keys: ${rechargeStatusJson.keys.join(", ")}',
                         );
 
-                        // Call updateGenStatus.php
-                        print(
-                          '🚀 Initiating updateGenStatus.php API call...',
-                        );
-                        final genStatusParams = {
-                          'timestamp':
-                              DateTime.now().millisecondsSinceEpoch.toString(),
-                          'id': transactionId,
-                        };
-
-                        try {
-                          final genStatusResponse = await postRechargeApi(
-                            'https://mysaving.in/IntegraAccount/api/updateGenStatus.php',
-                            genStatusParams,
+                        if (rechargeStatusJson['status'] == 1 &&
+                            rechargeStatusJson['message'] == 'Success') {
+                          print(
+                            '✅ updateRechargeStatus.php successful, proceeding to updateGenStatus.php',
                           );
 
+                          // Call updateGenStatus.php
                           print(
-                            '🎯 ===== UPDATE GEN STATUS RESPONSE START =====',
+                            '🚀 Initiating updateGenStatus.php API call...',
                           );
-                          print(
-                            '📥 Raw Response (updateGenStatus.php): $genStatusResponse',
-                          );
-                          print(
-                            '📏 Response Length: ${genStatusResponse.length}',
-                          );
-                          print(
-                            '🔍 Response Type: ${genStatusResponse.runtimeType}',
-                          );
-                          print(
-                            '📋 Response is Empty: ${genStatusResponse.isEmpty}',
-                          );
-                          print(
-                            '🎯 ===== UPDATE GEN STATUS RESPONSE END =====',
-                          );
+                          final genStatusParams = {
+                            'timestamp':
+                                DateTime.now().millisecondsSinceEpoch
+                                    .toString(),
+                            'id': transactionId,
+                          };
 
-                          if (genStatusResponse.isNotEmpty) {
-                            final genStatusJson =
-                                await _parseJsonInIsolate(genStatusResponse);
-                            print(
-                              '✅ Parsed JSON Response (updateGenStatus.php): $genStatusJson',
-                            );
-                            print(
-                              '📊 Response Keys: ${genStatusJson.keys.join(", ")}',
+                          try {
+                            final genStatusResponse = await postRechargeApi(
+                              'https://mysaving.in/IntegraAccount/api/updateGenStatus.php',
+                              genStatusParams,
                             );
 
-                            if (genStatusJson['status'] == 'success') {
+                            print(
+                              '🎯 ===== UPDATE GEN STATUS RESPONSE START =====',
+                            );
+                            print(
+                              '📥 Raw Response (updateGenStatus.php): $genStatusResponse',
+                            );
+                            print(
+                              '📏 Response Length: ${genStatusResponse.length}',
+                            );
+                            print(
+                              '🔍 Response Type: ${genStatusResponse.runtimeType}',
+                            );
+                            print(
+                              '📋 Response is Empty: ${genStatusResponse.isEmpty}',
+                            );
+                            print(
+                              '🎯 ===== UPDATE GEN STATUS RESPONSE END =====',
+                            );
+
+                            if (genStatusResponse.isNotEmpty) {
+                              final genStatusJson = await _parseJsonInIsolate(
+                                genStatusResponse,
+                              );
                               print(
-                                '✅ updateGenStatus.php completed successfully',
+                                '✅ Parsed JSON Response (updateGenStatus.php): $genStatusJson',
                               );
-                              _showSuccessSnackBar(
-                                'Recharge and status updates completed successfully',
+                              print(
+                                '📊 Response Keys: ${genStatusJson.keys.join(", ")}',
                               );
+
+                              if (genStatusJson['status'] == 'success') {
+                                print(
+                                  '✅ updateGenStatus.php completed successfully',
+                                );
+                                _showSuccessSnackBar(
+                                  'Recharge and status updates completed successfully',
+                                );
+                              } else {
+                                print(
+                                  '❌ updateGenStatus.php failed: ${genStatusJson['message'] ?? 'Unknown error'}',
+                                );
+                                _showErrorSnackBar(
+                                  'Failed to update general status: ${genStatusJson['message'] ?? 'Unknown error'}',
+                                );
+                              }
                             } else {
                               print(
-                                '❌ updateGenStatus.php failed: ${genStatusJson['message'] ?? 'Unknown error'}',
+                                '❌ Empty response from updateGenStatus.php',
                               );
                               _showErrorSnackBar(
-                                'Failed to update general status: ${genStatusJson['message'] ?? 'Unknown error'}',
+                                'Empty response from general status update API',
                               );
                             }
-                          } else {
+                          } catch (genStatusError) {
                             print(
-                              '❌ Empty response from updateGenStatus.php',
+                              '❌ Error calling updateGenStatus.php: $genStatusError',
                             );
                             _showErrorSnackBar(
-                              'Empty response from general status update API',
+                              'Failed to update general status: $genStatusError',
                             );
                           }
-                        } catch (genStatusError) {
+                        } else {
                           print(
-                            '❌ Error calling updateGenStatus.php: $genStatusError',
+                            '❌ updateRechargeStatus.php failed: ${rechargeStatusJson['message'] ?? 'Unknown error'}',
                           );
                           _showErrorSnackBar(
-                            'Failed to update general status: $genStatusError',
+                            'Failed to update recharge status: ${rechargeStatusJson['message'] ?? 'Unknown error'}',
+                          );
+                        }
+                      } else {
+                        print('❌ Empty response from updateRechargeStatus.php');
+                        _showErrorSnackBar(
+                          'Empty response from recharge status update API',
+                        );
+                      }
+                    } catch (rechargeStatusError) {
+                      print(
+                        '❌ Error calling updateRechargeStatus.php: $rechargeStatusError',
+                      );
+                      _showErrorSnackBar(
+                        'Failed to update recharge status: $rechargeStatusError',
+                      );
+                    }
+                  } else if (rechargeStatus == 1) {
+                    // Status 1 = Recharge Pending
+                    print('⏳ Recharge is pending (Status: 1)');
+                    _showRechargePendingDialog(
+                      accountNumber,
+                      rechargeAmount,
+                      rpid,
+                      message,
+                      transactionId,
+                    );
+
+                    // Call updateRechargeStatus.php for pending recharge
+                    print(
+                      '🚀 Initiating updateRechargeStatus.php API call for pending...',
+                    );
+                    final rechargeStatusParams = {
+                      'timestamp':
+                          DateTime.now().millisecondsSinceEpoch.toString(),
+                      'status': '2', // Pending status for updateRechargeStatus
+                      'id': transactionId,
+                      'rp_id': rpid,
+                      'agent_id': agentId ?? '',
+                    };
+
+                    try {
+                      final rechargeStatusResponse = await postRechargeApi(
+                        'https://mysaving.in/IntegraAccount/api/updateRechargeStatus.php',
+                        rechargeStatusParams,
+                      );
+
+                      print(
+                        '🎯 ===== UPDATE RECHARGE STATUS RESPONSE START =====',
+                      );
+                      print(
+                        '📥 Raw Response (updateRechargeStatus.php): $rechargeStatusResponse',
+                      );
+                      print(
+                        '📏 Response Length: ${rechargeStatusResponse.length}',
+                      );
+                      print(
+                        '🔍 Response Type: ${rechargeStatusResponse.runtimeType}',
+                      );
+                      print(
+                        '📋 Response is Empty: ${rechargeStatusResponse.isEmpty}',
+                      );
+                      print(
+                        '🎯 ===== UPDATE RECHARGE STATUS RESPONSE END =====',
+                      );
+
+                      if (rechargeStatusResponse.isNotEmpty) {
+                        final rechargeStatusJson = await _parseJsonInIsolate(
+                          rechargeStatusResponse,
+                        );
+                        print(
+                          '✅ Parsed JSON Response (updateRechargeStatus.php): $rechargeStatusJson',
+                        );
+                        print(
+                          '📊 Response Keys: ${rechargeStatusJson.keys.join(", ")}',
+                        );
+
+                        if (rechargeStatusJson['status'] == 1 &&
+                            rechargeStatusJson['message'] == 'Success') {
+                          print(
+                            '✅ updateRechargeStatus.php successful for pending status',
+                          );
+                        } else {
+                          print(
+                            '❌ updateRechargeStatus.php failed for pending: ${rechargeStatusJson['message'] ?? 'Unknown error'}',
+                          );
+                          _showErrorSnackBar(
+                            'Failed to update pending recharge status: ${rechargeStatusJson['message'] ?? 'Unknown error'}',
                           );
                         }
                       } else {
                         print(
-                          '❌ updateRechargeStatus.php failed: ${rechargeStatusJson['message'] ?? 'Unknown error'}',
+                          '❌ Empty response from updateRechargeStatus.php for pending',
                         );
                         _showErrorSnackBar(
-                          'Failed to update recharge status: ${rechargeStatusJson['message'] ?? 'Unknown error'}',
+                          'Empty response from recharge status update API for pending',
                         );
                       }
-                    } else {
+                    } catch (rechargeStatusError) {
                       print(
-                        '❌ Empty response from updateRechargeStatus.php',
+                        '❌ Error calling updateRechargeStatus.php for pending: $rechargeStatusError',
                       );
                       _showErrorSnackBar(
-                        'Empty response from recharge status update API',
+                        'Failed to update pending recharge status: $rechargeStatusError',
                       );
                     }
-                  } catch (rechargeStatusError) {
-                    print(
-                      '❌ Error calling updateRechargeStatus.php: $rechargeStatusError',
-                    );
-                    _showErrorSnackBar(
-                      'Failed to update recharge status: $rechargeStatusError',
-                    );
-                  }
-                } else if (rechargeStatus == 1) {
-                  // Status 1 = Recharge Pending
-                  print('⏳ Recharge is pending (Status: 1)');
-                  _showRechargePendingDialog(
-                    accountNumber,
-                    rechargeAmount,
-                    rpid,
-                    message,
-                    transactionId,
-                  );
-
-                  // Call updateRechargeStatus.php for pending recharge
-                  print(
-                    '🚀 Initiating updateRechargeStatus.php API call for pending...',
-                  );
-                  final rechargeStatusParams = {
-                    'timestamp':
-                        DateTime.now().millisecondsSinceEpoch.toString(),
-                    'status': '2', // Pending status for updateRechargeStatus
-                    'id': transactionId,
-                    'rp_id': rpid,
-                    'agent_id': agentId ?? '',
-                  };
-
-                  try {
-                    final rechargeStatusResponse = await postRechargeApi(
-                      'https://mysaving.in/IntegraAccount/api/updateRechargeStatus.php',
-                      rechargeStatusParams,
+                  } else {
+                    // Other status = Recharge Failed
+                    print('❌ Recharge failed (Status: $rechargeStatus)');
+                    _showRechargeFailureDialog(
+                      'Recharge Failed',
+                      message.isNotEmpty
+                          ? message
+                          : 'Recharge could not be completed. Please try again.',
+                      transactionId,
+                      rechargeAmount.isNotEmpty ? rechargeAmount : amount,
                     );
 
+                    // Call updateRechargeStatus.php for failed recharge
                     print(
-                      '🎯 ===== UPDATE RECHARGE STATUS RESPONSE START =====',
+                      '🚀 Initiating updateRechargeStatus.php API call for failed...',
                     );
-                    print(
-                      '📥 Raw Response (updateRechargeStatus.php): $rechargeStatusResponse',
-                    );
-                    print(
-                      '📏 Response Length: ${rechargeStatusResponse.length}',
-                    );
-                    print(
-                      '🔍 Response Type: ${rechargeStatusResponse.runtimeType}',
-                    );
-                    print(
-                      '📋 Response is Empty: ${rechargeStatusResponse.isEmpty}',
-                    );
-                    print(
-                      '🎯 ===== UPDATE RECHARGE STATUS RESPONSE END =====',
-                    );
+                    final rechargeStatusParams = {
+                      'timestamp':
+                          DateTime.now().millisecondsSinceEpoch.toString(),
+                      'status': '0', // Failed status for updateRechargeStatus
+                      'id': transactionId,
+                      'rp_id': rpid,
+                      'agent_id': agentId ?? '',
+                    };
 
-                    if (rechargeStatusResponse.isNotEmpty) {
-                      final rechargeStatusJson =
-                          await _parseJsonInIsolate(rechargeStatusResponse);
-                      print(
-                        '✅ Parsed JSON Response (updateRechargeStatus.php): $rechargeStatusJson',
-                      );
-                      print(
-                        '📊 Response Keys: ${rechargeStatusJson.keys.join(", ")}',
+                    try {
+                      final rechargeStatusResponse = await postRechargeApi(
+                        'https://mysaving.in/IntegraAccount/api/updateRechargeStatus.php',
+                        rechargeStatusParams,
                       );
 
-                      if (rechargeStatusJson['status'] == 1 &&
-                          rechargeStatusJson['message'] == 'Success') {
-                        print(
-                          '✅ updateRechargeStatus.php successful for pending status',
+                      print(
+                        '🎯 ===== UPDATE RECHARGE STATUS RESPONSE START =====',
+                      );
+                      print(
+                        '📥 Raw Response (updateRechargeStatus.php): $rechargeStatusResponse',
+                      );
+                      print(
+                        '📏 Response Length: ${rechargeStatusResponse.length}',
+                      );
+                      print(
+                        '🔍 Response Type: ${rechargeStatusResponse.runtimeType}',
+                      );
+                      print(
+                        '📋 Response is Empty: ${rechargeStatusResponse.isEmpty}',
+                      );
+                      print(
+                        '🎯 ===== UPDATE RECHARGE STATUS RESPONSE END =====',
+                      );
+
+                      if (rechargeStatusResponse.isNotEmpty) {
+                        final rechargeStatusJson = await _parseJsonInIsolate(
+                          rechargeStatusResponse,
                         );
+                        print(
+                          '✅ Parsed JSON Response (updateRechargeStatus.php): $rechargeStatusJson',
+                        );
+                        print(
+                          '📊 Response Keys: ${rechargeStatusJson.keys.join(", ")}',
+                        );
+
+                        if (rechargeStatusJson['status'] == 1 &&
+                            rechargeStatusJson['message'] == 'Success') {
+                          print(
+                            '✅ updateRechargeStatus.php successful for failed status',
+                          );
+                        } else {
+                          print(
+                            '❌ updateRechargeStatus.php failed for failed: ${rechargeStatusJson['message'] ?? 'Unknown error'}',
+                          );
+                          _showErrorSnackBar(
+                            'Failed to update failed recharge status: ${rechargeStatusJson['message'] ?? 'Unknown error'}',
+                          );
+                        }
                       } else {
                         print(
-                          '❌ updateRechargeStatus.php failed for pending: ${rechargeStatusJson['message'] ?? 'Unknown error'}',
+                          '❌ Empty response from updateRechargeStatus.php for failed',
                         );
                         _showErrorSnackBar(
-                          'Failed to update pending recharge status: ${rechargeStatusJson['message'] ?? 'Unknown error'}',
+                          'Empty response from recharge status update API for failed',
                         );
                       }
-                    } else {
+                    } catch (rechargeStatusError) {
                       print(
-                        '❌ Empty response from updateRechargeStatus.php for pending',
+                        '❌ Error calling updateRechargeStatus.php for failed: $rechargeStatusError',
                       );
                       _showErrorSnackBar(
-                        'Empty response from recharge status update API for pending',
+                        'Failed to update failed recharge status: $rechargeStatusError',
                       );
                     }
-                  } catch (rechargeStatusError) {
-                    print(
-                      '❌ Error calling updateRechargeStatus.php for pending: $rechargeStatusError',
-                    );
-                    _showErrorSnackBar(
-                      'Failed to update pending recharge status: $rechargeStatusError',
-                    );
                   }
-                } else {
-                  // Other status = Recharge Failed
-                  print('❌ Recharge failed (Status: $rechargeStatus)');
+                  return;
+                }
+
+                // Fallback: Check legacy response format
+                if (getJsonResponse['status'] == 'failed' ||
+                    getJsonResponse['status'] == '0' ||
+                    getJsonResponse['message']
+                            ?.toString()
+                            .toLowerCase()
+                            .contains('failed') ==
+                        true) {
+                  print(
+                    '❌ GET request indicates recharge failed: ${getJsonResponse['message']}',
+                  );
                   _showRechargeFailureDialog(
                     'Recharge Failed',
-                    message.isNotEmpty
-                        ? message
-                        : 'Recharge could not be completed. Please try again.',
+                    'Your payment was successful, but the recharge could not be completed: ${getJsonResponse['message']?.toString() ?? 'Unknown error occurred'}',
                     transactionId,
-                    rechargeAmount.isNotEmpty ? rechargeAmount : amount,
+                    amount,
                   );
-
-                  // Call updateRechargeStatus.php for failed recharge
+                } else if (getJsonResponse['status'] == 'success' ||
+                    getJsonResponse['status'] == '1') {
+                  print('✅ GET request to urltoLoad successful');
+                  _showSuccessSnackBar('Recharge completed successfully');
+                } else {
                   print(
-                    '🚀 Initiating updateRechargeStatus.php API call for failed...',
+                    '⚠️ GET request returned unknown status: ${getJsonResponse['status']}',
                   );
-                  final rechargeStatusParams = {
-                    'timestamp':
-                        DateTime.now().millisecondsSinceEpoch.toString(),
-                    'status': '0', // Failed status for updateRechargeStatus
-                    'id': transactionId,
-                    'rp_id': rpid,
-                    'agent_id': agentId ?? '',
-                  };
-
-                  try {
-                    final rechargeStatusResponse = await postRechargeApi(
-                      'https://mysaving.in/IntegraAccount/api/updateRechargeStatus.php',
-                      rechargeStatusParams,
-                    );
-
-                    print(
-                      '🎯 ===== UPDATE RECHARGE STATUS RESPONSE START =====',
-                    );
-                    print(
-                      '📥 Raw Response (updateRechargeStatus.php): $rechargeStatusResponse',
-                    );
-                    print(
-                      '📏 Response Length: ${rechargeStatusResponse.length}',
-                    );
-                    print(
-                      '🔍 Response Type: ${rechargeStatusResponse.runtimeType}',
-                    );
-                    print(
-                      '📋 Response is Empty: ${rechargeStatusResponse.isEmpty}',
-                    );
-                    print(
-                      '🎯 ===== UPDATE RECHARGE STATUS RESPONSE END =====',
-                    );
-
-                    if (rechargeStatusResponse.isNotEmpty) {
-                      final rechargeStatusJson =
-                          await _parseJsonInIsolate(rechargeStatusResponse);
-                      print(
-                        '✅ Parsed JSON Response (updateRechargeStatus.php): $rechargeStatusJson',
-                      );
-                      print(
-                        '📊 Response Keys: ${rechargeStatusJson.keys.join(", ")}',
-                      );
-
-                      if (rechargeStatusJson['status'] == 1 &&
-                          rechargeStatusJson['message'] == 'Success') {
-                        print(
-                          '✅ updateRechargeStatus.php successful for failed status',
-                        );
-                      } else {
-                        print(
-                          '❌ updateRechargeStatus.php failed for failed: ${rechargeStatusJson['message'] ?? 'Unknown error'}',
-                        );
-                        _showErrorSnackBar(
-                          'Failed to update failed recharge status: ${rechargeStatusJson['message'] ?? 'Unknown error'}',
-                        );
-                      }
-                    } else {
-                      print(
-                        '❌ Empty response from updateRechargeStatus.php for failed',
-                      );
-                      _showErrorSnackBar(
-                        'Empty response from recharge status update API for failed',
-                      );
-                    }
-                  } catch (rechargeStatusError) {
-                    print(
-                      '❌ Error calling updateRechargeStatus.php for failed: $rechargeStatusError',
-                    );
-                    _showErrorSnackBar(
-                      'Failed to update failed recharge status: $rechargeStatusError',
-                    );
-                  }
+                  _showErrorSnackBar(
+                    'Recharge status unclear: ${getJsonResponse['message'] ?? 'Unknown response'}',
+                  );
                 }
-                return;
-              }
-
-              // Fallback: Check legacy response format
-              if (getJsonResponse['status'] == 'failed' ||
-                  getJsonResponse['status'] == '0' ||
-                  getJsonResponse['message']
-                          ?.toString()
-                          .toLowerCase()
-                          .contains('failed') ==
-                      true) {
-                print(
-                  '❌ GET request indicates recharge failed: ${getJsonResponse['message']}',
-                );
-                _showRechargeFailureDialog(
-                  'Recharge Failed',
-                  'Your payment was successful, but the recharge could not be completed: ${getJsonResponse['message']?.toString() ?? 'Unknown error occurred'}',
-                  transactionId,
-                  amount,
-                );
-              } else if (getJsonResponse['status'] == 'success' ||
-                  getJsonResponse['status'] == '1') {
-                print('✅ GET request to urltoLoad successful');
-                _showSuccessSnackBar('Recharge completed successfully');
               } else {
-                print(
-                  '⚠️ GET request returned unknown status: ${getJsonResponse['status']}',
-                );
+                print('❌ Empty GET response from urltoLoad');
                 _showErrorSnackBar(
-                  'Recharge status unclear: ${getJsonResponse['message'] ?? 'Unknown response'}',
+                  'Empty response from recharge verification API',
                 );
               }
-            } else {
-              print('❌ Empty GET response from urltoLoad');
-              _showErrorSnackBar(
-                'Empty response from recharge verification API',
-              );
+            } catch (getError) {
+              print('❌ Error calling urltoLoad: $getError');
+              _showErrorSnackBar('Failed to verify recharge status: $getError');
             }
-          } catch (getError) {
-            print('❌ Error calling urltoLoad: $getError');
-            _showErrorSnackBar('Failed to verify recharge status: $getError');
+          } else {
+            print('✅ No urltoLoad provided, POST success assumed');
+            _showSuccessSnackBar('Payment status updated successfully');
           }
         } else {
-          print('✅ No urltoLoad provided, POST success assumed');
-          _showSuccessSnackBar('Payment status updated successfully');
+          print(
+            '❌ Failed to update payment status (POST): ${postJsonResponse['message'] ?? 'Unknown error'}',
+          );
+          _showErrorSnackBar(
+            'Failed to update payment status: ${postJsonResponse['message'] ?? 'Unknown error'}',
+          );
         }
       } else {
-        print(
-          '❌ Failed to update payment status (POST): ${postJsonResponse['message'] ?? 'Unknown error'}',
-        );
-        _showErrorSnackBar(
-          'Failed to update payment status: ${postJsonResponse['message'] ?? 'Unknown error'}',
-        );
+        print('❌ Empty POST response received');
+        _showErrorSnackBar('Empty response from payment status update API');
       }
-    } else {
-      print('❌ Empty POST response received');
-      _showErrorSnackBar('Empty response from payment status update API');
+    } catch (e) {
+      print('❌ Error calling updatePaymentdetailsToRecharge.php: $e');
+      print('🔍 Error Details: ${e.toString()}');
+      _showErrorSnackBar('Failed to update payment status: $e');
     }
-  } catch (e) {
-    print('❌ Error calling updatePaymentdetailsToRecharge.php: $e');
-    print('🔍 Error Details: ${e.toString()}');
-    _showErrorSnackBar('Failed to update payment status: $e');
   }
-}
+
   Future<void> _storeRechargeSuccess(
     String accountNumber,
     String rechargeAmount,

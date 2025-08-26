@@ -55,7 +55,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
       vsync: this,
     );
 
-    // Use safer animation curves and ensure values are in valid ranges
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
     );
@@ -67,7 +66,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
       CurvedAnimation(parent: _slideController, curve: Curves.elasticOut),
     );
 
-    // Safer pulse animation with smaller range
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
@@ -76,7 +74,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
       CurvedAnimation(parent: _operatorController, curve: Curves.elasticOut),
     );
 
-    // Start animations safely
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _fadeController.forward();
@@ -91,24 +88,84 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
     final number = _mobileController.text;
     if (number.length == 10) {
       _fetchCircleAndOperator(number);
+    } else {
+      // Reset selections when number is changed
+      if (mounted) {
+        setState(() {
+          _selectedCircle = null;
+          _selectedOperator = null;
+        });
+      }
     }
   }
 
   Future<void> _fetchCircleAndOperator(String mobile) async {
     try {
       final data = await MobilePlansApiService.fetchCircleAndOperator(mobile);
-      if (data != null) {
+      if (data != null && mounted) {
+        // Handle circle selection
         final circleCode = data['circle'];
-        final index = operatorCircleCodes.indexOf(circleCode);
-        if (index != -1) {
-          final circleName = operatorCircles[index];
-          setState(() {
-            _selectedCircle = circleName;
-          });
+        if (circleCode != null) {
+          final index = operatorCircleCodes.indexOf(circleCode);
+          if (index != -1) {
+            final circleName = operatorCircles[index];
+            setState(() {
+              _selectedCircle = circleName;
+            });
+          }
         }
+
+        // Handle operator selection with fallback
+        final operatorCode = data['operator'];
+        if (operatorCode != null) {
+          final operatorName = _getOperatorNameFromCode(operatorCode);
+          if (operatorName != null) {
+            setState(() {
+              _selectedOperator = operatorName;
+            });
+            _showSuccessSnackBar('Auto-detected: $operatorName operator');
+          } else {
+            // Fallback to default operator if API returns unknown operator
+            _setDefaultOperator();
+          }
+        } else {
+          // Fallback to default operator if no operator in API response
+          _setDefaultOperator();
+        }
+      } else {
+        // If API fails, set default operator
+        _setDefaultOperator();
       }
     } catch (e) {
-      _showErrorSnackBar('Failed to fetch circle details');
+      _showErrorSnackBar('Failed to fetch details. Please select manually.');
+      _setDefaultOperator();
+    }
+  }
+
+  String? _getOperatorNameFromCode(String apiOperatorCode) {
+    // Extended mapping to handle more operator codes from API
+    final operatorMapping = {
+      'AT': 'AIRTEL',
+      'CG': 'BSNL',
+      'VI': 'VI',
+      'RJ': 'JIO',
+      'ID': 'AIRTEL', // Common fallback
+      'AI': 'AIRTEL',
+      'BS': 'BSNL',
+      'VO': 'VI',
+      'JI': 'JIO',
+      // Add more mappings as needed based on your API responses
+    };
+
+    return operatorMapping[apiOperatorCode];
+  }
+
+  void _setDefaultOperator() {
+    // Set Airtel as default operator
+    if (mounted) {
+      setState(() {
+        _selectedOperator = 'AIRTEL';
+      });
     }
   }
 
@@ -117,7 +174,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
     _mobileController.removeListener(_onMobileNumberChanged);
     _mobileController.dispose();
 
-    // Safely dispose animation controllers
     if (_fadeController.isAnimating) _fadeController.stop();
     if (_slideController.isAnimating) _slideController.stop();
     if (_pulseController.isAnimating) _pulseController.stop();
@@ -420,6 +476,7 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
   }
 
   void _showSuccessSnackBar(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -536,6 +593,7 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
   }
 
   void _showErrorSnackBar(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -580,15 +638,12 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
         child: SafeArea(
           child: Column(
             children: [
-              // Header Section - FIX 1: Added clamp for fade animation
+              // Header Section
               AnimatedBuilder(
                 animation: _fadeAnimation,
                 builder: (context, child) {
                   return Opacity(
-                    opacity: _fadeAnimation.value.clamp(
-                      0.0,
-                      1.0,
-                    ), // ✅ FIXED LINE
+                    opacity: _fadeAnimation.value.clamp(0.0, 1.0),
                     child: Container(
                       padding: EdgeInsets.symmetric(
                         horizontal: 24,
@@ -701,7 +756,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                         ),
                         child: Column(
                           children: [
-                            // Handle
                             Container(
                               width: 50,
                               height: 5,
@@ -922,7 +976,11 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                                               operatorCircles.map((circle) {
                                                 return DropdownMenuItem<String>(
                                                   value: circle,
-                                                  child: Text(circle),
+                                                  child: Text(
+                                                    circle,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
                                                 );
                                               }).toList(),
                                           onChanged: (value) {
@@ -942,7 +1000,7 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
 
                                     SizedBox(height: 32),
 
-                                    // Operator Selection Section - FIX 2: Added clamp for operator animation
+                                    // Operator Selection Section - FIXED OVERFLOW ISSUE
                                     _buildSectionTitle('Select Operator'),
                                     SizedBox(height: 16),
                                     AnimatedBuilder(
@@ -952,264 +1010,347 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                                           scale: _operatorAnimation.value.clamp(
                                             0.1,
                                             1.0,
-                                          ), // ✅ FIXED
+                                          ),
                                           child: Opacity(
                                             opacity: _operatorAnimation.value
-                                                .clamp(0.0, 1.0), // ✅ FIXED
-                                            child: GridView.builder(
-                                              shrinkWrap: true,
-                                              physics:
-                                                  NeverScrollableScrollPhysics(),
-                                              gridDelegate:
-                                                  SliverGridDelegateWithFixedCrossAxisCount(
-                                                    crossAxisCount: 2,
-                                                    childAspectRatio: 1.2,
-                                                    crossAxisSpacing: 16,
-                                                    mainAxisSpacing: 16,
-                                                  ),
-                                              itemCount: mobileOperators.length,
-                                              itemBuilder: (context, index) {
-                                                final operator =
-                                                    mobileOperators[index];
-                                                final isSelected =
-                                                    _selectedOperator ==
-                                                    operator['code'];
+                                                .clamp(0.0, 1.0),
+                                            child: LayoutBuilder(
+                                              builder: (context, constraints) {
+                                                // Calculate optimal grid dimensions based on screen size
+                                                final screenWidth =
+                                                    constraints.maxWidth;
+                                                final crossAxisCount =
+                                                    screenWidth > 600 ? 4 : 2;
+                                                final childAspectRatio =
+                                                    screenWidth > 600
+                                                        ? 1.1
+                                                        : 1.0;
 
-                                                return GestureDetector(
-                                                  onTap:
-                                                      () => _onOperatorSelected(
-                                                        operator['code'],
+                                                return GridView.builder(
+                                                  shrinkWrap: true,
+                                                  physics:
+                                                      NeverScrollableScrollPhysics(),
+                                                  gridDelegate:
+                                                      SliverGridDelegateWithFixedCrossAxisCount(
+                                                        crossAxisCount:
+                                                            crossAxisCount,
+                                                        childAspectRatio:
+                                                            childAspectRatio,
+                                                        crossAxisSpacing: 12,
+                                                        mainAxisSpacing: 12,
                                                       ),
-                                                  child: AnimatedContainer(
-                                                    duration: Duration(
-                                                      milliseconds: 300,
-                                                    ),
-                                                    decoration: BoxDecoration(
-                                                      gradient:
-                                                          isSelected
-                                                              ? LinearGradient(
-                                                                colors:
-                                                                    operator['gradient']
-                                                                        as List<
-                                                                          Color
-                                                                        >,
-                                                              )
-                                                              : LinearGradient(
-                                                                colors: [
-                                                                  Colors.white,
-                                                                  Color(
-                                                                    0xFFF8F9FA,
-                                                                  ),
-                                                                ],
+                                                  itemCount:
+                                                      mobileOperators.length,
+                                                  itemBuilder: (
+                                                    context,
+                                                    index,
+                                                  ) {
+                                                    final operator =
+                                                        mobileOperators[index];
+                                                    final isSelected =
+                                                        _selectedOperator ==
+                                                        operator['code'];
+
+                                                    return GestureDetector(
+                                                      onTap:
+                                                          () =>
+                                                              _onOperatorSelected(
+                                                                operator['code'],
                                                               ),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            20,
-                                                          ),
-                                                      border: Border.all(
-                                                        color:
-                                                            isSelected
-                                                                ? operator['color']
-                                                                    as Color
-                                                                : Color(
-                                                                  0xFFE2E8F0,
-                                                                ),
-                                                        width:
-                                                            isSelected ? 3 : 2,
-                                                      ),
-                                                      boxShadow: [
-                                                        BoxShadow(
-                                                          color:
-                                                              isSelected
-                                                                  ? (operator['color']
-                                                                          as Color)
-                                                                      .withOpacity(
-                                                                        0.3,
-                                                                      )
-                                                                  : Colors.black
-                                                                      .withOpacity(
-                                                                        0.08,
-                                                                      ),
-                                                          blurRadius:
-                                                              isSelected
-                                                                  ? 20
-                                                                  : 10,
-                                                          offset: Offset(
-                                                            0,
-                                                            isSelected ? 8 : 4,
-                                                          ),
+                                                      child: AnimatedContainer(
+                                                        duration: Duration(
+                                                          milliseconds: 300,
                                                         ),
-                                                      ],
-                                                    ),
-                                                    child: Column(
-                                                      mainAxisAlignment:
-                                                          MainAxisAlignment
-                                                              .center,
-                                                      children: [
-                                                        Container(
-                                                          width: 60,
-                                                          height: 60,
-                                                          decoration: BoxDecoration(
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  16,
-                                                                ),
-                                                            boxShadow: [
-                                                              BoxShadow(
-                                                                color: Colors
-                                                                    .black
-                                                                    .withOpacity(
-                                                                      0.1,
-                                                                    ),
-                                                                blurRadius: 8,
-                                                                offset: Offset(
-                                                                  0,
-                                                                  4,
-                                                                ),
+                                                        decoration: BoxDecoration(
+                                                          gradient:
+                                                              isSelected
+                                                                  ? LinearGradient(
+                                                                    colors:
+                                                                        operator['gradient']
+                                                                            as List<
+                                                                              Color
+                                                                            >,
+                                                                  )
+                                                                  : LinearGradient(
+                                                                    colors: [
+                                                                      Colors
+                                                                          .white,
+                                                                      Color(
+                                                                        0xFFF8F9FA,
+                                                                      ),
+                                                                    ],
+                                                                  ),
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                16,
                                                               ),
-                                                            ],
-                                                          ),
-                                                          child: ClipRRect(
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  16,
-                                                                ),
-                                                            child: Image.asset(
-                                                              operator['asset']
-                                                                  as String,
-                                                              fit: BoxFit.cover,
-                                                              errorBuilder: (
-                                                                context,
-                                                                error,
-                                                                stackTrace,
-                                                              ) {
-                                                                return Container(
-                                                                  decoration: BoxDecoration(
-                                                                    gradient: LinearGradient(
-                                                                      colors:
-                                                                          operator['gradient']
-                                                                              as List<
-                                                                                Color
-                                                                              >,
+                                                          border: Border.all(
+                                                            color:
+                                                                isSelected
+                                                                    ? operator['color']
+                                                                        as Color
+                                                                    : Color(
+                                                                      0xFFE2E8F0,
                                                                     ),
+                                                            width:
+                                                                isSelected
+                                                                    ? 2
+                                                                    : 1,
+                                                          ),
+                                                          boxShadow: [
+                                                            BoxShadow(
+                                                              color:
+                                                                  isSelected
+                                                                      ? (operator['color']
+                                                                              as Color)
+                                                                          .withOpacity(
+                                                                            0.3,
+                                                                          )
+                                                                      : Colors
+                                                                          .black
+                                                                          .withOpacity(
+                                                                            0.05,
+                                                                          ),
+                                                              blurRadius:
+                                                                  isSelected
+                                                                      ? 15
+                                                                      : 8,
+                                                              offset: Offset(
+                                                                0,
+                                                                isSelected
+                                                                    ? 6
+                                                                    : 3,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        child: Padding(
+                                                          padding:
+                                                              EdgeInsets.all(
+                                                                12,
+                                                              ),
+                                                          child: Column(
+                                                            mainAxisAlignment:
+                                                                MainAxisAlignment
+                                                                    .center,
+                                                            mainAxisSize:
+                                                                MainAxisSize
+                                                                    .min,
+                                                            children: [
+                                                              // Operator Logo with flexible sizing
+                                                              Flexible(
+                                                                flex: 3,
+                                                                child: Container(
+                                                                  constraints:
+                                                                      BoxConstraints(
+                                                                        maxWidth:
+                                                                            50,
+                                                                        maxHeight:
+                                                                            50,
+                                                                        minWidth:
+                                                                            35,
+                                                                        minHeight:
+                                                                            35,
+                                                                      ),
+                                                                  decoration: BoxDecoration(
                                                                     borderRadius:
                                                                         BorderRadius.circular(
-                                                                          16,
+                                                                          12,
                                                                         ),
+                                                                    boxShadow: [
+                                                                      BoxShadow(
+                                                                        color: Colors
+                                                                            .black
+                                                                            .withOpacity(
+                                                                              0.1,
+                                                                            ),
+                                                                        blurRadius:
+                                                                            6,
+                                                                        offset:
+                                                                            Offset(
+                                                                              0,
+                                                                              3,
+                                                                            ),
+                                                                      ),
+                                                                    ],
                                                                   ),
-                                                                  child: Center(
-                                                                    child: Text(
+                                                                  child: ClipRRect(
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                          12,
+                                                                        ),
+                                                                    child: Image.asset(
+                                                                      operator['asset']
+                                                                          as String,
+                                                                      fit:
+                                                                          BoxFit
+                                                                              .cover,
+                                                                      errorBuilder: (
+                                                                        context,
+                                                                        error,
+                                                                        stackTrace,
+                                                                      ) {
+                                                                        return Container(
+                                                                          decoration: BoxDecoration(
+                                                                            gradient: LinearGradient(
+                                                                              colors:
+                                                                                  operator['gradient']
+                                                                                      as List<
+                                                                                        Color
+                                                                                      >,
+                                                                            ),
+                                                                            borderRadius: BorderRadius.circular(
+                                                                              12,
+                                                                            ),
+                                                                          ),
+                                                                          child: Center(
+                                                                            child: Text(
+                                                                              operator['name'].toString()[0],
+                                                                              style: TextStyle(
+                                                                                color:
+                                                                                    Colors.white,
+                                                                                fontSize:
+                                                                                    18,
+                                                                                fontWeight:
+                                                                                    FontWeight.bold,
+                                                                              ),
+                                                                            ),
+                                                                          ),
+                                                                        );
+                                                                      },
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                              SizedBox(
+                                                                height: 8,
+                                                              ),
+                                                              // Operator Name with flexible text
+                                                              Flexible(
+                                                                flex: 2,
+                                                                child: Column(
+                                                                  mainAxisSize:
+                                                                      MainAxisSize
+                                                                          .min,
+                                                                  children: [
+                                                                    Text(
                                                                       operator['name']
-                                                                          .toString()[0],
+                                                                          as String,
                                                                       style: TextStyle(
                                                                         color:
-                                                                            Colors.white,
+                                                                            isSelected
+                                                                                ? Colors.white
+                                                                                : Color(
+                                                                                  0xFF1A202C,
+                                                                                ),
                                                                         fontSize:
-                                                                            24,
+                                                                            14,
                                                                         fontWeight:
                                                                             FontWeight.bold,
                                                                       ),
+                                                                      textAlign:
+                                                                          TextAlign
+                                                                              .center,
+                                                                      maxLines:
+                                                                          1,
+                                                                      overflow:
+                                                                          TextOverflow
+                                                                              .ellipsis,
                                                                     ),
-                                                                  ),
-                                                                );
-                                                              },
-                                                            ),
-                                                          ),
-                                                        ),
-                                                        SizedBox(height: 12),
-                                                        Text(
-                                                          operator['name']
-                                                              as String,
-                                                          style: TextStyle(
-                                                            color:
-                                                                isSelected
-                                                                    ? Colors
-                                                                        .white
-                                                                    : Color(
-                                                                      0xFF1A202C,
+                                                                    SizedBox(
+                                                                      height: 2,
                                                                     ),
-                                                            fontSize: 16,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                          ),
-                                                        ),
-                                                        SizedBox(height: 4),
-                                                        Text(
-                                                          operator['description']
-                                                              as String,
-                                                          style: TextStyle(
-                                                            color:
-                                                                isSelected
-                                                                    ? Colors
+                                                                    Text(
+                                                                      operator['description']
+                                                                          as String,
+                                                                      style: TextStyle(
+                                                                        color:
+                                                                            isSelected
+                                                                                ? Colors.white.withOpacity(
+                                                                                  0.9,
+                                                                                )
+                                                                                : Color(
+                                                                                  0xFF718096,
+                                                                                ),
+                                                                        fontSize:
+                                                                            10,
+                                                                        fontWeight:
+                                                                            FontWeight.w500,
+                                                                      ),
+                                                                      textAlign:
+                                                                          TextAlign
+                                                                              .center,
+                                                                      maxLines:
+                                                                          1,
+                                                                      overflow:
+                                                                          TextOverflow
+                                                                              .ellipsis,
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                              // Selected indicator
+                                                              if (isSelected) ...[
+                                                                SizedBox(
+                                                                  height: 4,
+                                                                ),
+                                                                Container(
+                                                                  padding:
+                                                                      EdgeInsets.symmetric(
+                                                                        horizontal:
+                                                                            6,
+                                                                        vertical:
+                                                                            2,
+                                                                      ),
+                                                                  decoration: BoxDecoration(
+                                                                    color: Colors
                                                                         .white
                                                                         .withOpacity(
-                                                                          0.9,
-                                                                        )
-                                                                    : Color(
-                                                                      0xFF718096,
-                                                                    ),
-                                                            fontSize: 12,
-                                                            fontWeight:
-                                                                FontWeight.w500,
-                                                          ),
-                                                          textAlign:
-                                                              TextAlign.center,
-                                                        ),
-                                                        if (isSelected) ...[
-                                                          SizedBox(height: 8),
-                                                          Container(
-                                                            padding:
-                                                                EdgeInsets.symmetric(
-                                                                  horizontal: 8,
-                                                                  vertical: 4,
-                                                                ),
-                                                            decoration: BoxDecoration(
-                                                              color: Colors
-                                                                  .white
-                                                                  .withOpacity(
-                                                                    0.2,
+                                                                          0.2,
+                                                                        ),
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                          8,
+                                                                        ),
                                                                   ),
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    12,
-                                                                  ),
-                                                            ),
-                                                            child: Row(
-                                                              mainAxisSize:
-                                                                  MainAxisSize
-                                                                      .min,
-                                                              children: [
-                                                                Icon(
-                                                                  Icons
-                                                                      .check_circle,
-                                                                  color:
-                                                                      Colors
-                                                                          .white,
-                                                                  size: 14,
-                                                                ),
-                                                                SizedBox(
-                                                                  width: 4,
-                                                                ),
-                                                                Text(
-                                                                  'SELECTED',
-                                                                  style: TextStyle(
-                                                                    color:
-                                                                        Colors
-                                                                            .white,
-                                                                    fontSize:
-                                                                        10,
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .bold,
+                                                                  child: Row(
+                                                                    mainAxisSize:
+                                                                        MainAxisSize
+                                                                            .min,
+                                                                    children: [
+                                                                      Icon(
+                                                                        Icons
+                                                                            .check_circle,
+                                                                        color:
+                                                                            Colors.white,
+                                                                        size:
+                                                                            10,
+                                                                      ),
+                                                                      SizedBox(
+                                                                        width:
+                                                                            2,
+                                                                      ),
+                                                                      Text(
+                                                                        'SELECTED',
+                                                                        style: TextStyle(
+                                                                          color:
+                                                                              Colors.white,
+                                                                          fontSize:
+                                                                              8,
+                                                                          fontWeight:
+                                                                              FontWeight.bold,
+                                                                        ),
+                                                                      ),
+                                                                    ],
                                                                   ),
                                                                 ),
                                                               ],
-                                                            ),
+                                                            ],
                                                           ),
-                                                        ],
-                                                      ],
-                                                    ),
-                                                  ),
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
                                                 );
                                               },
                                             ),
@@ -1220,7 +1361,7 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
 
                                     SizedBox(height: 40),
 
-                                    // Recharge Button - FIX 3: Added clamp for pulse animation
+                                    // Recharge Button - FIXED PULSE ANIMATION
                                     AnimatedBuilder(
                                       animation: _pulseAnimation,
                                       builder: (context, child) {
@@ -1234,9 +1375,9 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                                           scale:
                                               canRecharge
                                                   ? _pulseAnimation.value.clamp(
-                                                    0.8,
-                                                    1.2,
-                                                  ) // ✅ FIXED
+                                                    0.95,
+                                                    1.05,
+                                                  )
                                                   : 1.0,
                                           child: Container(
                                             width: double.infinity,
@@ -1330,20 +1471,26 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                                                             size: 24,
                                                           ),
                                                           SizedBox(width: 12),
-                                                          Text(
-                                                            'View Plans & Recharge',
-                                                            style: TextStyle(
-                                                              fontSize: 18,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold,
-                                                              color:
-                                                                  canRecharge
-                                                                      ? Colors
-                                                                          .white
-                                                                      : Color(
-                                                                        0xFF718096,
-                                                                      ),
+                                                          Flexible(
+                                                            child: Text(
+                                                              'View Plans & Recharge',
+                                                              style: TextStyle(
+                                                                fontSize: 18,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                                color:
+                                                                    canRecharge
+                                                                        ? Colors
+                                                                            .white
+                                                                        : Color(
+                                                                          0xFF718096,
+                                                                        ),
+                                                              ),
+                                                              maxLines: 1,
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
                                                             ),
                                                           ),
                                                         ],

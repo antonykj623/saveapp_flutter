@@ -500,8 +500,7 @@ class _RechargePlansScreenState extends State<RechargePlansScreen>
           print('💾 Saved payment credentials to SharedPreferences');
 
           print('🚀 STEP 3: Initiating generateHash.php API call...');
-          String paidAmount = "1.00";
-          // totalAmount.toStringAsFixed(2);
+          String paidAmount = totalAmount.toStringAsFixed(2);
 
           String a =
               '$merchantCode|$transactionId|$paidAmount||$customerId|${widget.mobileNumber}|||||||||||$saltKey';
