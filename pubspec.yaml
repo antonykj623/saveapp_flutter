@@ -70,7 +70,11 @@ dependencies:
   pattern_lock: ^2.0.0
   carousel_slider: ^5.1.1
   weipl_checkout_flutter: ^1.0.0
-  flutter_launcher_icons: ^0.14.4
+  json_serializable: 
+  json_annotation: ^4.9.0
+  build_runner: ^2.4.6
+  connectivity_plus: ^7.0.0
+  # flutter_launcher_icons: ^0.14.4
   
   
   
@@ -85,7 +89,6 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_contacts: ^1.1.9+2
-  # flutter_contacts: ^1.1.9+2
 
  
    

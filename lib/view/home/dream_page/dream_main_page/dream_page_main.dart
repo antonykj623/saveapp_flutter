@@ -2,25 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:new_project_2025/view/home/dream_page/add_dream_screen/add_dream_screen.dart';
 import 'package:new_project_2025/view/home/dream_page/model_dream_page/model_dream.dart';
 import 'package:new_project_2025/view/home/dream_page/view_details_screen/view_details_screen.dart';
+import 'package:new_project_2025/view/home/dream_page/dream_class/db_class.dart';
 
-void main() {
-  runApp(MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Dream Savings',
-      theme: ThemeData(
-        primarySwatch: Colors.teal,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-      ),
-      home: MyDreamScreen(),
-      debugShowCheckedModeBanner: false,
-    );
-  }
-}
+import '../../widget/save_DB/Budegt_database_helper/Save_DB.dart'; // Import DatabaseHelper
 
 class MyDreamScreen extends StatefulWidget {
   @override
@@ -28,23 +12,61 @@ class MyDreamScreen extends StatefulWidget {
 }
 
 class _MyDreamScreenState extends State<MyDreamScreen> {
-  List<Dream> dreams = [
-    Dream(
-      name: "Hhh",
-      category: "Vehicle",
-      investment: "My Saving",
-      closingBalance: 0.0,
-      addedAmount: 5000.0,
-      savedAmount: 5200.0,
-      targetAmount: 25888.0,
-      targetDate: DateTime(2025, 5, 29),
-    ),
-  ];
+  List<Dream> dreams = [];
+  final DatabaseHelper _dbHelper = DatabaseHelper();
 
-  void _addNewDream(Dream newDream) {
-    setState(() {
-      dreams.add(newDream);
-    });
+  @override
+  void initState() {
+    super.initState();
+    _loadDreams();
+  }
+
+  Future<void> _loadDreams() async {
+    try {
+      final loadedDreams = await _dbHelper.getAllDreams();
+      if (loadedDreams.isEmpty) {
+        // Insert default dream if none exist
+        final defaultDream = Dream(
+          name: "Hhh",
+          category: "Vehicle",
+          investment: "My Saving",
+          closingBalance: 0.0,
+          addedAmount: 5000.0,
+          savedAmount: 5200.0,
+          targetAmount: 25888.0,
+          targetDate: DateTime(2025, 5, 29),
+          notes: "",
+        );
+        await _dbHelper.insertDream(defaultDream);
+        loadedDreams.add(defaultDream);
+      }
+
+      setState(() {
+        dreams = loadedDreams;
+      });
+    } catch (e) {
+      print('Error loading dreams: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load dreams: $e')));
+    }
+  }
+
+  void _addNewDream(Dream newDream) async {
+    try {
+      await _dbHelper.insertDream(newDream);
+      setState(() {
+        dreams.add(newDream);
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Dream added successfully!')));
+    } catch (e) {
+      print('Error adding new dream: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to add dream: $e')));
+    }
   }
 
   @override
@@ -91,7 +113,8 @@ class _MyDreamScreenState extends State<MyDreamScreen> {
                             Row(
                               children: [
                                 Icon(
-                                  Icons.directions_car,
+                                  Icons
+                                      .directions_car, // TODO: Map category to icon
                                   size: 32,
                                   color: Colors.teal,
                                 ),
@@ -110,11 +133,11 @@ class _MyDreamScreenState extends State<MyDreamScreen> {
                             _buildDetailRow('Investment', dream.investment),
                             _buildDetailRow(
                               'Saved Amount',
-                              dream.savedAmount.toString(),
+                              dream.savedAmount.toStringAsFixed(2),
                             ),
                             _buildDetailRow(
                               'Target Amount',
-                              dream.targetAmount.toString(),
+                              dream.targetAmount.toStringAsFixed(2),
                             ),
                             SizedBox(height: 16),
                             Row(
@@ -129,7 +152,7 @@ class _MyDreamScreenState extends State<MyDreamScreen> {
                                 SizedBox(width: 8),
                                 Expanded(
                                   child: LinearProgressIndicator(
-                                    minHeight: 15 ,
+                                    minHeight: 15,
                                     value: dream.progressPercentage / 100,
                                     backgroundColor: Colors.grey[300],
                                     valueColor: AlwaysStoppedAnimation<Color>(

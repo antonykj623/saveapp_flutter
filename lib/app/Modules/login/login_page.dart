@@ -135,7 +135,12 @@ class _LoginScreenState extends State<LoginScreen>
       int status = data['status'];
       String message = data['message'];
 
-      if (status == 0) {
+
+
+
+
+
+      if (status == 0) { 
         _showErrorDialog("Login Failed", message);
       } else if (status == 2) {
         final prefs = await SharedPreferences.getInstance();

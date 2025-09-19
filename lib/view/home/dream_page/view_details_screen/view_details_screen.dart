@@ -1,17 +1,20 @@
-// ViewDetailsScreen
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
-import 'package:get/get_navigation/src/extension_navigation.dart';
-import 'package:intl/number_symbols_data.dart';
 import 'package:new_project_2025/view/home/dream_page/add_dream_screen/add_dream_screen.dart';
 import 'package:new_project_2025/view/home/dream_page/model_dream_page/model_dream.dart';
+import 'package:new_project_2025/view/home/dream_page/dream_class/db_class.dart';
 import 'package:new_project_2025/view/home/dream_page/view_miles_stone/view_mile_stone.dart';
+
+import '../../widget/save_DB/Budegt_database_helper/Save_DB.dart';
 
 class ViewDetailsScreen extends StatefulWidget {
   final Dream dream;
-  final Function(Dream)? onDreamUpdated; // Callback for updating the dream
+  final Function(Dream)? onDreamUpdated;
 
-  ViewDetailsScreen({required this.dream, this.onDreamUpdated});
+  const ViewDetailsScreen({
+    required this.dream,
+    this.onDreamUpdated,
+    super.key,
+  });
 
   @override
   _ViewDetailsScreenState createState() => _ViewDetailsScreenState();
@@ -19,14 +22,7 @@ class ViewDetailsScreen extends StatefulWidget {
 
 class _ViewDetailsScreenState extends State<ViewDetailsScreen> {
   late Dream dream;
-  final _formKey = GlobalKey<FormState>();
-  String? selectedTarget;
-  String targetName = '';
-  double targetAmount = 0.0;
-  String? selectedInvestment;
-  double savedAmount = 0.0;
-  DateTime? selectedDate;
-  String notes = '';
+  final DatabaseHelper _dbHelper = DatabaseHelper();
 
   @override
   void initState() {
@@ -40,14 +36,17 @@ class _ViewDetailsScreenState extends State<ViewDetailsScreen> {
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
         backgroundColor: Colors.teal,
-        title: Text('View Details', style: TextStyle(color: Colors.white)),
+        title: const Text(
+          'View Details',
+          style: TextStyle(color: Colors.white),
+        ),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.edit, color: Colors.white),
+            icon: const Icon(Icons.edit, color: Colors.white),
             onPressed: () {
               Navigator.push(
                 context,
@@ -55,15 +54,34 @@ class _ViewDetailsScreenState extends State<ViewDetailsScreen> {
                   builder:
                       (context) => AddDreamScreen(
                         onDreamAdded: (newDream) {}, // Not used for editing
-                        onDreamUpdated: (updatedDream) {
-                          setState(() {
-                            dream = updatedDream; // Update local dream
-                          });
-                          widget.onDreamUpdated?.call(
-                            updatedDream,
-                          ); // Notify parent
+                        onDreamUpdated: (updatedDream) async {
+                          try {
+                            final result = await _dbHelper.updateDream(
+                              dream.id!,
+                              updatedDream,
+                            );
+                            if (result > 0) {
+                              setState(() {
+                                dream = updatedDream;
+                              });
+                              widget.onDreamUpdated?.call(updatedDream);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Dream updated successfully!'),
+                                ),
+                              );
+                            } else {
+                              throw Exception('Failed to update dream');
+                            }
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Failed to update dream: $e'),
+                              ),
+                            );
+                          }
                         },
-                        dream: dream, // Pass current dream for editing
+                        dream: dream,
                       ),
                 ),
               );
@@ -72,33 +90,33 @@ class _ViewDetailsScreenState extends State<ViewDetailsScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           children: [
             Card(
               child: Padding(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.directions_car,
                           size: 32,
                           color: Colors.teal,
                         ),
-                        SizedBox(width: 12),
+                        const SizedBox(width: 12),
                         Text(
                           dream.category,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       ],
                     ),
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
                     _buildDetailRow('Name', dream.name),
                     _buildDetailRow(
                       'Target Date',
@@ -106,28 +124,27 @@ class _ViewDetailsScreenState extends State<ViewDetailsScreen> {
                     ),
                     _buildDetailRow(
                       'Target Amount',
-                      dream.targetAmount.toString(),
+                      dream.targetAmount.toStringAsFixed(2),
                     ),
                     _buildDetailRow('Investment Account', dream.investment),
                     _buildDetailRow(
-                      'Closing balance',
-                      dream.closingBalance.toString(),
+                      'Closing Balance',
+                      dream.closingBalance.toStringAsFixed(2),
                     ),
                     _buildDetailRow(
                       'Total Added Amount',
-                      dream.addedAmount.toString(),
+                      dream.addedAmount.toStringAsFixed(2),
                     ),
                     _buildDetailRow(
                       'Saved Amount',
-                      dream.savedAmount.toString(),
+                      dream.savedAmount.toStringAsFixed(2),
                     ),
                     _buildDetailRow('Notes', dream.notes),
                   ],
                 ),
               ),
             ),
-            SizedBox(height: 20),
-            // Progress Circle
+            const SizedBox(height: 20),
             Container(
               width: 200,
               height: 200,
@@ -141,15 +158,17 @@ class _ViewDetailsScreenState extends State<ViewDetailsScreen> {
                       value: dream.progressPercentage / 100,
                       strokeWidth: 8,
                       backgroundColor: Colors.grey[300],
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.teal),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        Colors.teal,
+                      ),
                     ),
                   ),
                   Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        '${dream.progressPercentage.toStringAsFixed(2)} %',
-                        style: TextStyle(
+                        '${dream.progressPercentage.toStringAsFixed(2)}%',
+                        style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
@@ -163,27 +182,26 @@ class _ViewDetailsScreenState extends State<ViewDetailsScreen> {
                 ],
               ),
             ),
-            SizedBox(height: 30),
-            // Action Buttons
+            const SizedBox(height: 30),
             Container(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () => _showCalculator(context, "Target"),
+                onPressed: () => _showCalculator(context, 'saved'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.teal,
-                  padding: EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(25),
                   ),
                 ),
-                child: Text(
+                child: const Text(
                   'Add Amount',
                   style: TextStyle(fontSize: 18, color: Colors.white),
                 ),
               ),
             ),
-            SizedBox(height: 12),
-          Container(
+            const SizedBox(height: 12),
+            Container(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
@@ -196,32 +214,30 @@ class _ViewDetailsScreenState extends State<ViewDetailsScreen> {
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.grey[300],
-                  padding: EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(25),
                   ),
                 ),
-                child: Text(
+                child: const Text(
                   'View Milestone',
                   style: TextStyle(fontSize: 18, color: Colors.teal),
                 ),
               ),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             Container(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  _showGoalReachedDialog();
-                },
+                onPressed: () => _showGoalReachedDialog(),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.grey[300],
-                  padding: EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(25),
                   ),
                 ),
-                child: Text(
+                child: const Text(
                   'Set as Goal Reached',
                   style: TextStyle(fontSize: 18, color: Colors.teal),
                 ),
@@ -235,17 +251,20 @@ class _ViewDetailsScreenState extends State<ViewDetailsScreen> {
 
   Widget _buildDetailRow(String label, String value) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          Expanded(flex: 2, child: Text(label, style: TextStyle(fontSize: 14))),
-          Text(':', style: TextStyle(fontSize: 14)),
-          SizedBox(width: 16),
+          Expanded(
+            flex: 2,
+            child: Text(label, style: const TextStyle(fontSize: 14)),
+          ),
+          const Text(':', style: TextStyle(fontSize: 14)),
+          const SizedBox(width: 16),
           Expanded(
             flex: 2,
             child: Text(
               value,
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
             ),
           ),
         ],
@@ -285,7 +304,7 @@ class _ViewDetailsScreenState extends State<ViewDetailsScreen> {
                   children: [
                     Container(
                       width: double.infinity,
-                      padding: EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.grey[200],
                         borderRadius: BorderRadius.circular(8),
@@ -302,7 +321,7 @@ class _ViewDetailsScreenState extends State<ViewDetailsScreen> {
                               ),
                               textAlign: TextAlign.right,
                             ),
-                          SizedBox(height: 4),
+                          const SizedBox(height: 4),
                           Text(
                             currentValue.isEmpty ? '0' : currentValue,
                             style: TextStyle(
@@ -317,7 +336,7 @@ class _ViewDetailsScreenState extends State<ViewDetailsScreen> {
                         ],
                       ),
                     ),
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
                     ...buttonRows.map((row) {
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4),
@@ -452,7 +471,7 @@ class _ViewDetailsScreenState extends State<ViewDetailsScreen> {
                                             isOperator
                                                 ? Colors.grey[400]
                                                 : Colors.grey[300],
-                                        padding: EdgeInsets.symmetric(
+                                        padding: const EdgeInsets.symmetric(
                                           vertical: 16,
                                         ),
                                         shape: RoundedRectangleBorder(
@@ -463,7 +482,7 @@ class _ViewDetailsScreenState extends State<ViewDetailsScreen> {
                                       ),
                                       child: Text(
                                         buttonText,
-                                        style: TextStyle(
+                                        style: const TextStyle(
                                           fontSize: 20,
                                           color: Colors.black,
                                         ),
@@ -475,31 +494,61 @@ class _ViewDetailsScreenState extends State<ViewDetailsScreen> {
                         ),
                       );
                     }),
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
                     Container(
                       width: double.infinity,
                       height: 50,
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.blue[900]!, Colors.teal],
+                        gradient: const LinearGradient(
+                          colors: [Colors.blueAccent, Colors.teal],
                         ),
                         borderRadius: BorderRadius.circular(30),
                       ),
                       child: MaterialButton(
-                        onPressed: () {
+                        onPressed: () async {
                           double value = double.tryParse(currentValue) ?? 0.0;
-                          if (type == 'target') {
-                            this.setState(() {
-                              targetAmount = value;
-                            });
-                          } else if (type == 'saved') {
-                            this.setState(() {
-                              savedAmount = value;
-                            });
+                          if (type == 'saved') {
+                            try {
+                              final updatedDream = Dream(
+                                id: dream.id,
+                                name: dream.name,
+                                category: dream.category,
+                                investment: dream.investment,
+                                targetAmount: dream.targetAmount,
+                                savedAmount: dream.savedAmount + value,
+                                targetDate: dream.targetDate,
+                                notes: dream.notes,
+                                closingBalance: dream.closingBalance,
+                                addedAmount: dream.addedAmount + value,
+                              );
+                              final result = await _dbHelper.updateDream(
+                                dream.id!,
+                                updatedDream,
+                              );
+                              if (result > 0) {
+                                setState(() {
+                                  dream = updatedDream;
+                                });
+                                widget.onDreamUpdated?.call(updatedDream);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Amount added successfully!'),
+                                  ),
+                                );
+                              } else {
+                                throw Exception('Failed to update dream');
+                              }
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Failed to add amount: $e'),
+                                ),
+                              );
+                            }
                           }
                           Navigator.pop(context);
                         },
-                        child: Text(
+                        child: const Text(
                           'INSERT',
                           style: TextStyle(color: Colors.white, fontSize: 18),
                         ),
@@ -520,21 +569,32 @@ class _ViewDetailsScreenState extends State<ViewDetailsScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Congratulations!'),
-          content: Text('Are you sure you want to mark this goal as reached?'),
+          title: const Text('Congratulations!'),
+          content: const Text(
+            'Are you sure you want to mark this goal as reached?',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Cancel'),
+              child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Goal marked as reached!')),
-                );
+              onPressed: () async {
+                try {
+                  // Optionally update the dream to mark it as reached (add a flag in the Dream model if needed)
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Goal marked as reached!')),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to mark goal as reached: $e'),
+                    ),
+                  );
+                }
               },
-              child: Text('Confirm'),
+              child: const Text('Confirm'),
             ),
           ],
         );

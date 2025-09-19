@@ -14,7 +14,6 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:new_project_2025/view/home/widget/Receipt/add_receipt_voucher_screen/add_receipt_vocher_screen.dart';
 import 'package:new_project_2025/view/home/widget/payment_page/Month_date/Moth_datepage.dart';
 
-// AddReceiptVoucherPage
 class AddReceiptVoucherPage extends StatefulWidget {
   final Receipt? receipt;
 
@@ -36,7 +35,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
 
   List<String> cashOptions = ['Cash'];
   List<String> bankOptions = [];
-  List<String> allBankCashOptions = [];
+  List<String> accountOptions = []; // For all accounts except customers
 
   @override
   void initState() {
@@ -76,6 +75,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
       );
       List<String> banks = [];
       List<String> cashAccounts = [];
+      List<String> allAccounts = [];
 
       for (var account in accounts) {
         try {
@@ -84,8 +84,9 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
               accountData['Accounttype'].toString().toLowerCase();
           String accountName = accountData['Accountname'].toString();
 
-          if (accountType == 'customers') continue;
+          if (accountType == 'customers') continue; // Skip customer accounts
 
+          allAccounts.add(accountName); // Add all accounts to accountOptions
           if (accountType == 'bank') {
             banks.add(accountName);
           } else if (accountType == 'cash' &&
@@ -100,8 +101,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
       setState(() {
         cashOptions = ['Cash', ...cashAccounts];
         bankOptions = banks;
-        allBankCashOptions = [...cashOptions, ...bankOptions];
-
+        accountOptions = allAccounts; // All accounts for selection
         if (paymentMode == 'Cash') {
           selectedCashOption =
               cashOptions.contains(selectedCashOption)
@@ -116,6 +116,11 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                   : bankOptions.isNotEmpty
                   ? bankOptions.first
                   : null;
+        }
+        if (selectedAccount != null &&
+            !accountOptions.contains(selectedAccount)) {
+          selectedAccount =
+              accountOptions.isNotEmpty ? accountOptions.first : null;
         }
       });
     } catch (e) {
@@ -152,6 +157,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
               selectedAccount = accountName;
             });
           },
+          accountOptions: accountOptions,
         );
       },
     );
@@ -194,6 +200,42 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
     return months[month - 1];
   }
 
+  Future<void> _updateAccountBalance(
+    String accountName,
+    double amount,
+    bool isReceipt,
+  ) async {
+    try {
+      final db = await DatabaseHelper().database;
+      final List<Map<String, dynamic>> accounts = await db.query(
+        'TABLE_ACCOUNTSETTINGS',
+        where: "data LIKE ?",
+        whereArgs: ['%\"Accountname\":\"$accountName\"%'],
+      );
+
+      if (accounts.isNotEmpty) {
+        Map<String, dynamic> accountData = jsonDecode(accounts.first['data']);
+        double currentBalance =
+            double.tryParse(accountData['balance']?.toString() ?? '0') ?? 0;
+        double newBalance =
+            isReceipt ? currentBalance - amount : currentBalance + amount;
+
+        accountData['balance'] = newBalance;
+        await db.update(
+          'TABLE_ACCOUNTSETTINGS',
+          {'data': jsonEncode(accountData)},
+          where: "data LIKE ?",
+          whereArgs: ['%\"Accountname\":\"$accountName\"%'],
+        );
+      } else {
+        throw Exception('Account $accountName not found');
+      }
+    } catch (e) {
+      print('Error updating account balance: $e');
+      throw e;
+    }
+  }
+
   Future<void> _saveDoubleEntryAccounts(Receipt receipt, int? receiptId) async {
     try {
       final db = await DatabaseHelper().database;
@@ -201,21 +243,18 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
       final monthString = _getMonthName(selectedDate.month);
       final yearString = selectedDate.year.toString();
 
-      final accountSetupId = await getNextSetupId(
-        selectedAccount!,
-      ); 
-      final cashBankSetupId = await getNextSetupId(
-        selectedCashOption!,
-      );
+      final accountSetupId = await getNextSetupId(selectedAccount!);
+      final cashBankSetupId = await getNextSetupId(selectedCashOption!);
 
       if (receiptId != null) {
         await db.update(
           "TABLE_ACCOUNTS",
           {
             "ACCOUNTS_date": dateString,
-            "ACCOUNTS_setupid": accountSetupId,
+            "ACCOUNTS_setupid": cashBankSetupId,
             "ACCOUNTS_amount": receipt.amount.toString(),
-            "ACCOUNTS_remarks": 'Receipt from $selectedCashOption',
+            "ACCOUNTS_remarks":
+                'Receipt to $selectedCashOption from $selectedAccount',
             "ACCOUNTS_year": yearString,
             "ACCOUNTS_month": monthString,
             "ACCOUNTS_cashbanktype": paymentMode == 'Cash' ? '1' : '2',
@@ -229,9 +268,10 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
           "TABLE_ACCOUNTS",
           {
             "ACCOUNTS_date": dateString,
-            "ACCOUNTS_setupid": cashBankSetupId,
+            "ACCOUNTS_setupid": accountSetupId,
             "ACCOUNTS_amount": receipt.amount.toString(),
-            "ACCOUNTS_remarks": 'Receipt to $selectedAccount',
+            "ACCOUNTS_remarks":
+                'Receipt from $selectedAccount to $selectedCashOption',
             "ACCOUNTS_year": yearString,
             "ACCOUNTS_month": monthString,
             "ACCOUNTS_cashbanktype": paymentMode == 'Cash' ? '1' : '2',
@@ -241,15 +281,15 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
           whereArgs: [2, receiptId.toString(), 'credit'],
         );
       } else {
-      
         Map<String, dynamic> debitEntry = {
           'ACCOUNTS_VoucherType': 2,
           'ACCOUNTS_entryid': 0,
           'ACCOUNTS_date': dateString,
-          'ACCOUNTS_setupid': accountSetupId,
+          'ACCOUNTS_setupid': cashBankSetupId,
           'ACCOUNTS_amount': receipt.amount.toString(),
           'ACCOUNTS_type': 'debit',
-          'ACCOUNTS_remarks': 'Receipt from $selectedCashOption',
+          'ACCOUNTS_remarks':
+              'Receipt to $selectedCashOption from $selectedAccount',
           'ACCOUNTS_year': yearString,
           'ACCOUNTS_month': monthString,
           'ACCOUNTS_cashbanktype': paymentMode == 'Cash' ? '1' : '2',
@@ -266,7 +306,8 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
           'ACCOUNTS_setupid': accountSetupId,
           'ACCOUNTS_amount': receipt.amount.toString(),
           'ACCOUNTS_type': 'credit',
-          'ACCOUNTS_remarks': 'Receipt to $selectedAccount',
+          'ACCOUNTS_remarks':
+              'Receipt from $selectedAccount to $selectedCashOption',
           'ACCOUNTS_year': yearString,
           'ACCOUNTS_month': monthString,
           'ACCOUNTS_cashbanktype': paymentMode == 'Cash' ? '1' : '2',
@@ -276,7 +317,6 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
 
         await db.insert("TABLE_ACCOUNTS", creditEntry);
 
-        // Update the debit entry with correct entry ID
         await db.update(
           "TABLE_ACCOUNTS",
           {"ACCOUNTS_entryid": debitId},
@@ -321,6 +361,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
       );
 
       await _saveDoubleEntryAccounts(receipt, widget.receipt?.id);
+      await _updateAccountBalance(selectedAccount!, receipt.amount, true);
 
       setState(() {
         _isSaved = true;
@@ -830,7 +871,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
                       });
                     },
                   ),
-                  Text('Cash'),
+                  const Text('Cash'),
                 ],
               ),
               const SizedBox(height: 16),
@@ -965,8 +1006,13 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
 
 class SearchableAccountDialog extends StatefulWidget {
   final Function(String) onAccountSelected;
+  final List<String> accountOptions;
 
-  const SearchableAccountDialog({super.key, required this.onAccountSelected});
+  const SearchableAccountDialog({
+    super.key,
+    required this.onAccountSelected,
+    required this.accountOptions,
+  });
 
   @override
   State<SearchableAccountDialog> createState() =>
@@ -1013,56 +1059,23 @@ class _SearchableAccountDialogState extends State<SearchableAccountDialog> {
             ),
             const SizedBox(height: 16),
             Expanded(
-              child: FutureBuilder<List<Map<String, dynamic>>>(
-                future: DatabaseHelper().getAllData("TABLE_ACCOUNTSETTINGS"),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  } else if (snapshot.hasError) {
-                    return Center(child: Text('Error: ${snapshot.error}'));
+              child: ListView.builder(
+                itemCount: widget.accountOptions.length,
+                itemBuilder: (context, index) {
+                  final accountName = widget.accountOptions[index];
+                  if (searchQuery.isEmpty ||
+                      accountName.toLowerCase().contains(
+                        searchQuery.toLowerCase(),
+                      )) {
+                    return ListTile(
+                      title: Text(accountName),
+                      onTap: () {
+                        widget.onAccountSelected(accountName);
+                        Navigator.pop(context);
+                      },
+                    );
                   }
-
-                  List<Map<String, dynamic>> items = [];
-                  List<Map<String, dynamic>> allItems = snapshot.data ?? [];
-
-                  for (var item in allItems) {
-                    try {
-                      Map<String, dynamic> dat = jsonDecode(item["data"]);
-                      String accountType =
-                          dat['Accounttype'].toString().toLowerCase();
-                      String accountName = dat['Accountname'].toString();
-
-                      if (accountType == 'customers') {
-                        continue;
-                      }
-
-                      if (searchQuery.isEmpty ||
-                          accountName.toLowerCase().contains(
-                            searchQuery.toLowerCase(),
-                          )) {
-                        items.add(item);
-                      }
-                    } catch (e) {
-                      print('Error parsing account: $e');
-                    }
-                  }
-
-                  return ListView.builder(
-                    itemCount: items.length,
-                    itemBuilder: (context, index) {
-                      final item = items[index];
-                      Map<String, dynamic> dat = jsonDecode(item["data"]);
-                      String accountName = dat['Accountname'].toString();
-
-                      return ListTile(
-                        title: Text(accountName),
-                        onTap: () {
-                          widget.onAccountSelected(accountName);
-                          Navigator.pop(context);
-                        },
-                      );
-                    },
-                  );
+                  return Container();
                 },
               ),
             ),

@@ -7,7 +7,7 @@ import 'package:quickalert/widgets/quickalert_dialog.dart';
 import '../../view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 
 class Addaccountsdet extends StatefulWidget {
-  const Addaccountsdet({super.key,});
+  const Addaccountsdet({super.key});
 
   @override
   State<Addaccountsdet> createState() => _SlidebleListState1();
@@ -20,7 +20,7 @@ class MenuItem {
 
 class MenuItem1 {
   final String label1;
-  MenuItem1(this.label1);  
+  MenuItem1(this.label1);
 }
 
 var items1 = [

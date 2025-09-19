@@ -51,7 +51,8 @@ class _ViewMilestonesPageState extends State<ViewMilestonesPage> {
               itemBuilder: (context, index) {
                 return MilestoneCard(
                   milestone: milestones[index],
-                  onEdit: () => _showMilestoneDialog(context, milestones[index]),
+                  onEdit:
+                      () => _showMilestoneDialog(context, milestones[index]),
                   onDelete: () => _deleteMilestone(index),
                 );
               },
@@ -116,18 +117,18 @@ class MilestoneCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          ),
+          BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
         ],
       ),
       child: Column(
         children: [
           _buildRow('Start Date:', _formatDate(milestone.startDate)),
           SizedBox(height: 16),
-          _buildRow('End Date:', _formatDate(milestone.endDate), showArrow: true),
+          _buildRow(
+            'End Date:',
+            _formatDate(milestone.endDate),
+            showArrow: true,
+          ),
           SizedBox(height: 16),
           _buildRow('Amount:', milestone.amount.toString()),
           SizedBox(height: 24),
@@ -187,11 +188,7 @@ class MilestoneCard extends StatelessWidget {
           ),
         ),
         if (showArrow)
-          Icon(
-            Icons.chevron_right,
-            color: Colors.grey[600],
-            size: 20,
-          ),
+          Icon(Icons.chevron_right, color: Colors.grey[600], size: 20),
       ],
     );
   }
@@ -205,11 +202,8 @@ class MilestoneDialog extends StatefulWidget {
   final Milestone? milestone;
   final Function(Milestone) onSave;
 
-  const MilestoneDialog({
-    Key? key,
-    this.milestone,
-    required this.onSave,
-  }) : super(key: key);
+  const MilestoneDialog({Key? key, this.milestone, required this.onSave})
+    : super(key: key);
 
   @override
   _MilestoneDialogState createState() => _MilestoneDialogState();
@@ -227,7 +221,7 @@ class _MilestoneDialogState extends State<MilestoneDialog> {
     super.initState();
     _startDate = widget.milestone?.startDate;
     _endDate = widget.milestone?.endDate;
-    
+
     _startDateController = TextEditingController(
       text: _startDate != null ? _formatDate(_startDate!) : '',
     );
@@ -251,9 +245,7 @@ class _MilestoneDialogState extends State<MilestoneDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(4),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       child: Container(
         padding: EdgeInsets.all(24),
         child: Column(
@@ -369,9 +361,7 @@ class _MilestoneDialogState extends State<MilestoneDialog> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: Color(0xFF00897B),
-            ),
+            colorScheme: ColorScheme.light(primary: Color(0xFF00897B)),
           ),
           child: child!,
         );
@@ -392,7 +382,9 @@ class _MilestoneDialogState extends State<MilestoneDialog> {
   }
 
   void _saveMilestone() {
-    if (_startDate != null && _endDate != null && _amountController.text.isNotEmpty) {
+    if (_startDate != null &&
+        _endDate != null &&
+        _amountController.text.isNotEmpty) {
       final amount = double.tryParse(_amountController.text);
       if (amount != null) {
         final milestone = Milestone(

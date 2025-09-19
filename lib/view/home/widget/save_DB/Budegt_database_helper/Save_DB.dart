@@ -3,14 +3,15 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:image/image.dart' as img;
+import 'package:new_project_2025/model/receipt.dart';
+import 'package:new_project_2025/view/home/dream_page/mile_stone_screen/miles_stone_screen.dart';
+import 'package:new_project_2025/view/home/dream_page/model_dream_page/model_dream.dart';
 import 'package:new_project_2025/view/home/widget/Emergency_numbers_screen/model_class_emergency.dart';
+import 'package:new_project_2025/view/home/widget/payment_page/payment_class/payment_class.dart';
 import 'package:new_project_2025/view/home/widget/setting_page/bill_header/bill_class.dart';
-import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:new_project_2025/model/receipt.dart';
-import 'package:new_project_2025/view/home/dream_page/model_dream_page/model_dream.dart';
-import 'package:new_project_2025/view/home/widget/payment_page/payment_class/payment_class.dart';
+import 'package:sqflite/sqflite.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
@@ -30,7 +31,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'save.db');
     return await openDatabase(
       path,
-      version: 4,
+      version: 5, // Incremented version to apply schema changes
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -79,9 +80,23 @@ class DatabaseHelper {
         )
       ''');
     }
+    if (oldVersion < 5) {
+      // Update TABLE_MILESTONE to include target_id
+      await db.execute('''
+        DROP TABLE IF EXISTS TABLE_MILESTONE
+      ''');
+      await db.execute('''
+        CREATE TABLE TABLE_MILESTONE (
+          keyid INTEGER PRIMARY KEY AUTOINCREMENT,
+          target_id INTEGER,
+          data TEXT,
+          FOREIGN KEY (target_id) REFERENCES TABLE_TARGET (keyid) ON DELETE CASCADE
+        )
+      ''');
+    }
   }
 
-  // NEW: Image compression method to handle large images
+  // Image compression method to handle large images
   Future<Uint8List?> compressImage(
     Uint8List imageBytes, {
     int maxSizeKB = 100,
@@ -93,14 +108,12 @@ class DatabaseHelper {
         return null;
       }
 
-      // Decode the image
       img.Image? image = img.decodeImage(imageBytes);
       if (image == null) {
         print("Failed to decode image for compression");
-        return imageBytes; // Return original if can't decode
+        return imageBytes;
       }
 
-      // Calculate original size in KB
       double originalSizeKB = imageBytes.length / 1024;
       print("Original image size: ${originalSizeKB.toStringAsFixed(2)} KB");
 
@@ -109,24 +122,19 @@ class DatabaseHelper {
         return imageBytes;
       }
 
-      // Calculate resize ratio based on file size
-      double ratio =
-          (maxSizeKB / originalSizeKB) * 0.8; // 80% of target to be safe
+      double ratio = (maxSizeKB / originalSizeKB) * 0.8;
       int newWidth = (image.width * ratio).round();
       int newHeight = (image.height * ratio).round();
 
-      // Ensure minimum dimensions
       if (newWidth < 100) newWidth = 100;
       if (newHeight < 100) newHeight = 100;
 
-      // Resize the image
       img.Image resized = img.copyResize(
         image,
         width: newWidth,
         height: newHeight,
       );
 
-      // Encode with quality compression
       Uint8List compressedBytes = Uint8List.fromList(
         img.encodeJpg(resized, quality: quality),
       );
@@ -134,7 +142,6 @@ class DatabaseHelper {
       double compressedSizeKB = compressedBytes.length / 1024;
       print("Compressed image size: ${compressedSizeKB.toStringAsFixed(2)} KB");
 
-      // If still too large, reduce quality further
       if (compressedSizeKB > maxSizeKB && quality > 30) {
         print("Still too large, reducing quality further");
         return await compressImage(
@@ -147,12 +154,11 @@ class DatabaseHelper {
       return compressedBytes;
     } catch (e) {
       print("Error compressing image: $e");
-      return imageBytes; // Return original on error
+      return imageBytes;
     }
   }
 
   Future<void> _createAllTables(Database db) async {
-    // [Previous table creation code remains unchanged]
     await db.execute('''
       CREATE TABLE TABLE_TARGETCATEGORY (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -234,7 +240,9 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE TABLE_MILESTONE (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
-        data TEXT
+        target_id INTEGER,
+        data TEXT,
+        FOREIGN KEY (target_id) REFERENCES TABLE_TARGET (keyid) ON DELETE CASCADE
       )
     ''');
     await db.execute('''
@@ -378,18 +386,6 @@ class DatabaseHelper {
       )
     ''');
     await db.execute('''
-      CREATE TABLE dreams_table (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        category TEXT,
-        investment TEXT,
-        targetAmount REAL,
-        savedAmount REAL,
-        targetDate TEXT,
-        notes TEXT
-      )
-    ''');
-    await db.execute('''
       CREATE TABLE TABLE_EMERGENCY_CONTACTS (
         keyid INTEGER PRIMARY KEY AUTOINCREMENT,
         data TEXT
@@ -462,17 +458,529 @@ class DatabaseHelper {
     try {
       final ByteData data = await rootBundle.load(assetPath);
       Uint8List imageBytes = data.buffer.asUint8List();
-
-      // Compress asset images too if they're large
       Uint8List? compressedBytes = await compressImage(imageBytes);
       return compressedBytes ?? imageBytes;
     } catch (e) {
       print("Error loading asset image $assetPath: $e");
-      return Uint8List(0); // Return empty Uint8List on error
+      return Uint8List(0);
     }
   }
 
-  // UPDATED: insertOrUpdateVisitingCard method with image compression
+  // Method to update investment account balance after transactions
+  Future<void> updateInvestmentBalance(
+    String accountName,
+    double amount,
+    String transactionType,
+  ) async {
+    try {
+      final db = await database;
+
+      // Get current balance
+      double currentBalance = await getInvestmentAccountBalance(accountName);
+
+      // Calculate new balance based on transaction type
+      double newBalance = currentBalance;
+      if (transactionType == 'debit') {
+        newBalance += amount; // Money going into investment
+      } else if (transactionType == 'credit') {
+        newBalance -= amount; // Money coming out of investment
+      }
+
+      // Update the account setup with new balance
+      final accounts = await getAllData("TABLE_ACCOUNTSETTINGS");
+      for (var account in accounts) {
+        Map<String, dynamic> accountData = jsonDecode(account["data"]);
+        if (accountData['Accountname'].toString().toLowerCase() ==
+            accountName.toLowerCase()) {
+          accountData['OpeningBalance'] = newBalance.toString();
+
+          await db.update(
+            'TABLE_ACCOUNTSETTINGS',
+            {'data': jsonEncode(accountData)},
+            where: 'keyid = ?',
+            whereArgs: [account['keyid']],
+          );
+          break;
+        }
+      }
+    } catch (e) {
+      print('Error updating investment balance: $e');
+    }
+  }
+
+  // Method to get investment account balance
+  Future<double> getInvestmentAccountBalance(String accountName) async {
+    try {
+      final db = await database;
+
+      // Get setup ID for the account
+      String setupId = await getAccountSetupId(accountName);
+      if (setupId == '0') return 0.0;
+
+      // Get all transactions for this account
+      final transactions = await db.query(
+        'TABLE_ACCOUNTS',
+        where: 'ACCOUNTS_setupid = ?',
+        whereArgs: [setupId],
+      );
+
+      double balance = 0.0;
+      for (var transaction in transactions) {
+        double amount =
+            double.tryParse(transaction['ACCOUNTS_amount'].toString()) ?? 0.0;
+        String type = transaction['ACCOUNTS_type'].toString();
+
+        if (type == 'debit') {
+          balance += amount; // Money going into investment
+        } else if (type == 'credit') {
+          balance -= amount; // Money coming out of investment
+        }
+      }
+
+      // Add opening balance
+      double openingBalance = await getAccountOpeningBalance(accountName);
+      balance += openingBalance;
+
+      return balance;
+    } catch (e) {
+      print('Error getting investment balance: $e');
+      return 0.0;
+    }
+  }
+
+  // Method to get account setup ID
+  Future<String> getAccountSetupId(String accountName) async {
+    try {
+      final db = await database;
+      final accounts = await db.query('TABLE_ACCOUNTSETTINGS');
+
+      for (var account in accounts) {
+        final dataValue = account['data'];
+        if (dataValue != null) {
+          Map<String, dynamic> data = jsonDecode(dataValue.toString());
+          final storedAccountName = data['Accountname'];
+          if (storedAccountName != null &&
+              storedAccountName.toString().toLowerCase() ==
+                  accountName.toLowerCase()) {
+            final keyId = account['keyid'];
+            return keyId?.toString() ?? '0';
+          }
+        }
+      }
+      return '0';
+    } catch (e) {
+      print('Error getting account setup ID: $e');
+      return '0';
+    }
+  }
+
+  // Method to get account opening balance
+  Future<double> getAccountOpeningBalance(String accountName) async {
+    try {
+      final db = await database;
+      final accounts = await db.query('TABLE_ACCOUNTSETTINGS');
+
+      for (var account in accounts) {
+        final dataValue = account['data'];
+        if (dataValue != null) {
+          Map<String, dynamic> data = jsonDecode(dataValue.toString());
+          final storedAccountName = data['Accountname'];
+          if (storedAccountName != null &&
+              storedAccountName.toString().toLowerCase() ==
+                  accountName.toLowerCase()) {
+            final openingBalance = data['OpeningBalance'] ?? data['Amount'];
+            return double.tryParse(openingBalance?.toString() ?? '0') ?? 0.0;
+          }
+        }
+      }
+      return 0.0;
+    } catch (e) {
+      print('Error getting opening balance: $e');
+      return 0.0;
+    }
+  }
+
+  // Method to get all investment accounts with balances
+  Future<List<Map<String, dynamic>>> getInvestmentAccountsWithBalances() async {
+    try {
+      List<Map<String, dynamic>> accounts = await getAllData(
+        "TABLE_ACCOUNTSETTINGS",
+      );
+      List<Map<String, dynamic>> investments = [];
+
+      // Add default "My Saving" option
+      double mySavingBalance = await getMySavingBalance();
+      investments.add({'name': 'My Saving', 'balance': mySavingBalance});
+
+      for (var account in accounts) {
+        try {
+          Map<String, dynamic> accountData = jsonDecode(account["data"]);
+          String accountType =
+              accountData['Accounttype'].toString().toLowerCase();
+          String accountName = accountData['Accountname'].toString();
+
+          if (accountType == 'investment') {
+            double balance = await getInvestmentAccountBalance(accountName);
+            investments.add({'name': accountName, 'balance': balance});
+          }
+        } catch (e) {
+          print('Error parsing investment account: $e');
+        }
+      }
+
+      return investments;
+    } catch (e) {
+      print('Error getting investment accounts with balances: $e');
+      return [];
+    }
+  }
+
+  // Method to calculate My Saving balance from wallet
+  Future<double> getMySavingBalance() async {
+    try {
+      final db = await database;
+      final walletData = await db.query('TABLE_WALLET');
+
+      double balance = 0.0;
+      for (var entry in walletData) {
+        try {
+          final dataValue = entry['data'];
+          if (dataValue != null) {
+            Map<String, dynamic> data = jsonDecode(dataValue.toString());
+            final amountValue = data['edtAmount'];
+            double amount =
+                double.tryParse(amountValue?.toString() ?? '0') ?? 0.0;
+            balance += amount;
+          }
+        } catch (e) {
+          print('Error parsing wallet data: $e');
+        }
+      }
+      return balance;
+    } catch (e) {
+      print('Error calculating My Saving balance: $e');
+      return 0.0;
+    }
+  }
+
+  // Dream-related methods
+  Future<int> insertDream(Dream dream) async {
+    try {
+      final db = await database;
+      Map<String, dynamic> dreamData = {
+        "targetname": dream.name,
+        "targetamount": dream.targetAmount,
+        "savedamount": dream.savedAmount,
+        "target_date": dream.targetDate.toIso8601String(),
+        "note": dream.notes,
+        "investment": dream.investment,
+        "category": dream.category,
+      };
+
+      Map<String, dynamic> dbData = {"data": jsonEncode(dreamData)};
+      return await db.insert('TABLE_TARGET', dbData);
+    } catch (e) {
+      print("Error inserting dream: $e");
+      return 0;
+    }
+  }
+
+  // Enhanced Dream insertion with milestone support
+  Future<int> insertDreamWithId(Dream dream) async {
+    try {
+      final db = await database;
+      Map<String, dynamic> dreamData = {
+        "targetname": dream.name,
+        "targetamount": dream.targetAmount,
+        "savedamount": dream.savedAmount,
+        "target_date": dream.targetDate.toIso8601String(),
+        "note": dream.notes,
+        "investment": dream.investment,
+        "category": dream.category,
+      };
+
+      Map<String, dynamic> dbData = {"data": jsonEncode(dreamData)};
+      int targetId = await db.insert('TABLE_TARGET', dbData);
+
+      return targetId;
+    } catch (e) {
+      print("Error inserting dream: $e");
+      return 0;
+    }
+  }
+
+  // Method to get dream ID by dream details
+  Future<int> getDreamId(Dream dream) async {
+    try {
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query('TABLE_TARGET');
+
+      for (var map in maps) {
+        try {
+          String dataString = map['data'].toString();
+          Map<String, dynamic> dreamData = jsonDecode(dataString);
+
+          if (dreamData['targetname'] == dream.name &&
+              dreamData['category'] == dream.category &&
+              double.tryParse(dreamData['targetamount'].toString()) ==
+                  dream.targetAmount) {
+            return map['keyid'];
+          }
+        } catch (e) {
+          continue;
+        }
+      }
+      return 0;
+    } catch (e) {
+      print('Error getting dream ID: $e');
+      return 0;
+    }
+  }
+
+  // Future<List<Dream>> getAllDreams() async {
+  //   try {
+  //     final db = await database;
+  //     final List<Map<String, dynamic>> maps = await db.query('TABLE_TARGET');
+
+  //     List<Dream> dreams = [];
+
+  //     for (var map in maps) {
+  //       try {
+  //         String dataString = map['data'].toString();
+  //         Map<String, dynamic> dreamData;
+
+  //         try {
+  //           dreamData = jsonDecode(dataString);
+  //         } catch (e) {
+  //           dreamData = _parseDreamData(dataString);
+  //         }
+
+  //         Dream dream = Dream(
+  //           name: dreamData['targetname'] ?? 'Unknown Dream',
+  //           category: dreamData['category'] ?? 'General',
+  //           investment: dreamData['investment'] ?? 'My Saving',
+  //           closingBalance: 0.0,
+  //           addedAmount: 0.0,
+  //           savedAmount:
+  //               double.tryParse(dreamData['savedamount'].toString()) ?? 0.0,
+  //           targetAmount:
+  //               double.tryParse(dreamData['targetamount'].toString()) ?? 0.0,
+  //           targetDate:
+  //               _parseDateFromString(dreamData['target_date']) ??
+  //               DateTime.now(),
+  //           notes: dreamData['note'] ?? '',
+  //         );
+
+  //         dreams.add(dream);
+  //       } catch (e) {
+  //         print('Error parsing individual dream: $e');
+  //       }
+  //     }
+
+  //     return dreams;
+  //   } catch (e) {
+  //     print("Error getting dreams: $e");
+  //     return [];
+  //   }
+  // }
+  Future<List<Dream>> getAllDreams() async {
+  try {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query('TABLE_TARGET');
+
+    List<Dream> dreams = [];
+
+    for (var map in maps) {
+      try {
+        String dataString = map['data'].toString();
+        Map<String, dynamic> dreamData;
+
+        try {
+          dreamData = jsonDecode(dataString);
+        } catch (e) {
+          dreamData = _parseDreamData(dataString);
+        }
+
+        Dream dream = Dream(
+          id: map['keyid'],  // NEW: Set the database keyid as Dream.id
+          name: dreamData['targetname'] ?? 'Unknown Dream',
+          category: dreamData['category'] ?? 'General',
+          investment: dreamData['investment'] ?? 'My Saving',
+          closingBalance: 0.0,
+          addedAmount: 0.0,
+          savedAmount: double.tryParse(dreamData['savedamount'].toString()) ?? 0.0,
+          targetAmount: double.tryParse(dreamData['targetamount'].toString()) ?? 0.0,
+          targetDate: _parseDateFromString(dreamData['target_date']) ?? DateTime.now(),
+          notes: dreamData['note'] ?? '',
+        );
+
+        dreams.add(dream);
+      } catch (e) {
+        print('Error parsing individual dream: $e');
+      }
+    }
+
+    return dreams;
+  } catch (e) {
+    print("Error getting dreams: $e");
+    return [];
+  }
+}
+
+  Future<int> updateDream(int id, Dream dream) async {
+    try {
+      final db = await database;
+      Map<String, dynamic> dreamData = {
+        "targetname": dream.name,
+        "targetamount": dream.targetAmount,
+        "savedamount": dream.savedAmount,
+        "target_date": dream.targetDate.toIso8601String(),
+        "note": dream.notes,
+        "investment": dream.investment,
+        "category": dream.category,
+      };
+
+      Map<String, dynamic> dbData = {"data": jsonEncode(dreamData)};
+
+      return await db.update(
+        'TABLE_TARGET',
+        dbData,
+        where: 'keyid = ?',
+        whereArgs: [id],
+      );
+    } catch (e) {
+      print("Error updating dream: $e");
+      return 0;
+    }
+  }
+
+  Future<int> deleteDream(int id) async {
+    try {
+      final db = await database;
+      // Delete associated milestones
+      await deleteMilestonesByTargetId(id);
+      return await db.delete(
+        'TABLE_TARGET',
+        where: 'keyid = ?',
+        whereArgs: [id],
+      );
+    } catch (e) {
+      print("Error deleting dream: $e");
+      return 0;
+    }
+  }
+
+  // Helper method to parse dream data string (for legacy data)
+  Map<String, dynamic> _parseDreamData(String dataString) {
+    try {
+      Map<String, dynamic> result = {};
+
+      RegExp regExp = RegExp(r'(\w+):\s*([^,}]+)');
+      Iterable<RegExpMatch> matches = regExp.allMatches(dataString);
+
+      for (RegExpMatch match in matches) {
+        String key = match.group(1)!;
+        String value = match.group(2)!.trim();
+        result[key] = value;
+      }
+
+      return result;
+    } catch (e) {
+      print('Error parsing dream data: $e');
+      return {};
+    }
+  }
+
+  // Helper method to parse date from string
+  DateTime? _parseDateFromString(dynamic dateData) {
+    if (dateData == null) return null;
+
+    try {
+      if (dateData is String) {
+        return DateTime.parse(dateData);
+      }
+      return null;
+    } catch (e) {
+      print('Error parsing date: $e');
+      return null;
+    }
+  }
+
+  // Milestone-related methods
+  Future<int> insertMilestone(MileStone milestone, int targetId) async {
+    try {
+      final db = await database;
+      milestone.targetId = targetId;
+
+      Map<String, dynamic> milestoneData = {
+        'target_id': targetId,
+        'data': jsonEncode(milestone.toJson()),
+      };
+
+      return await db.insert('TABLE_MILESTONE', milestoneData);
+    } catch (e) {
+      print('Error inserting milestone: $e');
+      return 0;
+    }
+  }
+
+  Future<List<MileStone>> getMilestonesByTargetId(int targetId) async {
+    try {
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'TABLE_MILESTONE',
+        where: 'target_id = ?',
+        whereArgs: [targetId],
+        orderBy: 'keyid ASC',
+      );
+
+      return maps.map((map) {
+        Map<String, dynamic> milestoneJson = jsonDecode(map['data']);
+        return MileStone.fromJson(milestoneJson, id: map['keyid']);
+      }).toList();
+    } catch (e) {
+      print('Error getting milestones for target $targetId: $e');
+      return [];
+    }
+  }
+
+  Future<int> updateMilestone(MileStone milestone) async {
+    try {
+      final db = await database;
+      if (milestone.id == null) return 0;
+
+      Map<String, dynamic> milestoneData = {
+        'target_id': milestone.targetId,
+        'data': jsonEncode(milestone.toJson()),
+      };
+
+      return await db.update(
+        'TABLE_MILESTONE',
+        milestoneData,
+        where: 'keyid = ?',
+        whereArgs: [milestone.id],
+      );
+    } catch (e) {
+      print('Error updating milestone: $e');
+      return 0;
+    }
+  }
+
+  Future<int> deleteMilestonesByTargetId(int targetId) async {
+    try {
+      final db = await database;
+      return await db.delete(
+        'TABLE_MILESTONE',
+        where: 'target_id = ?',
+        whereArgs: [targetId],
+      );
+    } catch (e) {
+      print('Error deleting milestones for target $targetId: $e');
+      return 0;
+    }
+  }
+
+  // Insert or update visiting card
   Future<int> insertOrUpdateVisitingCard({
     required Map<String, dynamic> cardData,
     Uint8List? logoImage,
@@ -484,7 +992,6 @@ class DatabaseHelper {
     try {
       final db = await database;
 
-      // Validate and clean input data
       Map<String, dynamic> cleanedCardData = {};
       cardData.forEach((key, value) {
         if (value != null) {
@@ -499,14 +1006,12 @@ class DatabaseHelper {
         }
       });
 
-      // Ensure required fields have valid values
       if (cleanedCardData['name'] == null ||
           cleanedCardData['name'].toString().trim().isEmpty) {
         cleanedCardData['name'] =
             'New Card ${DateTime.now().millisecondsSinceEpoch}';
       }
 
-      // COMPRESS IMAGES BEFORE STORING - Better logo handling
       Uint8List? compressedLogoImage;
       Uint8List? compressedCardImage;
 
@@ -540,9 +1045,7 @@ class DatabaseHelper {
         }
       }
 
-      // Prepare data for storage - DON'T include logo in JSON data
       Map<String, dynamic> jsonData = Map.from(cleanedCardData);
-      // Remove any existing logo from JSON to prevent duplication
       jsonData.remove('logoimage');
       jsonData.remove('logo_image');
       jsonData.remove('logo');
@@ -550,16 +1053,14 @@ class DatabaseHelper {
       final data = {
         'data': jsonEncode(jsonData),
         'parsed_data': jsonEncode(cleanedCardData),
-        'logoimage': compressedLogoImage, // Store logo separately as BLOB
+        'logoimage': compressedLogoImage,
         'cardimg': compressedCardImage,
         'selected_background_id': selectedBackgroundId,
       };
 
       int visitingCardId;
       if (id != null && id > 0) {
-        // For updates, preserve existing logo if new one is not provided
         if (compressedLogoImage == null) {
-          // Don't update logo field if no new logo provided
           data.remove('logoimage');
           print("Update: No new logo provided, keeping existing logo");
         }
@@ -584,7 +1085,6 @@ class DatabaseHelper {
         print("New card inserted with ID: $visitingCardId");
       }
 
-      // Handle default images if no cardImage is provided
       if (compressedCardImage == null &&
           defaultImageAssets != null &&
           defaultImageAssets.isNotEmpty) {
@@ -612,12 +1112,10 @@ class DatabaseHelper {
     }
   }
 
-  // UPDATED: getVisitingCards method with better error handling for large images
+  // Get all visiting cards
   Future<List<Map<String, dynamic>>> getVisitingCards() async {
     try {
       final db = await database;
-
-      // Query with pagination to handle large datasets
       final cardsWithoutBlobs = await db.query(
         'TABLE_VISITCARD',
         columns: ['keyid', 'data', 'parsed_data', 'selected_background_id'],
@@ -630,7 +1128,6 @@ class DatabaseHelper {
         try {
           Map<String, dynamic> processedCard = Map.from(card);
 
-          // Handle parsed_data
           if (processedCard['parsed_data'] == null ||
               processedCard['parsed_data'].toString().trim().isEmpty) {
             if (processedCard['data'] != null &&
@@ -649,7 +1146,6 @@ class DatabaseHelper {
             }
           }
 
-          // Parse JSON data safely
           if (processedCard['parsed_data'] is String) {
             try {
               final jsonData = jsonDecode(processedCard['parsed_data']);
@@ -674,7 +1170,6 @@ class DatabaseHelper {
             }
           }
 
-          // Ensure parsed_data is a valid Map
           if (processedCard['parsed_data'] is! Map<String, dynamic>) {
             processedCard['parsed_data'] = {
               'name': 'Unknown Card ${processedCard['keyid']}',
@@ -687,7 +1182,6 @@ class DatabaseHelper {
             };
           }
 
-          // Clean individual fields
           final parsedData =
               processedCard['parsed_data'] as Map<String, dynamic>;
           parsedData['name'] = _cleanField(parsedData['name'], 'Unnamed Card');
@@ -723,7 +1217,6 @@ class DatabaseHelper {
           );
           parsedData['couponcode'] = _cleanField(parsedData['couponcode'], '');
 
-          // Load BLOB data separately - Critical for logo display
           try {
             final blobData = await db.query(
               'TABLE_VISITCARD',
@@ -737,7 +1230,6 @@ class DatabaseHelper {
               final logoImage = blobData.first['logoimage'];
               final cardImg = blobData.first['cardimg'];
 
-              // Validate logo image
               if (logoImage != null &&
                   logoImage is Uint8List &&
                   logoImage.isNotEmpty) {
@@ -750,7 +1242,6 @@ class DatabaseHelper {
                 print("No valid logo for card ${processedCard['keyid']}");
               }
 
-              // Validate card image
               if (cardImg != null &&
                   cardImg is Uint8List &&
                   cardImg.isNotEmpty) {
@@ -774,7 +1265,6 @@ class DatabaseHelper {
           processedCards.add(processedCard);
         } catch (e) {
           print("Error processing individual card: $e");
-          // Create a safe card entry even if processing fails
           processedCards.add({
             'keyid': card['keyid'] ?? 0,
             'parsed_data': {
@@ -815,12 +1305,10 @@ class DatabaseHelper {
     return value.toString().trim().isEmpty ? defaultValue : value.toString();
   }
 
-  // UPDATED: getVisitingCardById method with separate BLOB loading
+  // Get visiting card by ID
   Future<Map<String, dynamic>?> getVisitingCardById(int id) async {
     try {
       final db = await database;
-
-      // Get complete card data including BLOB
       final result = await db.query(
         'TABLE_VISITCARD',
         where: 'keyid = ?',
@@ -831,7 +1319,6 @@ class DatabaseHelper {
       if (result.isNotEmpty) {
         Map<String, dynamic> card = Map.from(result.first);
 
-        // Handle parsed_data
         if (card['parsed_data'] == null && card['data'] != null) {
           card['parsed_data'] = card['data'];
         }
@@ -844,7 +1331,6 @@ class DatabaseHelper {
           }
         }
 
-        // Ensure logoimage is properly retrieved
         final logoImage = card['logoimage'];
         if (logoImage != null && logoImage is Uint8List) {
           if (logoImage.isNotEmpty) {
@@ -867,7 +1353,7 @@ class DatabaseHelper {
     }
   }
 
-  // UPDATED: insertCarouselImage with compression
+  // Insert carousel image
   Future<int> insertCarouselImage({
     required Uint8List imageData,
     required int visitCardId,
@@ -881,7 +1367,6 @@ class DatabaseHelper {
         return 0;
       }
 
-      // Compress carousel image
       print("Compressing carousel image...");
       Uint8List? compressedImageData = await compressImage(
         imageData,
@@ -904,13 +1389,12 @@ class DatabaseHelper {
     }
   }
 
+  // Get carousel images by visit card ID
   Future<List<Map<String, dynamic>>> getCarouselImagesByVisitCardId(
     int visitCardId,
   ) async {
     try {
       final db = await database;
-
-      // Query metadata first
       final metadataResult = await db.query(
         'TABLE_CAROUSEL_IMAGES',
         columns: ['keyid', 'visitcard_id', 'image_order', 'is_selected'],
@@ -923,7 +1407,6 @@ class DatabaseHelper {
 
       for (var metadata in metadataResult) {
         try {
-          // Load image data separately
           final imageResult = await db.query(
             'TABLE_CAROUSEL_IMAGES',
             columns: ['image_data'],
@@ -952,6 +1435,7 @@ class DatabaseHelper {
     }
   }
 
+  // Delete visiting card
   Future<int> deleteVisitingCard(int id) async {
     try {
       final db = await database;
@@ -966,6 +1450,7 @@ class DatabaseHelper {
     }
   }
 
+  // Update carousel image
   Future<int> updateCarouselImage({
     required int imageId,
     required Uint8List imageData,
@@ -974,8 +1459,6 @@ class DatabaseHelper {
   }) async {
     try {
       final db = await database;
-
-      // Compress image before updating
       Uint8List? compressedImageData = await compressImage(
         imageData,
         maxSizeKB: 80,
@@ -1000,6 +1483,7 @@ class DatabaseHelper {
     }
   }
 
+  // Set selected carousel image
   Future<int> setSelectedCarouselImage(int visitCardId, int imageId) async {
     try {
       final db = await database;
@@ -1021,13 +1505,12 @@ class DatabaseHelper {
     }
   }
 
+  // Get selected carousel image
   Future<Map<String, dynamic>?> getSelectedCarouselImage(
     int visitCardId,
   ) async {
     try {
       final db = await database;
-
-      // Get metadata first
       final metadataResult = await db.query(
         'TABLE_CAROUSEL_IMAGES',
         columns: ['keyid', 'visitcard_id', 'image_order', 'is_selected'],
@@ -1037,7 +1520,6 @@ class DatabaseHelper {
       );
 
       if (metadataResult.isNotEmpty) {
-        // Load image data separately
         final imageResult = await db.query(
           'TABLE_CAROUSEL_IMAGES',
           columns: ['image_data'],
@@ -1059,6 +1541,7 @@ class DatabaseHelper {
     }
   }
 
+  // Delete carousel images by visit card ID
   Future<int> deleteCarouselImagesByVisitCardId(int visitCardId) async {
     try {
       final db = await database;
@@ -1073,7 +1556,7 @@ class DatabaseHelper {
     }
   }
 
-  // New method to repair corrupted visiting cards
+  // Repair corrupted visiting cards
   Future<void> repairCorruptedVisitingCards() async {
     try {
       final db = await database;
@@ -1083,7 +1566,6 @@ class DatabaseHelper {
         bool needsRepair = false;
         Map<String, dynamic> repairedData = Map.from(card);
 
-        // Check if parsed_data is corrupted
         if (card['parsed_data'] == null ||
             card['parsed_data'].toString().trim().isEmpty) {
           if (card['data'] != null &&
@@ -1091,7 +1573,6 @@ class DatabaseHelper {
             repairedData['parsed_data'] = card['data'];
             needsRepair = true;
           } else {
-            // Create minimal valid data
             Map<String, dynamic> minimalData = {
               'name': 'Recovered Card ${card['keyid']}',
               'phone': '',
@@ -1106,7 +1587,6 @@ class DatabaseHelper {
           }
         }
 
-        // Validate JSON structure
         try {
           if (repairedData['parsed_data'] is String) {
             final parsed = jsonDecode(repairedData['parsed_data']);
@@ -1360,6 +1840,20 @@ class DatabaseHelper {
     return await db.insert(tableName, data);
   }
 
+  Future<int> insertDatas(
+    String tableName,
+    Map<String, dynamic> data,
+    int id,
+  ) async {
+    final db = await database;
+    return await db.update(
+      tableName,
+      data,
+      where: 'keyid = ?',
+      whereArgs: [id],
+    );
+  }
+
   Future<List<Map<String, dynamic>>> getAllData(String tableName) async {
     final db = await database;
     return await db.query(tableName);
@@ -1398,23 +1892,6 @@ class DatabaseHelper {
     return await db.delete(tableName, where: 'keyid = ?', whereArgs: [id]);
   }
 
-  // Dream-related methods
-  Future<List<Dream>> getAllDreams() async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('dreams_table');
-    return List.generate(maps.length, (i) {
-      return Dream(
-        name: maps[i]['name'],
-        category: maps[i]['category'],
-        investment: maps[i]['investment'],
-        targetAmount: maps[i]['targetAmount'],
-        savedAmount: maps[i]['savedAmount'],
-        targetDate: DateTime.parse(maps[i]['targetDate']),
-        notes: maps[i]['notes'],
-      );
-    });
-  }
-
   Future<bool> _isCategoryUsed(String categoryName) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -1425,19 +1902,20 @@ class DatabaseHelper {
       return false;
     }
   }
-Future<List<Map<String, dynamic>>> fetchAllData() async {
-  Database db = await database;
-  var res = await db.query('TABLE_WEBLINKS');
 
-  List<Map<String, dynamic>> s = res.toList();
-  print("Weblink datas are: $s");
+  Future<List<Map<String, dynamic>>> fetchAllData() async {
+    Database db = await database;
+    var res = await db.query('TABLE_WEBLINKS');
+    List<Map<String, dynamic>> s = res.toList();
+    print("Weblink datas are: $s");
+    return s;
+  }
 
-  return s;
-}
- deleteWebLInk(String tableName,  id) async {
-  final db = await database;
-  return await db.delete(tableName, where: 'keyid = ?', whereArgs: [id]);
-}
+  Future<int> deleteWebLInk(String tableName, dynamic id) async {
+    final db = await database;
+    return await db.delete(tableName, where: 'keyid = ?', whereArgs: [id]);
+  }
+
   // Payment-related methods
   Future<int> insertPayment(Payment payment) async {
     final db = await database;
@@ -1646,10 +2124,180 @@ Future<List<Map<String, dynamic>>> fetchAllData() async {
     return debitTotal == creditTotal;
   }
 
-  // Deprecated methods - kept for compatibility
+  // Bill Details CRUD Operations
+  Future<int> insertBillDetails(BillDetails billDetails) async {
+    try {
+      final db = await database;
+      if (billDetails.companyName.trim().isEmpty) {
+        print("Error: Company name is required");
+        return 0;
+      }
+
+      Map<String, dynamic> billData = {
+        'data': jsonEncode(billDetails.toJson()),
+      };
+
+      int result = await db.insert('TABLE_BILLDETAILS', billData);
+
+      if (result > 0) {
+        print("✅ Bill details inserted successfully!");
+        print("📋 ID: $result");
+        print("🏢 Company: ${billDetails.companyName}");
+        print("📍 Address: ${billDetails.address}");
+        print("📱 Mobile: ${billDetails.mobile}");
+      } else {
+        print("❌ Failed to insert bill details");
+      }
+
+      return result;
+    } catch (e) {
+      print("❌ Error inserting bill details: $e");
+      return 0;
+    }
+  }
+
+  Future<int> updateBillDetails(int billId, BillDetails billDetails) async {
+    try {
+      final db = await database;
+      if (billDetails.companyName.trim().isEmpty) {
+        print("Error: Company name is required");
+        return 0;
+      }
+
+      Map<String, dynamic> billData = {
+        'data': jsonEncode(billDetails.toJson()),
+      };
+
+      int result = await db.update(
+        'TABLE_BILLDETAILS',
+        billData,
+        where: 'keyid = ?',
+        whereArgs: [billId],
+      );
+
+      if (result > 0) {
+        print("✅ Bill details updated successfully!");
+        print("📋 ID: $billId");
+        print("🏢 Company: ${billDetails.companyName}");
+        print("📍 Address: ${billDetails.address}");
+        print("📱 Mobile: ${billDetails.mobile}");
+      } else {
+        print("❌ No bill found with ID: $billId");
+      }
+
+      return result;
+    } catch (e) {
+      print("❌ Error updating bill details: $e");
+      return 0;
+    }
+  }
+
+  Future<List<BillDetails>> getAllBillDetails() async {
+    try {
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'TABLE_BILLDETAILS',
+      );
+      List<BillDetails> billDetailsList = [];
+
+      for (var map in maps) {
+        try {
+          Map<String, dynamic> billData = jsonDecode(map['data']);
+          billDetailsList.add(BillDetails.fromJson(billData, id: map['keyid']));
+        } catch (e) {
+          print('Error parsing bill details data for ID ${map['keyid']}: $e');
+        }
+      }
+
+      print("📋 Retrieved ${billDetailsList.length} bill details records");
+      return billDetailsList;
+    } catch (e) {
+      print("❌ Error getting bill details: $e");
+      return [];
+    }
+  }
+
+  Future<BillDetails?> getBillDetailsById(int id) async {
+    try {
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'TABLE_BILLDETAILS',
+        where: 'keyid = ?',
+        whereArgs: [id],
+      );
+
+      if (maps.isNotEmpty) {
+        Map<String, dynamic> billData = jsonDecode(maps.first['data']);
+        return BillDetails.fromJson(billData, id: maps.first['keyid']);
+      }
+
+      print("❌ No bill details found with ID: $id");
+      return null;
+    } catch (e) {
+      print("❌ Error getting bill details by ID: $e");
+      return null;
+    }
+  }
+
+  Future<int> deleteBillDetails(int id) async {
+    try {
+      final db = await database;
+      int result = await db.delete(
+        'TABLE_BILLDETAILS',
+        where: 'keyid = ?',
+        whereArgs: [id],
+      );
+
+      if (result > 0) {
+        print("✅ Bill details deleted successfully for ID: $id");
+      } else {
+        print("❌ No bill details found with ID: $id");
+      }
+
+      return result;
+    } catch (e) {
+      print("❌ Error deleting bill details: $e");
+      return 0;
+    }
+  }
+
+  Future<List<BillDetails>> searchBillDetailsByCompany(
+    String companyName,
+  ) async {
+    try {
+      final allBills = await getAllBillDetails();
+      return allBills
+          .where(
+            (bill) => bill.companyName.toLowerCase().contains(
+              companyName.toLowerCase(),
+            ),
+          )
+          .toList();
+    } catch (e) {
+      print("❌ Error searching bill details: $e");
+      return [];
+    }
+  }
+
+  Future<int> getBillDetailsCount() async {
+    try {
+      final bills = await getAllBillDetails();
+      return bills.length;
+    } catch (e) {
+      print("❌ Error getting bill details count: $e");
+      return 0;
+    }
+  }
+
+  // Deprecated methods
   Future<int> insertVisitingCard(Map<String, dynamic> card) async {
     final db = await database;
     return await db.insert('TABLE_VISITCARD', card);
+  }
+
+  Future<int> insertTargetdata(Map<String, dynamic> card) async {
+    final db = await database;
+    return await db.insert('TABLE_TARGET', card);
   }
 
   Future<List<Map<String, dynamic>>> getAllVisitingCards() async {
@@ -1693,198 +2341,12 @@ Future<List<Map<String, dynamic>>> fetchAllData() async {
     }
   }
 
-  // Close the database
-  Future<void> close() async {
-    if (_database != null) {
-      await _database!.close();
-      _database = null;
-    }
-  }
-
-  Future<int> insertBillDetails(BillDetails billDetails) async {
-    try {
-      final db = await database;
-
-      // Validate input data
-      if (billDetails.companyName.trim().isEmpty) {
-        print("Error: Company name is required");
-        return 0;
-      }
-
-      Map<String, dynamic> billData = {
-        'data': jsonEncode(billDetails.toJson()),
-      };
-
-      int result = await db.insert('TABLE_BILLDETAILS', billData);
-
-      if (result > 0) {
-        print("✅ Bill details inserted successfully!");
-        print("📋 ID: $result");
-        print("🏢 Company: ${billDetails.companyName}");
-        print("📍 Address: ${billDetails.address}");
-        print("📱 Mobile: ${billDetails.mobile}");
-      } else {
-        print("❌ Failed to insert bill details");
-      }
-
-      return result;
-    } catch (e) {
-      print("❌ Error inserting bill details: $e");
-      return 0;
-    }
-  }
-
-  /// Update Bill Details
-  Future<int> updateBillDetails(int billId, BillDetails billDetails) async {
-    try {
-      final db = await database;
-
-      // Validate input data
-      if (billDetails.companyName.trim().isEmpty) {
-        print("Error: Company name is required");
-        return 0;
-      }
-
-      Map<String, dynamic> billData = {
-        'data': jsonEncode(billDetails.toJson()),
-      };
-
-      int result = await db.update(
-        'TABLE_BILLDETAILS',
-        billData,
-        where: 'keyid = ?',
-        whereArgs: [billId],
-      );
-
-      if (result > 0) {
-        print("✅ Bill details updated successfully!");
-        print("📋 ID: $billId");
-        print("🏢 Company: ${billDetails.companyName}");
-        print("📍 Address: ${billDetails.address}");
-        print("📱 Mobile: ${billDetails.mobile}");
-      } else {
-        print("❌ No bill found with ID: $billId");
-      }
-
-      return result;
-    } catch (e) {
-      print("❌ Error updating bill details: $e");
-      return 0;
-    }
-  }
-
-  /// Get All Bill Details
-  Future<List<BillDetails>> getAllBillDetails() async {
-    try {
-      final db = await database;
-      final List<Map<String, dynamic>> maps = await db.query(
-        'TABLE_BILLDETAILS',
-      );
-
-      List<BillDetails> billDetailsList = [];
-
-      for (var map in maps) {
-        try {
-          Map<String, dynamic> billData = jsonDecode(map['data']);
-          billDetailsList.add(BillDetails.fromJson(billData, id: map['keyid']));
-        } catch (e) {
-          print('Error parsing bill details data for ID ${map['keyid']}: $e');
-        }
-      }
-
-      print("📋 Retrieved ${billDetailsList.length} bill details records");
-      return billDetailsList;
-    } catch (e) {
-      print("❌ Error getting bill details: $e");
-      return [];
-    }
-  }
-
-  /// Get Bill Details by ID
-  Future<BillDetails?> getBillDetailsById(int id) async {
-    try {
-      final db = await database;
-      final List<Map<String, dynamic>> maps = await db.query(
-        'TABLE_BILLDETAILS',
-        where: 'keyid = ?',
-        whereArgs: [id],
-      );
-
-      if (maps.isNotEmpty) {
-        Map<String, dynamic> billData = jsonDecode(maps.first['data']);
-        return BillDetails.fromJson(billData, id: maps.first['keyid']);
-      }
-
-      print("❌ No bill details found with ID: $id");
-      return null;
-    } catch (e) {
-      print("❌ Error getting bill details by ID: $e");
-      return null;
-    }
-  }
-
-  /// Delete Bill Details
-  Future<int> deleteBillDetails(int id) async {
-    try {
-      final db = await database;
-      int result = await db.delete(
-        'TABLE_BILLDETAILS',
-        where: 'keyid = ?',
-        whereArgs: [id],
-      );
-
-      if (result > 0) {
-        print("✅ Bill details deleted successfully for ID: $id");
-      } else {
-        print("❌ No bill details found with ID: $id");
-      }
-
-      return result;
-    } catch (e) {
-      print("❌ Error deleting bill details: $e");
-      return 0;
-    }
-  }
-
-  /// Search Bill Details by Company Name
-  Future<List<BillDetails>> searchBillDetailsByCompany(
-    String companyName,
-  ) async {
-    try {
-      final allBills = await getAllBillDetails();
-      return allBills
-          .where(
-            (bill) => bill.companyName.toLowerCase().contains(
-              companyName.toLowerCase(),
-            ),
-          )
-          .toList();
-    } catch (e) {
-      print("❌ Error searching bill details: $e");
-      return [];
-    }
-  }
-
-  /// Get Bill Details Count
-  Future<int> getBillDetailsCount() async {
-    try {
-      final bills = await getAllBillDetails();
-      return bills.length;
-    } catch (e) {
-      print("❌ Error getting bill details count: $e");
-      return 0;
-    }
-  }
-
-  // Usage Examples:
-
-    Future<List<Map<String, dynamic>>> fetchAllDocData() async {
+  // Other data operations
+  Future<List<Map<String, dynamic>>> fetchAllDocData() async {
     Database db = await database;
     var res = await db.query('TABLE_DOCUMENT');
-
     List<Map<String, dynamic>> s = res.toList();
     print("Document datas are: $s");
-
     return s;
   }
 
@@ -1892,25 +2354,28 @@ Future<List<Map<String, dynamic>>> fetchAllData() async {
     final db = await database;
     return await db.delete(tableName, where: 'fileid = ?', whereArgs: [id]);
   }
+
   Future<int> deleteByFieldId(String tableName, dynamic fieldId) async {
     final db = await database;
-    return await db.delete(
-      tableName,
-      where: 'keyid = ?',
-      whereArgs: [fieldId],
-    );
+    return await db.delete(tableName, where: 'keyid = ?', whereArgs: [fieldId]);
   }
 
   Future<List<Map<String, dynamic>>> fetchAllpassData() async {
     Database db = await database;
     var res = await db.query('TABLE_PASSWORD');
-
     List<Map<String, dynamic>> s = res.toList();
     print("Password datas are: $s");
-
     return s;
   }
 
+  // Close the database
+  Future<void> close() async {
+    if (_database != null) {
+      await _database!.close();
+      _database = null;
+    }
+  }
+  
 }
 
 class TargetCategory {

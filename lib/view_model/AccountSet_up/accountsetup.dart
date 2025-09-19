@@ -61,8 +61,7 @@ class _Home_ScreenState extends State<Accountsetup> {
         title: Text(' Account Setup', style: TextStyle(color: Colors.white)),
       ),
 
-      body: 
-      Container(
+      body: Container(
         child: Column(
           children: [
             TextField(
@@ -145,7 +144,6 @@ class _Home_ScreenState extends State<Accountsetup> {
                                   children: [
                                     // Text('Catogory '),
                                     // Text('              :   '),
-
                                     Text("${dat['Accounttype'] ?? "0"}"),
                                   ],
                                 ),
@@ -160,8 +158,7 @@ class _Home_ScreenState extends State<Accountsetup> {
                                     //   'balance ',
                                     // ),
                                     // Text('   :   '),
-
-                                    Text("${dat['OpeningBalance'] ?? "0"}"),
+                                    Text("${dat['Amount'] ?? "0"}"),
                                   ],
                                 ),
                               ),
@@ -173,7 +170,7 @@ class _Home_ScreenState extends State<Accountsetup> {
                                     Text('AccountType      '),
                                     Text('   :   '),
 
-                                    Text("${dat['type'] ?? "0"}"),
+                                    Text("${dat['Accounttype'] ?? "0"}"),
                                   ],
                                 ),
                               ),

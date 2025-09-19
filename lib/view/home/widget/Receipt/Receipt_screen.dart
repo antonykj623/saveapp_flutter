@@ -39,7 +39,6 @@ class _ReceiptsPageState extends State<ReceiptsPage> {
           .getAllData("TABLE_ACCOUNTSETTINGS");
 
       // Create a map of setup ID to account name
-
       Map<String, String> setupIdToAccountName = {};
       for (var account in accountSettings) {
         try {
@@ -51,7 +50,6 @@ class _ReceiptsPageState extends State<ReceiptsPage> {
           print('Error parsing account settings: $e');
         }
       }
-      // setupIdToAccountName['0'] = 'Cash'; // Fallback for Cash account
 
       // Filter unique debit entries for the selected year-month
       final uniqueDebitEntries = <String, Map<String, dynamic>>{};
@@ -68,33 +66,35 @@ class _ReceiptsPageState extends State<ReceiptsPage> {
 
       setState(() {
         receipts =
-            uniqueDebitEntries.values.map((mp) {
-              String debitSetupId = mp['ACCOUNTS_setupid'].toString();
-              String accountName =
+            uniqueDebitEntries.values.map((debitEntry) {
+              String debitSetupId = debitEntry['ACCOUNTS_setupid'].toString();
+              String paymentMode =
                   setupIdToAccountName[debitSetupId] ?? 'Unknown Account';
 
-              String paymentMode = 'Cash';
+              String accountName = 'Unknown Account';
               try {
                 var creditEntry = receiptsList.firstWhere(
                   (entry) =>
                       entry['ACCOUNTS_VoucherType'] == 2 &&
                       entry['ACCOUNTS_type'] == 'credit' &&
                       entry['ACCOUNTS_entryid'].toString() ==
-                          mp['ACCOUNTS_entryid'].toString(),
+                          debitEntry['ACCOUNTS_entryid'].toString(),
                 );
                 String creditSetupId =
                     creditEntry['ACCOUNTS_setupid'].toString();
+                accountName =
+                    setupIdToAccountName[creditSetupId] ?? 'Unknown Account';
               } catch (e) {
                 print('Could not find credit entry: $e');
               }
 
               return Receipt(
-                id: int.parse(mp['ACCOUNTS_entryid']),
-                date: mp['ACCOUNTS_date'],
-                accountName: accountName,
-                amount: double.parse(mp['ACCOUNTS_amount'].toString()),
-                paymentMode: paymentMode,
-                remarks: mp['ACCOUNTS_remarks'] ?? '',
+                id: int.parse(debitEntry['ACCOUNTS_entryid']),
+                date: debitEntry['ACCOUNTS_date'],
+                accountName: accountName, // From credit entry
+                amount: double.parse(debitEntry['ACCOUNTS_amount'].toString()),
+                paymentMode: paymentMode, // From debit entry
+                remarks: debitEntry['ACCOUNTS_remarks'] ?? '',
               );
             }).toList();
 
@@ -182,7 +182,6 @@ class _ReceiptsPageState extends State<ReceiptsPage> {
       }
     } catch (e) {
       print('Error deleting receipt: $e');
-
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -361,11 +360,10 @@ class _ReceiptsPageState extends State<ReceiptsPage> {
                                                                             ),
                                                                         actions: [
                                                                           TextButton(
-                                                                            onPressed: () {
-                                                                              Navigator.pop(
-                                                                                context,
-                                                                              );
-                                                                            },
+                                                                            onPressed:
+                                                                                () => Navigator.pop(
+                                                                                  context,
+                                                                                ),
                                                                             child: const Text(
                                                                               'Cancel',
                                                                             ),

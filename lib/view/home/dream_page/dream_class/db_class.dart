@@ -48,6 +48,7 @@ class TargetCategoryService {
       print('Default target categories already exist');
     }
   }
+  
 
   static Future<List<TargetCategory>> getAllTargetCategories() async {
     final DatabaseHelper _databaseHelper = DatabaseHelper();

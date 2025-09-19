@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:new_project_2025/view/home/widget/report_screen/Recharge_report/Recharge_report_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -37,6 +38,16 @@ class ReportScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text("Reports"),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        titleTextStyle: const TextStyle(
+          color: Colors.black,
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
       body: Container(
         color: Colors.white,
         child: ListView.builder(
@@ -45,7 +56,16 @@ class ReportScreen extends StatelessWidget {
             return _buildReportItem(
               title: reportItems[index],
               onTap: () {
-                print('${reportItems[index]} tapped');
+                if (reportItems[index] == 'Recharge Report') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const RechargeReportPage(),
+                    ),
+                  );
+                } else {
+                  print('${reportItems[index]} tapped');
+                }
               },
             );
           },

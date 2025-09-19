@@ -5,11 +5,49 @@ import 'package:new_project_2025/services/API_services/version_check/version_mod
 import 'package:new_project_2025/view/home/widget/Invoice_page/class_invoice/Model_class_invoice.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:new_project_2025/view/home/widget/setting_page/app_update/app_update_class.dart';
+import 'package:new_project_2025/view/home/widget/report_screen/Recharge_report/Recharge_report_model.dart';
+import 'package:flutter/material.dart';
 
 class ApiHelper {
   // API endpoint constants
   static const String baseUrl = "https://mysaving.in/IntegraAccount/api/";
   static const String generateHash = "generateHash.php";
+
+  // DTH Operators List
+  static const List<Map<String, dynamic>> dthOperators = [
+    {
+      'name': 'Airtel',
+      'asset': 'assets/Airtel.jpg',
+      'code': 'AIRTEL',
+      'color': Colors.red,
+      'gradient': [Color(0xFFE53E3E), Color(0xFFC53030)],
+      'description': 'India\'s fastest network',
+    },
+    {
+      'name': 'BSNL',
+      'asset': 'assets/bsl.jpg',
+      'code': 'BSNL',
+      'color': Colors.blue,
+      'gradient': [Color(0xFF3182CE), Color(0xFF2B6CB0)],
+      'description': 'Connecting India',
+    },
+    {
+      'name': 'Vi',
+      'asset': 'assets/vi.jpg',
+      'code': 'VI',
+      'color': Colors.purple,
+      'gradient': [Color(0xFF805AD5), Color(0xFF6B46C1)],
+      'description': 'Be limitless',
+    },
+    {
+      'name': 'Jio',
+      'asset': 'assets/jio.jpg',
+      'code': 'JIO',
+      'color': Colors.indigo,
+      'gradient': [Color(0xFF4C51BF), Color(0xFF3730A3)],
+      'description': 'Digital India',
+    },
+  ];
 
   // Generate timestamp for API requests
   String getTimeStamp() {
@@ -39,7 +77,7 @@ class ApiHelper {
     }
   }
 
-  // General POST request method (existing)
+  // General POST request method
   Future<String> postApiResponse(String method, dynamic postData) async {
     final prefs = await SharedPreferences.getInstance();
     String? token = await prefs.getString('token');
@@ -63,8 +101,11 @@ class ApiHelper {
     }
   }
 
-  // POST request for Ecommerce APIs (from EcommerceApiHelper)
-  Future<String> postEcommerce(String endpoint, {required Map<String, String> formDataPayload}) async {
+  // POST request for Ecommerce APIs
+  Future<String> postEcommerce(
+    String endpoint, {
+    required Map<String, String> formDataPayload,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     String? token = await prefs.getString('token');
     Map<String, String> headers = {
@@ -87,9 +128,21 @@ class ApiHelper {
     }
   }
 
-  // ===== NOTIFICATION METHODS =====
+  // Get Recharge Reports
+  Future<RechargeHistoryEntity> getRechargeReports() async {
+    final timestamp = DateTime.now().microsecondsSinceEpoch.toString();
+    final url = "getRechargeHistoryReports.php?d=$timestamp";
 
-  /// Get all notifications
+    try {
+      String response = await getApiResponse(url);
+      final decodedResponse = json.decode(response);
+      return RechargeHistoryEntity.fromJson(decodedResponse);
+    } catch (e) {
+      throw Exception('Failed to fetch recharge reports: $e');
+    }
+  }
+
+  // ===== NOTIFICATION METHODS =====
   Future<List<dynamic>> getNotifications() async {
     final timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
 
@@ -110,7 +163,6 @@ class ApiHelper {
     }
   }
 
-  /// Get notifications with filters
   Future<List<dynamic>> getNotificationsWithFilters({
     String? dateOrder,
     String? status,
@@ -150,7 +202,6 @@ class ApiHelper {
     }
   }
 
-  /// Get notifications by date range
   Future<List<dynamic>> getNotificationsByDateRange({
     required DateTime startDate,
     required DateTime endDate,
@@ -159,7 +210,8 @@ class ApiHelper {
     final startDateStr = DateFormat('yyyy-MM-dd').format(startDate);
     final endDateStr = DateFormat('yyyy-MM-dd').format(endDate);
 
-    String url = "getNotificationsData.php?timestamp=$timestamp"
+    String url =
+        "getNotificationsData.php?timestamp=$timestamp"
         "&start_date=$startDateStr&end_date=$endDateStr";
 
     try {
@@ -176,8 +228,9 @@ class ApiHelper {
     }
   }
 
-  /// Mark notification as read
-  Future<Map<String, dynamic>> markNotificationAsRead(int notificationId) async {
+  Future<Map<String, dynamic>> markNotificationAsRead(
+    int notificationId,
+  ) async {
     final timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
     final postData = {
       'notification_id': notificationId.toString(),
@@ -186,30 +239,31 @@ class ApiHelper {
     };
 
     try {
-      String response = await postApiResponse('updateNotificationStatus.php', postData);
+      String response = await postApiResponse(
+        'updateNotificationStatus.php',
+        postData,
+      );
       return json.decode(response);
     } catch (e) {
       throw Exception('Failed to mark notification as read: $e');
     }
   }
 
-  /// Mark all notifications as read
   Future<Map<String, dynamic>> markAllNotificationsAsRead() async {
     final timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
-    final postData = {
-      'timestamp': timestamp,
-      'action': 'mark_all_read',
-    };
+    final postData = {'timestamp': timestamp, 'action': 'mark_all_read'};
 
     try {
-      String response = await postApiResponse('updateAllNotificationsStatus.php', postData);
+      String response = await postApiResponse(
+        'updateAllNotificationsStatus.php',
+        postData,
+      );
       return json.decode(response);
     } catch (e) {
       throw Exception('Failed to mark all notifications as read: $e');
     }
   }
 
-  /// Delete notification
   Future<Map<String, dynamic>> deleteNotification(int notificationId) async {
     final timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
     final postData = {
@@ -218,14 +272,16 @@ class ApiHelper {
     };
 
     try {
-      String response = await postApiResponse('deleteNotification.php', postData);
+      String response = await postApiResponse(
+        'deleteNotification.php',
+        postData,
+      );
       return json.decode(response);
     } catch (e) {
       throw Exception('Failed to delete notification: $e');
     }
   }
 
-  /// Get notification count (unread)
   Future<int> getUnreadNotificationCount() async {
     final timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
 
@@ -247,15 +303,12 @@ class ApiHelper {
   }
 
   // ===== EXISTING METHODS =====
-
   Future<AppVersionModel1> checkAppVersion1() async {
-    // Placeholder for existing implementation
     throw UnimplementedError(
       'Use your existing ApiHelper checkAppVersion1 method',
     );
   }
 
-  // Verify user credentials before deletion
   Future<Map<String, dynamic>> verifyUserCredentials(
     String mobile,
     String password,
@@ -290,7 +343,6 @@ class ApiHelper {
     }
   }
 
-  // Delete account
   Future<Map<String, dynamic>> deleteAccount() async {
     final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
     final prefs = await SharedPreferences.getInstance();
@@ -315,7 +367,6 @@ class ApiHelper {
     }
   }
 
-  // Fetch sales data using getDSTSales endpoint
   Future<SalesData> getDSTSales(String regId) async {
     final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
     try {
@@ -333,10 +384,8 @@ class ApiHelper {
     }
   }
 
-  // Check app version
   Future<AppVersionModel> checkAppVersion() async {
-    final timestamp =
-        DateFormat('dd-MM-yyyy').format(DateTime.now());
+    final timestamp = DateFormat('dd-MM-yyyy').format(DateTime.now());
 
     try {
       final response = await getApiResponse(
@@ -349,13 +398,11 @@ class ApiHelper {
     }
   }
 
-  // Get feedback
   Future<String> getFeedback() async {
     final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
     return await getApiResponse('getFeedback.php?timestamp=$timestamp');
   }
 
-  // Get feedback with filters
   Future<String> getFeedbackWithFilters({
     String? timestamp,
     String? dateOrder,
@@ -376,7 +423,6 @@ class ApiHelper {
     return await getApiResponse(url);
   }
 
-  // Get feedback by date
   Future<String> getFeedbackByDate(String date) async {
     final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
     return await getApiResponse(
@@ -384,7 +430,6 @@ class ApiHelper {
     );
   }
 
-  // Get feedback by status
   Future<String> getFeedbackByStatus(String status) async {
     final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
     return await getApiResponse(
@@ -392,12 +437,10 @@ class ApiHelper {
     );
   }
 
-  // Get feedback with specific timestamp
   Future<String> getFeedbackWithTimestamp(String timestamp) async {
     return await getApiResponse('getFeedback.php?timestamp=$timestamp');
   }
 
-  // Add feedback
   Future<String> addFeedback(String message) async {
     final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
     final postData = {'message': message, 'timestamp': timestamp};

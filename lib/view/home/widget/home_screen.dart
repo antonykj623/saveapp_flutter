@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:get/get.dart';
 import 'package:new_project_2025/view/home/dream_page/dream_class/db_class.dart';
+import 'package:new_project_2025/view/home/widget/DTH_screen/DTHScreen.dart';
+import 'package:new_project_2025/view/home/widget/DTH_screen/d_t_h_recharge_dashboard.dart';
 import 'package:new_project_2025/view/home/widget/More_page/More_page.dart';
 import 'package:new_project_2025/view/home/widget/carousel_slider/caroselSlider.dart';
 import 'package:new_project_2025/view/home/widget/insurance/insurance_database/Insurance_list_page/insurance_list_page.dart';
@@ -1653,7 +1655,11 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       icon: Icons.satellite_alt,
       label: 'DTH Recharge',
       iconColor: Colors.teal,
-      onPressed: (BuildContext context) => debugPrint('DTH Recharge tapped'),
+      onPressed:
+          (BuildContext context) => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => DTHRechargeDashboard()),
+          ),
     ),
     CategoryItem(
       icon: Icons.contact_mail,

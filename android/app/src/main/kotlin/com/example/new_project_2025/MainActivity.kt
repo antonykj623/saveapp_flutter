@@ -1,5 +1,6 @@
-package com.example.new_project_2025
+package com.mysave
 
 import io.flutter.embedding.android.FlutterActivity
 
-class MainActivity : FlutterActivity()
+class MainActivity: FlutterActivity() {
+}

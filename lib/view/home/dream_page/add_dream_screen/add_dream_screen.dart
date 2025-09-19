@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:get/get.dart';
-import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
-import 'dart:typed_data';
-import 'dart:io';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart'; // For consistent date formatting
 import 'package:new_project_2025/view/home/dream_page/model_dream_page/model_dream.dart';
 import 'package:new_project_2025/view/home/dream_page/dream_class/db_class.dart';
 import 'package:new_project_2025/view/home/dream_page/mile_stone_screen/miles_stone_screen.dart';
-
-// You may need to adjust imports for your project structure
+import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
+import 'dart:typed_data';
+import 'dart:io';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AddDreamScreen extends StatefulWidget {
   final Function(Dream) onDreamAdded;
@@ -38,13 +38,22 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
   String notes = '';
   final DatabaseHelper _dbHelper = DatabaseHelper();
   List<TargetCategory> targetCategories = [];
+  List<InvestmentAccount> investmentAccounts = [];
   bool isLoading = true;
+  int? _dreamId;
+
+  final TextEditingController _targetNameController = TextEditingController();
+  final TextEditingController _targetAmountController = TextEditingController();
+  final TextEditingController _savedAmountController = TextEditingController();
+  final TextEditingController _dateController = TextEditingController();
+  final TextEditingController _notesController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _initializeData();
     if (widget.dream != null) {
+      _dreamId = widget.dream!.id;
       selectedTarget = widget.dream!.category;
       targetName = widget.dream!.name;
       targetAmount = widget.dream!.targetAmount;
@@ -52,12 +61,105 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
       savedAmount = widget.dream!.savedAmount;
       selectedDate = widget.dream!.targetDate;
       notes = widget.dream!.notes;
+
+      _targetNameController.text = targetName;
+      _targetAmountController.text =
+          targetAmount > 0 ? targetAmount.toString() : '';
+      _savedAmountController.text =
+          savedAmount > 0 ? savedAmount.toString() : '';
+      _dateController.text =
+          selectedDate != null
+              ? DateFormat('dd-MM-yyyy').format(selectedDate!)
+              : '';
+      _notesController.text = notes;
     }
+  }
+
+  Future<bool> _saveOrUpdateDream({bool isFinalSave = false}) async {
+    try {
+      final updatedDream = Dream(
+        id: _dreamId,
+        name: targetName,
+        category: selectedTarget!,
+        investment: selectedInvestment ?? 'My Saving',
+        targetAmount: targetAmount,
+        savedAmount: savedAmount,
+        targetDate: selectedDate ?? DateTime.now(),
+        notes: notes,
+        closingBalance: 0.0, // Adjust based on your needs
+        addedAmount: 0.0, // Adjust based on your needs
+      );
+
+      Map<String, dynamic> dreamData = {
+        "targetname": _targetNameController.text.trim(),
+        "targetamount": targetAmount.toString(),
+        "savedamount": savedAmount.toString(),
+        "target_date": selectedDate.toString(),
+        "note": _notesController.text.trim(),
+        "investment": selectedInvestment ?? 'My Saving',
+        "category": selectedTarget!,
+      };
+
+      Map<String, dynamic> dbData = {
+        "data": jsonEncode(dreamData),
+      }; // FIXED: Use jsonEncode
+
+      if (_dreamId == null) {
+        // New dream: Insert and get ID
+        _dreamId = await _dbHelper.insertTargetdata(dbData);
+        if (_dreamId == 0) return false;
+
+        if (isFinalSave) {
+          widget.onDreamAdded(updatedDream.copyWith(id: _dreamId));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Dream added successfully!')),
+          );
+        }
+      } else {
+        // Edit: Update in DB
+        final updateResult = await _dbHelper.updateData(
+          "TABLE_TARGET",
+          dbData,
+          _dreamId!,
+        );
+        if (updateResult == 0) return false;
+
+        if (isFinalSave) {
+          widget.onDreamUpdated?.call(updatedDream);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Dream updated successfully!')),
+          );
+        }
+      }
+      return true;
+    } catch (e) {
+      print('Error saving dream: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to ${isFinalSave ? (widget.dream == null ? 'add' : 'update') : 'save'} dream: $e',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _targetNameController.dispose();
+    _targetAmountController.dispose();
+    _savedAmountController.dispose();
+    _dateController.dispose();
+    _notesController.dispose();
+    super.dispose();
   }
 
   Future<void> _initializeData() async {
     try {
       await _loadTargetCategories();
+      await _loadInvestmentAccounts();
     } catch (e) {
       setState(() {
         isLoading = false;
@@ -70,12 +172,166 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
       final categories = await TargetCategoryService.getAllTargetCategories();
       setState(() {
         targetCategories = categories;
+      });
+    } catch (e) {
+      print('Error loading target categories: $e');
+    }
+  }
+
+  Future<void> _loadInvestmentAccounts() async {
+    try {
+      List<Map<String, dynamic>> accounts = await _dbHelper.getAllData(
+        "TABLE_ACCOUNTSETTINGS",
+      );
+      List<InvestmentAccount> investments = [];
+
+      // Add default "My Saving" option
+      double mySavingBalance = await _calculateMySavingBalance();
+      investments.add(
+        InvestmentAccount(name: 'My Saving', balance: mySavingBalance),
+      );
+
+      for (var account in accounts) {
+        try {
+          Map<String, dynamic> accountData = jsonDecode(account["data"]);
+          String accountType =
+              accountData['Accounttype'].toString().toLowerCase();
+          String accountName = accountData['Accountname'].toString();
+
+          if (accountType == 'investment') {
+            double balance = await _calculateInvestmentBalance(accountName);
+            investments.add(
+              InvestmentAccount(name: accountName, balance: balance),
+            );
+          }
+        } catch (e) {
+          print('Error parsing investment account: $e');
+        }
+      }
+
+      setState(() {
+        investmentAccounts = investments;
         isLoading = false;
       });
     } catch (e) {
+      print('Error loading investment accounts: $e');
       setState(() {
         isLoading = false;
       });
+    }
+  }
+
+  Future<double> _calculateMySavingBalance() async {
+    try {
+      final db = await _dbHelper.database;
+      final List<Map<String, dynamic>> walletData = await db.query(
+        'TABLE_WALLET',
+      );
+
+      double balance = 0.0;
+      for (var entry in walletData) {
+        try {
+          Map<String, dynamic> data = jsonDecode(entry['data']);
+          double amount = double.tryParse(data['edtAmount'].toString()) ?? 0.0;
+          balance += amount;
+        } catch (e) {
+          print('Error parsing wallet data: $e');
+        }
+      }
+      return balance;
+    } catch (e) {
+      print('Error calculating My Saving balance: $e');
+      return 0.0;
+    }
+  }
+
+  Future<double> _calculateInvestmentBalance(String accountName) async {
+    try {
+      final db = await _dbHelper.database;
+
+      String setupId = await _getAccountSetupId(accountName);
+      if (setupId == '0') return 0.0;
+
+      final List<Map<String, dynamic>> accountTransactions = await db.query(
+        'TABLE_ACCOUNTS',
+        where: 'ACCOUNTS_setupid = ?',
+        whereArgs: [setupId],
+      );
+
+      double balance = 0.0;
+      for (var transaction in accountTransactions) {
+        try {
+          double amount =
+              double.tryParse(transaction['ACCOUNTS_amount'].toString()) ?? 0.0;
+          String type = transaction['ACCOUNTS_type'].toString();
+
+          if (type == 'debit') {
+            balance += amount;
+          } else if (type == 'credit') {
+            balance -= amount;
+          }
+        } catch (e) {
+          print('Error parsing account transaction: $e');
+        }
+      }
+
+      double openingBalance = await _getAccountOpeningBalance(accountName);
+      balance += openingBalance;
+
+      return balance;
+    } catch (e) {
+      print('Error calculating investment balance for $accountName: $e');
+      return 0.0;
+    }
+  }
+
+  Future<String> _getAccountSetupId(String accountName) async {
+    try {
+      final db = await _dbHelper.database;
+      final List<Map<String, dynamic>> accounts = await db.query(
+        'TABLE_ACCOUNTSETTINGS',
+      );
+
+      for (var account in accounts) {
+        try {
+          Map<String, dynamic> data = jsonDecode(account['data']);
+          if (data['Accountname'].toString().toLowerCase() ==
+              accountName.toLowerCase()) {
+            return account['keyid'].toString();
+          }
+        } catch (e) {
+          print('Error parsing account setup: $e');
+        }
+      }
+      return '0';
+    } catch (e) {
+      print('Error getting account setup ID: $e');
+      return '0';
+    }
+  }
+
+  Future<double> _getAccountOpeningBalance(String accountName) async {
+    try {
+      final db = await _dbHelper.database;
+      final List<Map<String, dynamic>> accounts = await db.query(
+        'TABLE_ACCOUNTSETTINGS',
+      );
+
+      for (var account in accounts) {
+        try {
+          Map<String, dynamic> data = jsonDecode(account['data']);
+          if (data['Accountname'].toString().toLowerCase() ==
+              accountName.toLowerCase()) {
+            return double.tryParse(data['OpeningBalance'].toString()) ?? 0.0;
+          }
+        } catch (e) {
+          print('Error parsing opening balance: $e');
+        }
+      }
+      return 0.0;
+    } catch (e) {
+      print('Error getting opening balance: $e');
+      return 0.0;
     }
   }
 
@@ -117,308 +373,8 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
     }
   }
 
-  Future<bool> _checkIfTargetAdded(String target) async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('target_$target') ?? false;
-  }
-
-  Future<void> _setTargetAdded(String target) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('target_$target', true);
-  }
-
   Future<bool> _isCategoryUsed(String categoryName) async {
     return false;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (isLoading) {
-      return Scaffold(
-        backgroundColor: Colors.grey[100],
-        appBar: AppBar(
-          backgroundColor: Colors.teal,
-          title: Text(
-            widget.dream == null ? 'Add Dream' : 'Edit Dream',
-            style: const TextStyle(color: Colors.white),
-          ),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ),
-        body: const Center(
-          child: CircularProgressIndicator(color: Colors.teal),
-        ),
-      );
-    }
-
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        backgroundColor: Colors.teal,
-        title: Text(
-          widget.dream == null ? 'Add Dream' : 'Edit Dream',
-          style: const TextStyle(color: Colors.white),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: Form(
-        key: _formKey,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              GestureDetector(
-                onTap: _showTargetCategoriesDialog,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 16,
-                  ),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    children: [
-                      if (selectedTarget != null) ...[
-                        _buildCategoryIcon(_getSelectedCategory()!, size: 24),
-                        const SizedBox(width: 10),
-                        Text(
-                          selectedTarget!,
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                      ] else ...[
-                        Text(
-                          'Select Target',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                      const Spacer(),
-                      const Icon(Icons.keyboard_arrow_down, color: Colors.grey),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                initialValue: targetName,
-                decoration: const InputDecoration(
-                  hintText: 'Target Name',
-                  border: OutlineInputBorder(),
-                ),
-                validator:
-                    (value) =>
-                        value == null || value.trim().isEmpty
-                            ? 'Please enter a target name'
-                            : null,
-                onChanged: (value) => targetName = value,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                decoration: const InputDecoration(
-                  hintText: 'Target Amount',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-                onTap: () => _showCalculator(context, 'target'),
-                readOnly: true,
-                controller: TextEditingController(
-                  text: targetAmount > 0 ? targetAmount.toString() : '',
-                ),
-                validator:
-                    (value) =>
-                        targetAmount <= 0
-                            ? 'Please enter a valid target amount'
-                            : null,
-              ),
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: selectedInvestment,
-                    hint: const Text('Select Investment'),
-                    isExpanded: true,
-                    onChanged:
-                        (verified) =>
-                            setState(() => selectedInvestment = verified),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'My Saving',
-                        child: Text('My Saving'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'Fixed Deposit',
-                        child: Text('Fixed Deposit'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'Mutual Fund',
-                        child: Text('Mutual Fund'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                decoration: const InputDecoration(
-                  hintText: 'Saved Amount',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-                onTap: () => _showCalculator(context, 'saved'),
-                readOnly: true,
-                controller: TextEditingController(
-                  text: savedAmount > 0 ? savedAmount.toString() : '',
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                decoration: const InputDecoration(
-                  hintText: 'Select Target Date',
-                  border: OutlineInputBorder(),
-                  suffixIcon: Icon(Icons.calendar_today),
-                ),
-                readOnly: true,
-                onTap: () => _selectDate(context),
-                controller: TextEditingController(
-                  text:
-                      selectedDate != null
-                          ? '${selectedDate!.day}-${selectedDate!.month}-${selectedDate!.year}'
-                          : '',
-                ),
-                validator:
-                    (value) =>
-                        selectedDate == null
-                            ? 'Please select a target date'
-                            : null,
-              ),
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 16,
-                ),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: GestureDetector(
-                  onTap:
-                      () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => AddMileStonePage(),
-                        ),
-                      ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Add MileStone'),
-                      Icon(Icons.keyboard_arrow_down),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                initialValue: notes,
-                decoration: const InputDecoration(
-                  hintText: 'Notes',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 3,
-                onChanged: (value) => notes = value,
-              ),
-              const Spacer(),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () async {
-                    if (!_formKey.currentState!.validate()) return;
-                    if (selectedTarget == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Please select a target category'),
-                        ),
-                      );
-                      return;
-                    }
-                    if (widget.dream == null) {
-                      bool isTargetAdded = await _checkIfTargetAdded(
-                        selectedTarget!,
-                      );
-                      if (isTargetAdded) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Target category "$selectedTarget" has already been added.',
-                            ),
-                          ),
-                        );
-                        return;
-                      }
-                    }
-                    final updatedDream = Dream(
-                      name: targetName,
-                      category: selectedTarget!,
-                      investment: selectedInvestment ?? 'My Saving',
-                      targetAmount: targetAmount,
-                      savedAmount: savedAmount,
-                      targetDate: selectedDate ?? DateTime.now(),
-                      notes: notes,
-                    );
-                    if (widget.dream == null) {
-                      await _setTargetAdded(selectedTarget!);
-                      widget.onDreamAdded(updatedDream);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Dream added successfully!'),
-                        ),
-                      );
-                    } else {
-                      widget.onDreamUpdated?.call(updatedDream);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Dream updated successfully!'),
-                        ),
-                      );
-                    }
-                    Navigator.pop(context);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.teal,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
-                    ),
-                  ),
-                  child: Text(
-                    widget.dream == null ? 'Add' : 'Update',
-                    style: const TextStyle(fontSize: 18, color: Colors.white),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   void _showTargetCategoriesDialog() {
@@ -506,7 +462,7 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceEvenly,
                                 children: [
-                                   category.isCustom
+                                  category.isCustom
                                       ? IconButton(
                                         icon: const Icon(Icons.edit, size: 18),
                                         color:
@@ -538,49 +494,15 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 4.0,
                                     ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Flexible(
-                                          child: Text(
-                                            category.name,
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              color: Colors.black,
-                                            ),
-                                            textAlign: TextAlign.center,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-
-                                        // category.isCustom
-                                        //     ? IconButton(
-                                        //       icon: const Icon(
-                                        //         Icons.edit,
-                                        //         size: 18,
-                                        //       ),
-                                        //       color:
-                                        //           isUsed
-                                        //               ? Colors.grey
-                                        //               : Colors.teal,
-                                        //       tooltip:
-                                        //           isUsed
-                                        //               ? 'Cannot edit: Category in use'
-                                        //               : 'Edit category',
-                                        //       onPressed:
-                                        //           isUsed
-                                        //               ? null
-                                        //               : () {
-                                        //                 Navigator.pop(context);
-                                        //                 _showAddNewCategoryDialog(
-                                        //                   category: category,
-                                        //                 );
-                                        //               },
-                                        //     )
-                                        //     : const SizedBox.shrink(), // Better than Container()
-                                      ],
+                                    child: Text(
+                                      category.name,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.black,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                 ],
@@ -720,7 +642,7 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ],
-                        ],    
+                        ],
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -767,10 +689,7 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
                               if (isEditing) {
                                 if (category!.name !=
                                         nameController.text.trim() &&
-                                    (categoryExists ||
-                                        await _checkIfTargetAdded(
-                                          nameController.text.trim(),
-                                        ))) {
+                                    categoryExists) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
@@ -795,18 +714,6 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
                                           nameController.text.trim();
                                     }
                                   });
-                                  await _setTargetAdded(
-                                    nameController.text.trim(),
-                                  );
-                                  if (category.name !=
-                                      nameController.text.trim()) {
-                                    await _setTargetAdded(category.name);
-                                    await SharedPreferences.getInstance().then(
-                                      (prefs) => prefs.remove(
-                                        'target_${category.name}',
-                                      ),
-                                    );
-                                  }
                                   Navigator.pop(context);
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
@@ -826,10 +733,7 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
                                   );
                                 }
                               } else {
-                                if (categoryExists ||
-                                    await _checkIfTargetAdded(
-                                      nameController.text.trim(),
-                                    )) {
+                                if (categoryExists) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
@@ -851,9 +755,6 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
                                     () =>
                                         selectedTarget =
                                             nameController.text.trim(),
-                                  );
-                                  await _setTargetAdded(
-                                    nameController.text.trim(),
                                   );
                                   Navigator.pop(context);
                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -1162,13 +1063,15 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
                       child: MaterialButton(
                         onPressed: () {
                           final value = double.tryParse(currentValue) ?? 0.0;
-                          setState(() {
-                            if (type == 'target') {
-                              targetAmount = value;
-                            } else if (type == 'saved') {
-                              savedAmount = value;
-                            }
-                          });
+                          if (type == 'target') {
+                            targetAmount = value;
+                            _targetAmountController.text =
+                                value > 0 ? value.toString() : '';
+                          } else if (type == 'saved') {
+                            savedAmount = value;
+                            _savedAmountController.text =
+                                value > 0 ? value.toString() : '';
+                          }
                           Navigator.pop(context);
                         },
                         child: const Text(
@@ -1195,7 +1098,303 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
       lastDate: DateTime(2030),
     );
     if (picked != null && picked != selectedDate) {
-      setState(() => selectedDate = picked);
+      setState(() {
+        selectedDate = picked;
+        _dateController.text = DateFormat(
+          'dd-MM-yyyy',
+        ).format(picked); // FIXED: Use DateFormat
+      });
     }
   }
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return Scaffold(
+        backgroundColor: Colors.grey[100],
+        appBar: AppBar(
+          backgroundColor: Colors.teal,
+          title: Text(
+            widget.dream == null ? 'Add Dream' : 'Edit Dream',
+            style: const TextStyle(color: Colors.white),
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(color: Colors.teal),
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: Colors.grey[100],
+      appBar: AppBar(
+        backgroundColor: Colors.teal,
+        title: Text(
+          widget.dream == null ? 'Add Dream' : 'Edit Dream',
+          style: const TextStyle(color: Colors.white),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: Form(
+        key: _formKey,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              GestureDetector(
+                onTap: _showTargetCategoriesDialog,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 16,
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    children: [
+                      if (selectedTarget != null) ...[
+                        _buildCategoryIcon(_getSelectedCategory()!, size: 24),
+                        const SizedBox(width: 10),
+                        Text(
+                          selectedTarget!,
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ] else ...[
+                        Text(
+                          'Select Target',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                      const Spacer(),
+                      const Icon(Icons.keyboard_arrow_down, color: Colors.grey),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _targetNameController,
+                decoration: const InputDecoration(
+                  hintText: 'Target Name',
+                  border: OutlineInputBorder(),
+                ),
+                validator:
+                    (value) =>
+                        value == null || value.trim().isEmpty
+                            ? 'Please enter a target name'
+                            : null,
+                onChanged: (value) => targetName = value,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _targetAmountController,
+                decoration: const InputDecoration(
+                  hintText: 'Target Amount',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+                onTap: () => _showCalculator(context, 'target'),
+                readOnly: true,
+                validator:
+                    (value) =>
+                        targetAmount <= 0
+                            ? 'Please enter a valid target amount'
+                            : null,
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: selectedInvestment,
+                    hint: const Text('Select Investment'),
+                    isExpanded: true,
+                    onChanged:
+                        (value) => setState(() => selectedInvestment = value),
+                    items:
+                        investmentAccounts.map<DropdownMenuItem<String>>((
+                          InvestmentAccount account,
+                        ) {
+                          return DropdownMenuItem<String>(
+                            value: account.name,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    account.name,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Text(
+                                  '₹${account.balance.toStringAsFixed(2)}',
+                                  style: TextStyle(
+                                    color:
+                                        account.balance >= 0
+                                            ? Colors.green
+                                            : Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _savedAmountController,
+                decoration: const InputDecoration(
+                  hintText: 'Saved Amount',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+                onTap: () => _showCalculator(context, 'saved'),
+                readOnly: true,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _dateController,
+                decoration: const InputDecoration(
+                  hintText: 'Select Target Date',
+                  border: OutlineInputBorder(),
+                  suffixIcon: Icon(Icons.calendar_today),
+                ),
+                readOnly: true,
+                onTap: () => _selectDate(context),
+                validator:
+                    (value) =>
+                        selectedDate == null
+                            ? 'Please select a target date'
+                            : null,
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 16,
+                ),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: GestureDetector(
+                  onTap: () async {
+                    if (_formKey.currentState!.validate() &&
+                        selectedTarget != null) {
+                      await _saveOrUpdateDream();
+                      if (_dreamId != null) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) =>
+                                    AddMileStonePage(targetId: _dreamId!),
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Failed to save dream. Please try again.',
+                            ),
+                          ),
+                        );
+                      }
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please fill all required fields'),
+                        ),
+                      );
+                    }
+                  },
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Add MileStone'),
+                      Icon(Icons.keyboard_arrow_down),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _notesController,
+                decoration: const InputDecoration(
+                  hintText: 'Notes',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+                onChanged: (value) => notes = value,
+              ),
+              const Spacer(),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    if (!_formKey.currentState!.validate()) return;
+                    if (selectedTarget == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please select a target category'),
+                        ),
+                      );
+                      return;
+                    }
+
+                    // FIXED: Use _saveOrUpdateDream for consistency
+                    final success = await _saveOrUpdateDream(isFinalSave: true);
+                    if (success) {
+                      Navigator.pop(context);
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.teal,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+                  ),
+                  child: Text(
+                    widget.dream == null ? 'Add' : 'Update',
+                    style: const TextStyle(fontSize: 18, color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class InvestmentAccount {
+  final String name;
+  final double balance;
+
+  InvestmentAccount({required this.name, required this.balance});
 }
