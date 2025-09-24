@@ -784,48 +784,52 @@ class DatabaseHelper {
   //   }
   // }
   Future<List<Dream>> getAllDreams() async {
-  try {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('TABLE_TARGET');
+    try {
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query('TABLE_TARGET');
 
-    List<Dream> dreams = [];
+      List<Dream> dreams = [];
 
-    for (var map in maps) {
-      try {
-        String dataString = map['data'].toString();
-        Map<String, dynamic> dreamData;
-
+      for (var map in maps) {
         try {
-          dreamData = jsonDecode(dataString);
+          String dataString = map['data'].toString();
+          Map<String, dynamic> dreamData;
+
+          try {
+            dreamData = jsonDecode(dataString);
+          } catch (e) {
+            dreamData = _parseDreamData(dataString);
+          }
+
+          Dream dream = Dream(
+            id: map['keyid'], // NEW: Set the database keyid as Dream.id
+            name: dreamData['targetname'] ?? 'Unknown Dream',
+            category: dreamData['category'] ?? 'General',
+            investment: dreamData['investment'] ?? 'My Saving',
+            closingBalance: 0.0,
+            addedAmount: 0.0,
+            savedAmount:
+                double.tryParse(dreamData['savedamount'].toString()) ?? 0.0,
+            targetAmount:
+                double.tryParse(dreamData['targetamount'].toString()) ?? 0.0,
+            targetDate:
+                _parseDateFromString(dreamData['target_date']) ??
+                DateTime.now(),
+            notes: dreamData['note'] ?? '',
+          );
+
+          dreams.add(dream);
         } catch (e) {
-          dreamData = _parseDreamData(dataString);
+          print('Error parsing individual dream: $e');
         }
-
-        Dream dream = Dream(
-          id: map['keyid'],  // NEW: Set the database keyid as Dream.id
-          name: dreamData['targetname'] ?? 'Unknown Dream',
-          category: dreamData['category'] ?? 'General',
-          investment: dreamData['investment'] ?? 'My Saving',
-          closingBalance: 0.0,
-          addedAmount: 0.0,
-          savedAmount: double.tryParse(dreamData['savedamount'].toString()) ?? 0.0,
-          targetAmount: double.tryParse(dreamData['targetamount'].toString()) ?? 0.0,
-          targetDate: _parseDateFromString(dreamData['target_date']) ?? DateTime.now(),
-          notes: dreamData['note'] ?? '',
-        );
-
-        dreams.add(dream);
-      } catch (e) {
-        print('Error parsing individual dream: $e');
       }
-    }
 
-    return dreams;
-  } catch (e) {
-    print("Error getting dreams: $e");
-    return [];
+      return dreams;
+    } catch (e) {
+      print("Error getting dreams: $e");
+      return [];
+    }
   }
-}
 
   Future<int> updateDream(int id, Dream dream) async {
     try {
@@ -2375,7 +2379,55 @@ class DatabaseHelper {
       _database = null;
     }
   }
-  
+  // Add these methods to the DatabaseHelper class
+
+  // Insert a new investment name into INVESTNAMES_TABLE
+  Future<int> insertInvestmentName(String investName) async {
+    final db = await database;
+    return await db.insert('INVESTNAMES_TABLE', {'investname': investName});
+  }
+
+  // Update an existing investment name in INVESTNAMES_TABLE
+  Future<int> updateInvestmentName(int keyid, String investName) async {
+    final db = await database;
+    return await db.update(
+      'INVESTNAMES_TABLE',
+      {'investname': investName},
+      where: 'keyid = ?',
+      whereArgs: [keyid],
+    );
+  }
+
+  // Delete an investment name from INVESTNAMES_TABLE
+  Future<int> deleteInvestmentName(int keyid) async {
+    final db = await database;
+    return await db.delete(
+      'INVESTNAMES_TABLE',
+      where: 'keyid = ?',
+      whereArgs: [keyid],
+    );
+  }
+
+  // Get all investment names from INVESTNAMES_TABLE
+  Future<List<Map<String, dynamic>>> getAllInvestmentNames() async {
+    final db = await database;
+    return await db.query('INVESTNAMES_TABLE');
+  }
+
+  // Get investment details from TABLE_ACCOUNTSETTINGS by name
+  Future<Map<String, dynamic>?> getInvestmentDetailsByName(String name) async {
+    final db = await database;
+    final result = await db.query(
+      'TABLE_ACCOUNTSETTINGS',
+      where: 'data LIKE ?',
+      whereArgs: ['%${name}%'],
+      limit: 1,
+    );
+    if (result.isNotEmpty) {
+      return result.first;
+    }
+    return null;
+  }
 }
 
 class TargetCategory {

@@ -10,6 +10,7 @@ class ViewDetailsScreen extends StatefulWidget {
   final Dream dream;
   final Function(Dream)? onDreamUpdated;
 
+     
   const ViewDetailsScreen({
     required this.dream,
     this.onDreamUpdated,

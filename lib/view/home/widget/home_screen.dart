@@ -1580,17 +1580,17 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
         );
       },
     ),
-    CategoryItem(
-      icon: Icons.note_alt,
-      label: 'Liability',
-      iconColor: Colors.teal,
-      onPressed: (BuildContext context) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => Liabilities()),
-        );
-      },
-    ),
+    // CategoryItem(
+    //   icon: Icons.note_alt,
+    //   label: 'Liability',
+    //   iconColor: Colors.teal,
+    //   onPressed: (BuildContext context) {
+    //     Navigator.push(
+    //       context,
+    //       MaterialPageRoute(builder: (context) => Liabilities()),
+    //     );
+    //   },
+    // ),
     CategoryItem(
       icon: Icons.security,
       label: 'Insurance',
@@ -1605,17 +1605,17 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
   ];
 
   final List<CategoryItem> _lifeCategories = [
-    CategoryItem(
-      icon: Icons.task_alt,
-      label: 'Task',
-      iconColor: Colors.teal,
-      onPressed: (BuildContext context) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => Tasks()),
-        );
-      },
-    ),
+    // CategoryItem(
+    //   icon: Icons.task_alt,
+    //   label: 'Task',
+    //   iconColor: Colors.teal,
+    //   onPressed: (BuildContext context) {
+    //     Navigator.push(
+    //       context,
+    //       MaterialPageRoute(builder: (context) => Tasks()),
+    //     );
+    //   },
+    // ),
     CategoryItem(
       icon: Icons.book,
       label: 'Diary',
