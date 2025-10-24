@@ -272,7 +272,7 @@ class _Home_ScreenState extends State<Investment> {
 
       return investments;
     } catch (e) {
-      print('Error getting investment accounts with details: $e');
+      print('Error getting investment accounts with details: $e');  
       return [];
     }
   }
@@ -282,7 +282,7 @@ class _Home_ScreenState extends State<Investment> {
     if (name == 'My Savings') {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Cannot delete My Savings'),
+          content: Text('Cannot delete My Savings'), 
           backgroundColor: Colors.orange,
         ),
       );

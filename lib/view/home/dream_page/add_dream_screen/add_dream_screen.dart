@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart'; 
+import 'package:intl/intl.dart';
 import 'package:new_project_2025/view/home/dream_page/model_dream_page/model_dream.dart';
 import 'package:new_project_2025/view/home/dream_page/dream_class/db_class.dart';
 import 'package:new_project_2025/view/home/dream_page/mile_stone_screen/miles_stone_screen.dart';
@@ -41,6 +41,7 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
   List<InvestmentAccount> investmentAccounts = [];
   bool isLoading = true;
   int? _dreamId;
+  bool _isSaving = false; // ADDED: Prevent double save
 
   final TextEditingController _targetNameController = TextEditingController();
   final TextEditingController _targetAmountController = TextEditingController();
@@ -75,7 +76,16 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
     }
   }
 
-  Future<bool> _saveOrUpdateDream({bool isFinalSave = false}) async {
+  // FIXED: Single method to save/update dream
+  Future<bool> _saveOrUpdateDream() async {
+    // ADDED: Prevent duplicate saves
+    if (_isSaving) {
+      print('Save already in progress, skipping...');
+      return false;
+    }
+
+    _isSaving = true;
+
     try {
       final updatedDream = Dream(
         id: _dreamId,
@@ -86,8 +96,8 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
         savedAmount: savedAmount,
         targetDate: selectedDate ?? DateTime.now(),
         notes: notes,
-        closingBalance: 0.0, // Adjust based on your needs
-        addedAmount: 0.0, // Adjust based on your needs
+        closingBalance: 0.0,
+        addedAmount: 0.0,
       );
 
       Map<String, dynamic> dreamData = {
@@ -100,21 +110,22 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
         "category": selectedTarget!,
       };
 
-      Map<String, dynamic> dbData = {
-        "data": jsonEncode(dreamData),
-      }; // FIXED: Use jsonEncode
+      Map<String, dynamic> dbData = {"data": jsonEncode(dreamData)};
 
       if (_dreamId == null) {
         // New dream: Insert and get ID
         _dreamId = await _dbHelper.insertTargetdata(dbData);
-        if (_dreamId == 0) return false;
-
-        if (isFinalSave) {
-          widget.onDreamAdded(updatedDream.copyWith(id: _dreamId));
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Dream added successfully!')),
-          );
+        if (_dreamId == 0) {
+          _isSaving = false;
+          return false;
         }
+
+        // Call the callback to update parent widget
+        widget.onDreamAdded(updatedDream.copyWith(id: _dreamId));
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Dream added successfully!')),
+        );
       } else {
         // Edit: Update in DB
         final updateResult = await _dbHelper.updateData(
@@ -122,23 +133,27 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
           dbData,
           _dreamId!,
         );
-        if (updateResult == 0) return false;
-
-        if (isFinalSave) {
-          widget.onDreamUpdated?.call(updatedDream);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Dream updated successfully!')),
-          );
+        if (updateResult == 0) {
+          _isSaving = false;
+          return false;
         }
+
+        widget.onDreamUpdated?.call(updatedDream);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Dream updated successfully!')),
+        );
       }
+
+      _isSaving = false;
       return true;
     } catch (e) {
       print('Error saving dream: $e');
+      _isSaving = false;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Failed to ${isFinalSave ? (widget.dream == null ? 'add' : 'update') : 'save'} dream: $e',
-          ),
+          content: Text('Failed to save dream: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -185,7 +200,6 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
       );
       List<InvestmentAccount> investments = [];
 
-      // Add default "My Saving" option
       double mySavingBalance = await _calculateMySavingBalance();
       investments.add(
         InvestmentAccount(name: 'My Saving', balance: mySavingBalance),
@@ -366,10 +380,8 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
       } catch (e) {
         return Icon(Icons.broken_image, size: size, color: Colors.grey[400]);
       }
-    } else if (!category.isCustom && category.iconData != null) {
-      return Icon(category.iconData!, color: Colors.teal, size: size);
     } else {
-      return Icon(Icons.help_outline, color: Colors.grey[400], size: size);
+      return Icon(Icons.category, color: Colors.grey[400], size: size);
     }
   }
 
@@ -976,7 +988,7 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
                                                     .replaceAll(
                                                       RegExp(r'\.?0*$'),
                                                       '',
-                                                    );
+                                                    );  
                                                 showResult = true;
                                                 firstNumber = '';
                                                 operator = '';
@@ -1100,9 +1112,7 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
     if (picked != null && picked != selectedDate) {
       setState(() {
         selectedDate = picked;
-        _dateController.text = DateFormat(
-          'dd-MM-yyyy',
-        ).format(picked); // FIXED: Use DateFormat
+        _dateController.text = DateFormat('dd-MM-yyyy').format(picked);
       });
     }
   }
@@ -1290,6 +1300,7 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
                             : null,
               ),
               const SizedBox(height: 16),
+              // FIXED: Milestone button - only navigates, doesn't save
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
@@ -1302,31 +1313,43 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
                 ),
                 child: GestureDetector(
                   onTap: () async {
-                    if (_formKey.currentState!.validate() &&
-                        selectedTarget != null) {
-                      await _saveOrUpdateDream();
-                      if (_dreamId != null) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) =>
-                                    AddMileStonePage(targetId: _dreamId!),
+                    // Validate form first
+                    if (!_formKey.currentState!.validate() ||
+                        selectedTarget == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Please fill all required fields before adding milestones',
                           ),
-                        );
-                      } else {
+                        ),
+                      );
+                      return;
+                    }
+
+                    // Save dream if not already saved
+                    if (_dreamId == null) {
+                      final saved = await _saveOrUpdateDream();
+                      if (!saved) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text(
                               'Failed to save dream. Please try again.',
                             ),
+                            backgroundColor: Colors.red,
                           ),
                         );
+                        return;
                       }
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Please fill all required fields'),
+                    }
+
+                    // Navigate to milestone page
+                    if (_dreamId != null) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (context) =>
+                                  AddMileStonePage(targetId: _dreamId!),
                         ),
                       );
                     }
@@ -1351,26 +1374,31 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
                 onChanged: (value) => notes = value,
               ),
               const Spacer(),
+              // FIXED: Only save when this button is pressed
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () async {
-                    if (!_formKey.currentState!.validate()) return;
-                    if (selectedTarget == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Please select a target category'),
-                        ),
-                      );
-                      return;
-                    }
+                  onPressed:
+                      _isSaving
+                          ? null
+                          : () async {
+                            if (!_formKey.currentState!.validate()) return;
+                            if (selectedTarget == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Please select a target category',
+                                  ),
+                                ),
+                              );
+                              return;
+                            }
 
-                    // FIXED: Use _saveOrUpdateDream for consistency
-                    final success = await _saveOrUpdateDream(isFinalSave: true);
-                    if (success) {
-                      Navigator.pop(context);
-                    }
-                  },
+                            final success = await _saveOrUpdateDream();
+                            if (success) {
+                              Navigator.pop(context);
+                            }
+                          },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.teal,
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1378,10 +1406,23 @@ class _AddDreamScreenState extends State<AddDreamScreen> {
                       borderRadius: BorderRadius.circular(25),
                     ),
                   ),
-                  child: Text(
-                    widget.dream == null ? 'Add' : 'Update',
-                    style: const TextStyle(fontSize: 18, color: Colors.white),
-                  ),
+                  child:
+                      _isSaving
+                          ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                          : Text(
+                            widget.dream == null ? 'Add' : 'Update',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              color: Colors.white,
+                            ),
+                          ),
                 ),
               ),
             ],

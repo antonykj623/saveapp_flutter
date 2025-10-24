@@ -69,7 +69,6 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
       backgroundColor: Colors.grey[50],
       body: CustomScrollView(
         slivers: [
-          // Enhanced App Bar with Gradient and Glass Effect
           SliverAppBar(
             expandedHeight: 120,
             floating: false,

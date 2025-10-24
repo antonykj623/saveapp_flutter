@@ -38,7 +38,7 @@ class PaymentResponse {
   factory PaymentResponse.fromResponse(dynamic response) {
     if (response == null || response['msg'] == null) {
       throw Exception('Invalid response format');
-    }
+    } 
 
     List<String> parts = response['msg'].split('|');
     if (parts.length < 16) {

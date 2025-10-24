@@ -8,6 +8,7 @@ class LockPatternPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Pattern Lock',
       theme: ThemeData(
         primarySwatch: Colors.blue,

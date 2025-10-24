@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:new_project_2025/view/home/dream_page/add_dream_screen/add_dream_screen.dart';
+import 'package:new_project_2025/view/home/dream_page/mile_stone_screen/miles_stone_screen.dart';
 import 'package:new_project_2025/view/home/dream_page/model_dream_page/model_dream.dart';
 import 'package:new_project_2025/view/home/dream_page/dream_class/db_class.dart';
 import 'package:new_project_2025/view/home/dream_page/view_miles_stone/view_mile_stone.dart';
-
 import '../../widget/save_DB/Budegt_database_helper/Save_DB.dart';
 
 class ViewDetailsScreen extends StatefulWidget {
   final Dream dream;
   final Function(Dream)? onDreamUpdated;
 
-     
   const ViewDetailsScreen({
     required this.dream,
     this.onDreamUpdated,
@@ -209,7 +208,10 @@ class _ViewDetailsScreenState extends State<ViewDetailsScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => ViewMilestonesPage(),
+                      builder:
+                          (context) => AddMileStonePage(
+                            targetId: dream.id!,
+                          ), // Pass dream.id
                     ),
                   );
                 },
@@ -331,7 +333,7 @@ class _ViewDetailsScreenState extends State<ViewDetailsScreen> {
                                   showResult
                                       ? FontWeight.bold
                                       : FontWeight.normal,
-                            ),
+                            ), 
                             textAlign: TextAlign.right,
                           ),
                         ],
@@ -582,8 +584,7 @@ class _ViewDetailsScreenState extends State<ViewDetailsScreen> {
             ElevatedButton(
               onPressed: () async {
                 try {
-                  // Optionally update the dream to mark it as reached (add a flag in the Dream model if needed)
-                  Navigator.pop(context);
+                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Goal marked as reached!')),
                   );
@@ -596,6 +597,7 @@ class _ViewDetailsScreenState extends State<ViewDetailsScreen> {
                 }
               },
               child: const Text('Confirm'),
+              
             ),
           ],
         );

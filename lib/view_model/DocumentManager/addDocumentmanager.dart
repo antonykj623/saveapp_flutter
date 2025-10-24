@@ -14,8 +14,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 
 import 'documentManager.dart';
-
-class Adddocumentmanager extends StatefulWidget {
+ 
+class Adddocumentmanager extends StatefulWidget { 
   const Adddocumentmanager({super.key});
 
   @override

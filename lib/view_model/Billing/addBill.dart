@@ -5,7 +5,6 @@ import 'package:new_project_2025/view/home/widget/payment_page/payment_class/pay
 import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 import 'package:new_project_2025/view_model/AccountSet_up/Add_Acount.dart';
 import 'package:new_project_2025/view_model/billing_accout_setup/bill_account_setup.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class AddBill extends StatefulWidget {
   final Payment? payment;
@@ -37,13 +36,40 @@ class _AddBillState extends State<AddBill> {
   }
 
   Future<void> _incrementCounterAutomatically() async {
-    final prefs = await SharedPreferences.getInstance();
-    int counter = prefs.getInt('bill_counter') ?? 0;
-    counter++;
-    await prefs.setInt('bill_counter', counter);
-    setState(() {
-      _counter = counter;
-    });
+    try {
+      // Get the highest bill number from database
+      final accountsData = await DatabaseHelper().getAllData('TABLE_ACCOUNTS');
+      int maxBillNo = 0;
+
+      for (var item in accountsData) {
+        try {
+          String voucherType = item['ACCOUNTS_VoucherType']?.toString() ?? '0';
+          if (voucherType == '3') {
+            // Bill type
+            String billNumber =
+                item['ACCOUNTS_billVoucherNumber']?.toString() ?? '0';
+            int billNo = int.tryParse(billNumber) ?? 0;
+            if (billNo > maxBillNo) {
+              maxBillNo = billNo;
+            }
+          }
+        } catch (e) {
+          print('Error parsing bill number: $e');
+        }
+      }
+
+      // Set counter to next number
+      setState(() {
+        _counter = maxBillNo + 1;
+      });
+
+      print('Next bill number: $_counter');
+    } catch (e) {
+      print('Error getting next bill number: $e');
+      setState(() {
+        _counter = 1;
+      });
+    }
   }
 
   Future<void> _loadAccountsFromDB() async {
@@ -162,7 +188,13 @@ class _AddBillState extends State<AddBill> {
                 child: Row(
                   children: [
                     Text('Bill no                                      :'),
-                    Text(' Bill_000$_counter ', style: TextStyle(fontSize: 14)),
+                    Text(
+                      ' Bill_${_counter.toString().padLeft(4, '0')} ',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -304,7 +336,7 @@ class _AddBillState extends State<AddBill> {
                   ),
                   const SizedBox(width: 8),
                   FloatingActionButton(
-                    heroTag: "income_account_btn", // Added unique hero tag
+                    heroTag: "income_account_btn",
                     backgroundColor: Colors.red,
                     tooltip: 'Add Income Account',
                     shape: const CircleBorder(),

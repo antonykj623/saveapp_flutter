@@ -6,21 +6,19 @@ import 'package:new_project_2025/view/home/widget/setting_page/app_lock/check_pa
 import 'package:new_project_2025/view/home/widget/setting_page/app_lock/set_pattern.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
- void main() async {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
     debugPrint('Flutter Error: ${details.exception}');
     debugPrint('Stack trace: ${details.stack}');
-  };                     
+  };
 
   runApp(const MyApp());
 }
 
-
-class MyApp extends StatelessWidget { 
-   
+class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
 
   @override
@@ -68,7 +66,6 @@ class _SplashPageState extends State<SplashPage> {
 
   Future<void> _initializeApp() async {
     try {
-      // Add a small delay to ensure everything is ready
       await Future.delayed(const Duration(milliseconds: 500));
 
       // Then proceed with your existing logic

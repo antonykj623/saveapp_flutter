@@ -161,7 +161,7 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
                             ),
                           ),
                         ),
-                        TextButton(
+                        TextButton(  
                           onPressed: _showDeleteDialog,
                           child: const Text(
                             'Delete',

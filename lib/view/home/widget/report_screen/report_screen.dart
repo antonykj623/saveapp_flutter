@@ -1,21 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:new_project_2025/view/home/widget/report_screen/List_of_Insurance_report/List_of_insurance.dart';
+import 'package:new_project_2025/view/home/widget/report_screen/List_of_assets/List_of_assets.dart';
 import 'package:new_project_2025/view/home/widget/report_screen/Recharge_report/Recharge_report_screen.dart';
-
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: const ReportScreen(),
-    );
-  }
-}
+import 'package:new_project_2025/view/home/widget/report_screen/Transaction/Transaction.dart';
+import 'package:new_project_2025/view/home/widget/report_screen/bill_Res/Bill_Register.dart';
+import 'package:new_project_2025/view/home/widget/report_screen/ledger/Income_And_Expenditure.dart';
+import 'package:new_project_2025/view/home/widget/report_screen/ledger/ledger.dart';
+import 'package:new_project_2025/view/home/widget/report_screen/list_investment_report/List_of_invesment.dart';
+import 'package:new_project_2025/view/home/widget/report_screen/list_liabilities_Report/List_of_liabilities.dart';
+import 'package:new_project_2025/view_model/CashBank/cashBank.dart';
+import 'package:new_project_2025/view_model/Task/tasklist.dart';
 
 class ReportScreen extends StatelessWidget {
   const ReportScreen({super.key});
@@ -31,7 +25,7 @@ class ReportScreen extends StatelessWidget {
     'List of My Liabilities',
     'List of My Insurances',
     'List of My Investment',
-    "Bill Register ",
+    "Bill Register",
     'Recharge Report',
   ];
 
@@ -56,15 +50,82 @@ class ReportScreen extends StatelessWidget {
             return _buildReportItem(
               title: reportItems[index],
               onTap: () {
-                if (reportItems[index] == 'Recharge Report') {
+                if (reportItems[index] == 'Transactions') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const TransactionsScreen(),
+                    ),
+                  );
+                } else if (reportItems[index] == 'Recharge Report') {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => const RechargeReportPage(),
                     ),
                   );
-                } else {
-                  print('${reportItems[index]} tapped');
+                } else if (reportItems[index] == 'Cash and Bank') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const Cashbank()),
+                  );
+                } else if (reportItems[index] == 'Ledgers') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const PaymentReceiptLedger(),
+                    ),
+                  );
+                } else if (reportItems[index] == 'List of My Assets') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => ListOfAssetsPage()),
+                  );
+                } else if (reportItems[index] == 'List of My Liabilities') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ListOfLiabilitiesPage(),
+                    ),
+                  );
+                } else if (reportItems[index] == 'List of My Insurances') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ListOfInsurancePage(),
+                    ),
+                  );
+                } else if (reportItems[index] == 'List of My Investment') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ListOfInvestmentPage(),
+                    ),
+                  );
+                } else if (reportItems[index] == 'Bill Register') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => BillRegisterPage()),
+                  );
+                } else if (reportItems[index] == "Reminders") {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (context) => const TaskListPage(
+                            title: "Reminders",
+                            isReportPage: true,
+                          ),
+                    ),
+                  );
+                } else if (reportItems[index] ==
+                    "Income and Expenditure Statement") {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => IncomeExpenditure(),
+                    ),
+                  );
                 }
               },
             );

@@ -1,4 +1,3 @@
-// app_version_model.dart
 class AppVersionModel {
   final int status;
   final String message;

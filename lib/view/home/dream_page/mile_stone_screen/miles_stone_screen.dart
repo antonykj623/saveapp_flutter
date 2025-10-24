@@ -235,6 +235,7 @@ class _AddMileStonePageState extends State<AddMileStonePage> {
                   'Delete',
                   style: TextStyle(color: Colors.red),
                 ),
+                  
               ),
             ],
           ),

@@ -2427,6 +2427,63 @@ class DatabaseHelper {
       return result.first;
     }
     return null;
+  } // Insert a new task into TABLE_TASK
+
+  Future<int> insert(Map<String, dynamic> task, String tableName) async {
+    try {
+      final db = await database;
+      return await db.insert(tableName, task);
+    } catch (e) {
+      print("Error inserting task: $e");
+      return 0;
+    }
+  }
+
+  // Update an existing task in TABLE_TASK
+  // In DatabaseHelper class
+
+  // Fixed update method - works for ALL tables
+  Future<int> update(
+    Map<String, dynamic> data,
+    String tid,
+    String tableName,
+  ) async {
+    try {
+      final db = await database;
+      int id = int.tryParse(tid) ?? 0;
+
+      if (id <= 0) {
+        print("Error: Invalid ID provided: $tid");
+        return 0;
+      }
+
+      // Validate data
+      if (data.isEmpty) {
+        print("Error: No data provided for update");
+        return 0;
+      }
+
+      int result = await db.update(
+        tableName,
+        data,
+        where: 'keyid = ?',
+        whereArgs: [id],
+      );
+
+      if (result == 0) {
+        print("Warning: No record found with keyid: $id in table: $tableName");
+      } else {
+        print(
+          "✅ Updated successfully - Table: $tableName, ID: $id, Result: $result",
+        );
+      }
+
+      return result;
+    } catch (e, stackTrace) {
+      print("❌ Error updating $tableName with keyid $tid: $e");
+      print("Stack trace: $stackTrace");
+      return 0;
+    }
   }
 }
 

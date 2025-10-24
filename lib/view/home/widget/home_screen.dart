@@ -9,10 +9,15 @@ import 'package:new_project_2025/view/home/widget/DTH_screen/DTHScreen.dart';
 import 'package:new_project_2025/view/home/widget/DTH_screen/d_t_h_recharge_dashboard.dart';
 import 'package:new_project_2025/view/home/widget/More_page/More_page.dart';
 import 'package:new_project_2025/view/home/widget/carousel_slider/caroselSlider.dart';
-import 'package:new_project_2025/view/home/widget/insurance/insurance_database/Insurance_list_page/insurance_list_page.dart';
+import 'package:new_project_2025/view/home/widget/insurance/insurance_database/addinsurance.dart';
+import 'package:new_project_2025/view/home/widget/insurance/insurance_database/insurancelistpage.dart';
 import 'package:new_project_2025/view/home/widget/password_manger/password_manger/password_list_screen/Edit_password/Edit_password_screen.dart';
 import 'package:new_project_2025/view/home/widget/payment_recharge/Recharge_screen.dart';
 import 'package:new_project_2025/view_model/Accountfiles/CashAccount.dart';
+import 'package:new_project_2025/view_model/Task/createtask.dart';
+import 'package:new_project_2025/view_model/Task/tasklist.dart';
+import 'package:new_project_2025/view_model/assets/AssetListPage.dart';
+import 'package:new_project_2025/view_model/liability_lists/liabilitylist.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:animated_notch_bottom_bar/animated_notch_bottom_bar/animated_notch_bottom_bar.dart';
@@ -622,7 +627,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                         const Color(0xFFF5F5F5),
                       ],
             ),
-          ),
+          ), 
           child: Column(
             children: [
               _buildAppBar(),
@@ -1576,21 +1581,21 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       onPressed: (BuildContext context) {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => AssetDetailScreen()),
+          MaterialPageRoute(builder: (context) => AssetListPage()),
         );
       },
     ),
-    // CategoryItem(
-    //   icon: Icons.note_alt,
-    //   label: 'Liability',
-    //   iconColor: Colors.teal,
-    //   onPressed: (BuildContext context) {
-    //     Navigator.push(
-    //       context,
-    //       MaterialPageRoute(builder: (context) => Liabilities()),
-    //     );
-    //   },
-    // ),
+    CategoryItem(
+      icon: Icons.note_alt,
+      label: 'Liability',
+      iconColor: Colors.teal,
+      onPressed: (BuildContext context) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => LiabilityListPage()),
+        );
+      },
+    ),
     CategoryItem(
       icon: Icons.security,
       label: 'Insurance',
@@ -1605,17 +1610,17 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
   ];
 
   final List<CategoryItem> _lifeCategories = [
-    // CategoryItem(
-    //   icon: Icons.task_alt,
-    //   label: 'Task',
-    //   iconColor: Colors.teal,
-    //   onPressed: (BuildContext context) {
-    //     Navigator.push(
-    //       context,
-    //       MaterialPageRoute(builder: (context) => Tasks()),
-    //     );
-    //   },
-    // ),
+    CategoryItem(
+      icon: Icons.task_alt,
+      label: 'Task',
+      iconColor: Colors.teal,
+      onPressed: (BuildContext context) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => TaskListPage()),
+        );
+      },
+    ),
     CategoryItem(
       icon: Icons.book,
       label: 'Diary',

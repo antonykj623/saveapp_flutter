@@ -13,6 +13,7 @@ class PackListEntity {
           ? List<PackListPacks>.from(
               json['packs'].map((x) => PackListPacks.fromJson(x)))
           : [],
+
     );
   }
 

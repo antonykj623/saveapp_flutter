@@ -1,844 +1,655 @@
+// import 'dart:convert';
+// import 'package:flutter/material.dart';
+// import 'package:intl/intl.dart';
+// import '../../view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 
+// class Ledgercash extends StatefulWidget {
+//   final String accountName;
 
+//   const Ledgercash({super.key, required this.accountName});
 
-
-import 'dart:convert';
-
-import 'package:flutter/material.dart';
-
-import '../../model/receipt.dart';
-import '../../services/dbhelper/DatabaseHelper.dart';
-import '../../services/dbhelper/dbhelper.dart';
-
-
-import 'package:intl/intl.dart';
-
-var datefrom = '1-05-2025';
-var dateto = '22-05-2025';
-void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Receipt Tracker',
-      theme: ThemeData(
-        primarySwatch: Colors.teal,
-        colorScheme: ColorScheme.fromSwatch(
-          primarySwatch: Colors.teal,
-          accentColor: Colors.pink,
-        ),
-      ),
-      home: const Ledgercash(),
-    );
-  }
-}
-
-class Ledgercash extends StatefulWidget {
-  const Ledgercash({super.key});
-
-  @override
-  State<Ledgercash> createState() => _ReceiptsPageState();
-}
-
-class _ReceiptsPageState extends State<Ledgercash> {
-  String selectedYearMonth = DateFormat('yyyy-MM').format(DateTime.now());
-  DateTime selected_startDate = DateTime.now();
-  DateTime selected_endDate = DateTime.now();
-
-  List<Receipt> receipts = [];
-  double total = 0;
-  final ScrollController _verticalScrollController = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    _loadReceipts();
-  }
-
-  @override
-  void dispose() {
-    _verticalScrollController.dispose();
-    super.dispose();
-  }
-
-  void _loadReceipts() async {
-    // final receiptsList = await DatabaseHelper1.instance.getReceiptsByMonth(
-    //   DateFormat('yyyy-MM-dd').format(selectedDate),
-    // );
-    // setState(() {
-    //   receipts = receiptsList;
-    //   total = receipts.fold(0, (sum, receipt) => sum + receipt.amount);
-    // });
-  }
-
-
-
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.teal,
-        leading: IconButton(
-          onPressed: () {
-            Navigator.pop(context);
-          },
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-        ),
-        title: const Text('Cash/Bank', style: TextStyle(color: Colors.white)),
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(10.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [Text('Period From 01-05-2025 and 22-05-2025')],
-            ),
-          ),
-
-          Expanded(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.black12),
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey,
-                      border: const Border(
-                        bottom: BorderSide(color: Colors.black),
-                      ),
-                    ),
-
-
-
-
-                  ),
-               //
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: const Border(
-                          bottom: BorderSide(color: Colors.black),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          _buildHeaderCell('Date', flex: 2),
-                          _buildHeaderCell('Name', flex: 2),
-                          _buildHeaderCell('Credit', flex: 1),
-                         _buildHeaderCell('Debit', flex: 1),
-
-                          // _buildHeaderCell('Action', flex: 1),
-      ],
-                      ),
-                    ),
-                    Expanded(
-                      child: ListView(
-
-                                           // ListView.builder(
-                         // padding: const EdgeInsets.all(8),
-                         // itemBuilder: (BuildContext context, int index) {  },
-                          children: <Widget>[
-
-
-
-                            Column(
-                              children: [
-                                Container(
-                                  height:1,
-                                  decoration: BoxDecoration(
-                                  color: Colors.black,
-                                    border: const Border(
-                                      bottom: BorderSide(color: Colors.black),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      _buildHeaderCell('01-05-2025', flex: 2),
-                                      _buildHeaderCell('Cash', flex: 2),
-                                      _buildHeaderCell('2500', flex: 1),
-                                      _buildHeaderCell('500', flex: 1),
-                                      // _buildHeaderCell('Action', flex: 1),
-                                    ],
-                                  ),
-
-                                ),
-                              ],
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: const Border(
-                                  bottom: BorderSide(color: Colors.black,style: BorderStyle.solid),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  _buildHeaderCell('11-05-2025', flex: 2),
-                                  _buildHeaderCell('Cash', flex: 2),
-                                  _buildHeaderCell('2600', flex: 1),
-                                  _buildHeaderCell('100', flex: 1),
-                                  // _buildHeaderCell('Action', flex: 1),
-                                ],
-                              ),
-
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: const Border(
-                                  bottom: BorderSide(color: Colors.black),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  _buildHeaderCell('21-05-2025', flex: 2),
-                                  _buildHeaderCell('Agiriculture', flex: 2),
-                                  _buildHeaderCell('1500', flex: 1),
-                                  _buildHeaderCell('500', flex: 1),
-                                  // _buildHeaderCell('Action', flex: 1),
-                                ],
-                              ),
-
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: const Border(
-                                  bottom: BorderSide(color: Colors.black),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  _buildHeaderCell('22-05-2025', flex: 2),
-                                  _buildHeaderCell('Cash', flex: 2),
-                                  _buildHeaderCell('2500', flex: 1),
-                                  _buildHeaderCell('500', flex: 1),
-                                ],
-                              ),
-
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: const Border(
-                                  bottom: BorderSide(color: Colors.black),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  _buildHeaderCell('23-05-2025', flex: 2),
-                                  _buildHeaderCell('Cash', flex: 2),
-                                  _buildHeaderCell(' ', flex: 1),
-                                  _buildHeaderCell('500', flex: 1),
-                                ],
-                              ),
-
-
-
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: const Border(
-                                  bottom: BorderSide(color: Colors.black),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  _buildHeaderCell('24-05-2025', flex: 2),
-                                  _buildHeaderCell(' ', flex: 2),
-                                  _buildHeaderCell('250', flex: 1),
-                                  _buildHeaderCell('500', flex: 1),
-                                ],
-                              ),
-
-
-
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: const Border(
-                                  bottom: BorderSide(color: Colors.black),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  _buildHeaderCell('22-05-2025', flex: 2),
-                                  _buildHeaderCell(' ', flex: 2),
-                                  _buildHeaderCell('2550', flex: 1),
-                                  _buildHeaderCell('5000', flex: 1),
-                                ],
-                              ),
-
-
-
-                            ),
-                            // Container(
-                            //   decoration: BoxDecoration(
-                            //     color: Colors.white,
-                            //     border: const Border(
-                            //       bottom: BorderSide(color: Colors.black),
-                            //     ),
-                            //   ),
-                            //   child: Row(
-                            //     children: [
-                            //       _buildHeaderCell('Date', flex: 1),
-                            //       _buildHeaderCell('Account Name', flex: 2),
-                            //       _buildHeaderCell('Amount', flex: 1),
-                            //       _actionButton('Edit/delete', flex: 1)
-                            //       // _buildHeaderCell('Action', flex: 1),
-                            //     ],
-                            //   ),
-                            //
-                            //
-                            //
-                            //
-                            // ),
-                            // Container(
-                            //   decoration: BoxDecoration(
-                            //     color: Colors.white,
-                            //     border: const Border(
-                            //       bottom: BorderSide(color: Colors.black),
-                            //     ),
-                            //   ),
-                            //   child: Row(
-                            //     children: [
-                            //       _buildHeaderCell('Date', flex: 1),
-                            //       _buildHeaderCell('Account Name', flex: 2),
-                            //       _buildHeaderCell('Amount', flex: 1),
-                            //       _actionButton('Edit/delete', flex: 1)
-                            //       // _buildHeaderCell('Action', flex: 1),
-                            //     ],
-                            //   ),
-                            //
-                            //
-                            //
-                            // ),
-                            // Container(
-                            //   decoration: BoxDecoration(
-                            //     color: Colors.white,
-                            //     border: const Border(
-                            //       bottom: BorderSide(color: Colors.black),
-                            //     ),
-                            //   ),
-                            //   child: Row(
-                            //     children: [
-                            //       _buildHeaderCell('Date', flex: 1),
-                            //       _buildHeaderCell('Account Name', flex: 2),
-                            //       _buildHeaderCell('Amount', flex: 1),
-                            //       _actionButton('Edit/delete', flex: 1)
-                            //       // _buildHeaderCell('Action', flex: 1),
-                            //     ],
-                            //   ),
-                            //
-                            //
-                            //
-                            // ),
-                            // Container(
-                            //   decoration: BoxDecoration(
-                            //     color: Colors.white,
-                            //     border: const Border(
-                            //       bottom: BorderSide(color: Colors.black),
-                            //     ),
-                            //   ),
-                            //   child: Row(
-                            //     children: [
-                            //       _buildHeaderCell('Date', flex: 1),
-                            //       _buildHeaderCell('Account Name', flex: 2),
-                            //       _buildHeaderCell('Amount', flex: 1),
-                            //       _actionButton('Edit/delete', flex: 1)
-                            //       // _buildHeaderCell('Action', flex: 1),
-                            //     ],
-                            //   ),
-                            //
-                            //
-                            //
-                            // ),
-                            // Container(
-                            //   decoration: BoxDecoration(
-                            //     color: Colors.white,
-                            //     border: const Border(
-                            //       bottom: BorderSide(color: Colors.black),
-                            //     ),
-                            //   ),
-                            //   child: Row(
-                            //     children: [
-                            //       _buildHeaderCell('Date', flex: 1),
-                            //       _buildHeaderCell('Account Name', flex: 2),
-                            //       _buildHeaderCell('Amount', flex: 1),
-                            //       _actionButton('Edit/delete', flex: 1)
-                            //       // _buildHeaderCell('Action', flex: 1),
-                            //     ],
-                            //   ),
-                            //
-                            //
-                            //
-                            // ),
-                            // Container(
-                            //   decoration: BoxDecoration(
-                            //     color: Colors.white,
-                            //     border: const Border(
-                            //       bottom: BorderSide(color: Colors.black),
-                            //     ),
-                            //   ),
-                            //   child: Row(
-                            //     children: [
-                            //       _buildHeaderCell('Date', flex: 1),
-                            //       _buildHeaderCell('Account Name', flex: 2),
-                            //       _buildHeaderCell('Amount', flex: 1),
-                            //       _actionButton('Edit/delete', flex: 1)
-                            //       // _buildHeaderCell('Action', flex: 1),
-                            //     ],
-                            //   ),
-                            //
-                            //
-                            //
-                            // ),
-                            //
-                            // Container(
-                            //   decoration: BoxDecoration(
-                            //     color: Colors.white,
-                            //     border: const Border(
-                            //       bottom: BorderSide(color: Colors.black),
-                            //     ),
-                            //   ),
-                            //   child: Row(
-                            //     children: [
-                            //       _buildHeaderCell('Date', flex: 1),
-                            //       _buildHeaderCell('Account Name', flex: 2),
-                            //       _buildHeaderCell('Amount', flex: 1),
-                            //       _actionButton('Edit/delete', flex: 1)
-                            //       // _buildHeaderCell('Action', flex: 1),
-                            //     ],
-                            //   ),
-                            //
-                            //
-                            //
-                            // ),
-                            // Container(
-                            //   decoration: BoxDecoration(
-                            //     color: Colors.white,
-                            //     border: const Border(
-                            //       bottom: BorderSide(color: Colors.black),
-                            //     ),
-                            //   ),
-                            //   child: Row(
-                            //     children: [
-                            //       _buildHeaderCell('Date', flex: 1),
-                            //       _buildHeaderCell('Account Name', flex: 2),
-                            //       _buildHeaderCell('Amount', flex: 1),
-                            //       _actionButton('Edit/delete', flex: 1)
-                            //       // _buildHeaderCell('Action', flex: 1),
-                            //     ],
-                            //   ),
-                            //
-                            //
-                            //
-                            // ),
-                            // Container(
-                            //   decoration: BoxDecoration(
-                            //     color: Colors.white,
-                            //     border: const Border(
-                            //       bottom: BorderSide(color: Colors.black),
-                            //     ),
-                            //   ),
-                            //   child: Row(
-                            //     children: [
-                            //       _buildHeaderCell('Date', flex: 1),
-                            //       _buildHeaderCell('Account Name', flex: 2),
-                            //       _buildHeaderCell('Amount', flex: 1),
-                            //       _actionButton('Edit/delete', flex: 1)
-                            //       // _buildHeaderCell('Action', flex: 1),
-                            //     ],
-                            //   ),
-                            //
-                            //
-                            //
-                            // ),
-                            // Container(
-                            //   decoration: BoxDecoration(
-                            //     color: Colors.white,
-                            //     border: const Border(
-                            //       bottom: BorderSide(color: Colors.black),
-                            //     ),
-                            //   ),
-                            //   child: Row(
-                            //     children: [
-                            //       _buildHeaderCell('Date', flex: 1),
-                            //       _buildHeaderCell('Account Name', flex: 2),
-                            //       _buildHeaderCell('Amount', flex: 1),
-                            //
-                            //       _actionButton('Edit/delete', flex: 1)
-                            //
-                            //       // _buildHeaderCell('Action', flex: 1),
-                            //     ],
-                            //   ),
-                            //
-                            // ),
-                          ],
-                        ),
-                    ),
-
-                  //
-                  // ListView.builder(
-                  //     controller: _verticalScrollController,
-                  //     itemCount: 10,
-                  //     itemBuilder: (context, index) {
-                  //       final receipt = receipts[index];
-                  //       return Container(
-                  //         decoration: BoxDecoration(
-                  //           border: Border(
-                  //             bottom: BorderSide(
-                  //               color: Colors.grey,
-                  //             ),
-                  //           ),
-                  //         ),
-                  //         child: Row(
-                  //           children: [
-                  //             Container(
-                  //               decoration: BoxDecoration(
-                  //                 color: Colors.grey.shade200,
-                  //                 border: const Border(
-                  //                   bottom: BorderSide(color: Colors.black),
-                  //                 ),
-                  //               ),
-                  //               child: Row(
-                  //                 children: [
-                  //                   _buildHeaderCell('Date', flex: 1),
-                  //                   _buildHeaderCell('Name', flex: 2),
-                  //                   _buildHeaderCell('Date', flex: 1),
-                  //                   _buildHeaderCell('Cash/Bank', flex: 1),
-                  //                   // _buildHeaderCell('Action', flex: 1),
-                  //                 ],
-                  //               ),
-                  //
-                  //             ),
-                  //             _buildDataCell(
-                  //               DateFormat('dd/M/yyyy').format(
-                  //                 DateFormat(
-                  //                   'yyyy-MM-dd',
-                  //                 ).parse(receipt.date),
-                  //               ),
-                  //               flex: 1,
-                  //             ),
-                  //             _buildDataCell(
-                  //               receipt.accountName,
-                  //               flex: 2,
-                  //             ),
-                  //             _buildDataCell(
-                  //               receipt.amount.toString(),
-                  //               flex: 1,
-                  //             ),
-                  //             _buildDataCell(
-                  //               receipt.paymentMode,
-                  //               flex: 1,
-                  //             ),
-                  //             Expanded(
-                  //               flex: 1,
-                  //               child: Container(
-                  //                 alignment: Alignment.center,
-                  //                 padding: const EdgeInsets.symmetric(
-                  //                   vertical: 8,
-                  //                 ),
-                  //                 child: TextButton(
-                  //                   onPressed: () {
-                  //                     showDialog(
-                  //                       context: context,
-                  //                       builder:
-                  //                           (context) => AlertDialog(
-                  //                         content: Column(
-                  //                           mainAxisSize:
-                  //                           MainAxisSize.min,
-                  //                           children: [
-                  //                             ListTile(
-                  //                               title: const Text(
-                  //                                 'Edit',
-                  //                               ),
-                  //                               onTap: () {
-                  //                                 // Navigator.pop(context);
-                  //                                 // Navigator.push(
-                  //                                 //   context,
-                  //                                 //   MaterialPageRoute(
-                  //                                 //     builder: (context) => AddReceiptVoucher(
-                  //                                 //       receipt: receipt,
-                  //                                 //     ),
-                  //                                 //   ),
-                  //                                 // ).then((_) => _loadReceipts());
-                  //                               },
-                  //                             ),
-                  //                             ListTile(
-                  //                               title: const Text(
-                  //                                 'Delete',
-                  //                               ),
-                  //                               onTap: () async {
-                  //                                 await DatabaseHelper1
-                  //                                     .instance
-                  //                                     .deleteReceipt(
-                  //                                   receipt.id!,
-                  //                                 );
-                  //                                 _loadReceipts();
-                  //                                 if (context
-                  //                                     .mounted)
-                  //                                   Navigator.pop(
-                  //                                     context,
-                  //                                   );
-                  //                               },
-                  //                             ),
-                  //                           ],
-                  //                         ),
-                  //                       ),
-                  //                     );
-                  //                   },
-                  //                   child: const Text(
-                  //                     'View',
-                  //                     style: TextStyle(
-                  //                       color: Colors.green,
-                  //                     ),
-                  //                   ),
-                  //                 ),
-                  //               ),
-                  //             ),
-                  //           ],
-                  //         ),
-                  //       );
-                  //     },
-                  //   ),
-                  //
-
-                ],
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Text(
-              'Ledger: ${total.toStringAsFixed(1)} (Credit)',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
-
-    );
-  }
-
-
-  Widget _actionButton(String text, {required int flex}) {
-    return Expanded(
-      flex: flex,
-      child: Container(
-        height: 50,
-        alignment: Alignment.center,
-        padding: const EdgeInsets.all(4.0),
-        decoration: BoxDecoration(
-          border: Border(right: BorderSide(color: Colors.black,)),
-        ),
-        child: TextButton(onPressed: (){
-
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => Ledgercash()),
-          );
-
-        }, child: Text("Edit/Delete",textAlign: TextAlign.center,style: TextStyle(fontWeight: FontWeight.bold,color: Colors.red,fontSize: 10),)),
-      ),
-    );
-  }
-
-  Widget _buildHeaderCell(String text, {required int flex}) {
-    return Expanded(
-      flex: flex,
-      child: Container(
-        height: 50,
-        alignment: Alignment.center,
-        padding: const EdgeInsets.all(8.0),
-        decoration: BoxDecoration(
-          border: Border(right: BorderSide(color: Colors.grey.shade400)),
-        ),
-        child: Text(
-          text,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-          textAlign: TextAlign.center,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDataCell(String text, {required int flex}) {
-    return Expanded(
-      flex: flex,
-      child: Container(
-        height: 50,
-        alignment: Alignment.center,
-        padding: const EdgeInsets.all(8.0),
-        decoration: BoxDecoration(
-          border: Border(right: BorderSide(color: Colors.grey.shade300)),
-        ),
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
-    );
-  }
-}
-//
-// class CashBank extends StatefulWidget {
-//   const CashBank({super.key});
-//
 //   @override
-//   State<CashBank> createState() => _SlidebleListState1();
+//   State<Ledgercash> createState() => _LedgercashState();
 // }
-//
-//
-//
-// String finalDate = '';
-// var now = DateTime.now();
-// var formatter = DateFormat('yyyy-MM-dd');
-// String formattedDate = formatter.format(now);
-//
-//
-//
-// final dbhelper = DatabaseHelper.instance;
-//
-// class _SlidebleListState1 extends State<CashBank> {
-//   TextEditingController txt1 = TextEditingController( );
-//   TextEditingController txt2 = TextEditingController( );
-//
-//   String finalDate = '';
-//   void getdate(){
-//     var now = DateTime.now();
-//     var formatter = DateFormat('dd-MM-yyyy');
-//     String formattedDate = formatter.format(now);
-//
-//    print(formattedDate);
-//     setState(() {
-//       txt1.text = formattedDate;
-//      // txt2.text = formattedDate;
-//     });
-//
-//   }
-//
+
+// class _LedgercashState extends State<Ledgercash> {
+//   DateTime selected_startDate = DateTime.now().subtract(Duration(days: 30));
+//   DateTime selected_endDate = DateTime.now();
+//   List<Map<String, dynamic>> transactions = [];
+//   double openingBalance = 0;
+//   double closingBalance = 0;
+//   double totalDebits = 0;
+//   double totalCredits = 0;
+//   int totalTransactions = 0;
+//   int debitCount = 0;
+//   int creditCount = 0;
+//   String accountType = '';
+//   final ScrollController _verticalScrollController = ScrollController();
+
 //   @override
 //   void initState() {
-//
 //     super.initState();
-//     getdate();
-//
-//
+//     _loadTransactions();
 //   }
-//
-//   // get dbhelper1 => null;
-//
+
 //   @override
-//   Widget build(BuildContext context) {
-//
-//
-//
-//
-//     return Scaffold(
-//       // appBar: AppBar(title: const Text('Add Account Setup')),
-//       appBar: AppBar(
-//         backgroundColor: Colors.teal,
-//
-//         leading: IconButton(onPressed: (){
-//           Navigator.pop(context);
-//
-//         }, icon: Icon(Icons.arrow_back, color: Colors.white,
-//         )),
-//
-//         title: Text('Cash/Bank',style: TextStyle(color: Colors.white)),
-//
-//       ),
-//
-//       body: Padding(
-//         padding: const EdgeInsets.all(20.0),
-//
-//           child: Row(
-//               mainAxisAlignment: MainAxisAlignment.spaceAround,
-//     children: [
-//
-//           Container(
-//             width: 150,
-//             child:
-//
-//
-//             TextField(
-//             //  controller:datePickerController;
-//               controller: txt1,
-//
-//               readOnly: true,
-//
-//               decoration:
-//
-//               const InputDecoration(suffixIcon: Icon(Icons.calendar_month),   border: OutlineInputBorder() ),
-//
-//               onTap: () => onTapFunction(context: context),
-//             ),
-//           ),
-//
-//       Container(
-//         width: 150,
-//
-//         child: TextField(
-//          // controller:datePickerController;
-//           controller: datePickerController,
-//           readOnly: true,
-//
-//           decoration:
-//
-//           const InputDecoration(  suffixIcon: Icon(Icons.calendar_month),   border: OutlineInputBorder() ),
-//
-//           onTap: () => onTapFunction(context: context),
-//
+//   void dispose() {
+//     _verticalScrollController.dispose();
+//     super.dispose();
+//   }
+
+//   void selectDate(bool isStart) {
+//     showDatePicker(
+//       context: context,
+//       initialDate: isStart ? selected_startDate : selected_endDate,
+//       firstDate: DateTime(2000),
+//       lastDate: DateTime(2100),
+//     ).then((pickedDate) {
+//       if (pickedDate != null) {
+//         setState(() {
+//           if (isStart) {
+//             selected_startDate = pickedDate;
+//           } else {
+//             selected_endDate = pickedDate;
+//           }
+//           _loadTransactions();
+//         });
+//       }
+//     });
+//   }
+
+//   DateTime _parseDate(String dateStr) {
+//     try {
+//       return DateFormat('dd/MM/yyyy').parse(dateStr);
+//     } catch (e) {
+//       try {
+//         return DateFormat('yyyy-MM-dd').parse(dateStr);
+//       } catch (e2) {
+//         try {
+//           return DateFormat('dd-MM-yyyy').parse(dateStr);
+//         } catch (e3) {
+//           print('Error parsing date: $dateStr');
+//           return DateTime.now();
+//         }
+//       }
+//     }
+//   }
+
+//   bool _isDateInRange(String dateStr, DateTime start, DateTime end) {
+//     try {
+//       DateTime txDate = _parseDate(dateStr);
+//       DateTime startOfDay = DateTime(start.year, start.month, start.day);
+//       DateTime endOfDay = DateTime(end.year, end.month, end.day, 23, 59, 59);
+//       return txDate.isAfter(startOfDay.subtract(Duration(seconds: 1))) &&
+//           txDate.isBefore(endOfDay.add(Duration(seconds: 1)));
+//     } catch (e) {
+//       print('Error checking date range: $e');
+//       return false;
+//     }
+//   }
+
+//   Future<void> _loadTransactions() async {
+//     try {
+//       final db = await DatabaseHelper().database;
+
+//       print('\n=== Loading Transactions for ${widget.accountName} ===');
+//       print(
+//         'Date Range: ${DateFormat('dd/MM/yyyy').format(selected_startDate)} to ${DateFormat('dd/MM/yyyy').format(selected_endDate)}',
+//       );
+
+//       // Find the account setup ID
+//       final account = await db.query(
+//         'TABLE_ACCOUNTSETTINGS',
+//         where: "data LIKE ?",
+//         whereArgs: ['%\"Accountname\":\"${widget.accountName}\"%'],
+//       );
+
+//       if (account.isEmpty) {
+//         throw Exception('Account ${widget.accountName} not found');
+//       }
+
+//       final setupId = account.first['keyid'].toString();
+//       final data = account.first['data'];
+
+//       print('Account Setup ID: $setupId');
+
+//       if (data is String) {
+//         Map<String, dynamic> accountData = jsonDecode(data);
+//         accountType = accountData['Type'].toString().toLowerCase();
+//         openingBalance =
+//             double.tryParse(accountData['balance']?.toString() ?? '0') ?? 0;
+
+//         print('Account Type: $accountType');
+//         print('Opening Balance: $openingBalance');
+
+//         // Get ALL transactions for this account (no date filter in SQL)
+//         final allTransactions = await db.query(
+//           'TABLE_ACCOUNTS',
+//           where: "ACCOUNTS_setupid = ?",
+//           whereArgs: [setupId],
+//           orderBy: "ACCOUNTS_id ASC",
+//         );
+
+//         print('Total transactions found in DB: ${allTransactions.length}');
+
+//         // Filter transactions by date range in Dart
+//         List<Map<String, dynamic>> transactionsResult = [];
+//         for (var tx in allTransactions) {
+//           String txDateStr = tx['ACCOUNTS_date'].toString();
+//           if (_isDateInRange(txDateStr, selected_startDate, selected_endDate)) {
+//             transactionsResult.add(tx);
+//           }
+//         }
+
+//         print(
+//           'Transactions in selected date range: ${transactionsResult.length}',
+//         );
+
+//         List<Map<String, dynamic>> txList = [];
+//         double runningBalance = openingBalance;
+//         double debitsTotal = 0;
+//         double creditsTotal = 0;
+//         int drCount = 0;
+//         int crCount = 0;
+
+//         // Get account setup information for contra entries
+//         List<Map<String, dynamic>> allAccounts = await db.query(
+//           'TABLE_ACCOUNTSETTINGS',
+//         );
+//         Map<String, String> setupIdToAccountName = {};
+
+//         for (var acc in allAccounts) {
+//           try {
+//             Map<String, dynamic> accData = jsonDecode(acc["data"]);
+//             String accSetupId = acc['keyid'].toString();
+//             String accName = accData['Accountname'].toString();
+//             setupIdToAccountName[accSetupId] = accName;
+//           } catch (e) {
+//             print('Error parsing account: $e');
+//           }
+//         }
+
+//         for (var tx in transactionsResult) {
+//           double amount = double.parse(tx['ACCOUNTS_amount'].toString());
+//           bool isDebit =
+//               tx['ACCOUNTS_type'].toString().toLowerCase() == 'debit';
+//           int voucherType =
+//               int.tryParse(tx['ACCOUNTS_VoucherType']?.toString() ?? '0') ?? 0;
+//           String entryId = tx['ACCOUNTS_entryid']?.toString() ?? '';
+
+//           print('\nTransaction ID: ${tx['ACCOUNTS_id']}');
+//           print('  Date: ${tx['ACCOUNTS_date']}');
+//           print('  Amount: $amount');
+//           print('  Type: ${isDebit ? "Debit" : "Credit"}');
+//           print('  Voucher Type: $voucherType (1=Payment, 2=Receipt)');
+
+//           // Count debits and credits
+//           if (isDebit) {
+//             debitsTotal += amount;
+//             drCount++;
+//           } else {
+//             creditsTotal += amount;
+//             crCount++;
+//           }
+
+//           // Find contra entry
+//           String contraAccount = '';
+//           String transactionDescription = '';
+
+//           try {
+//             var contraEntry = await db.query(
+//               'TABLE_ACCOUNTS',
+//               where:
+//                   "ACCOUNTS_VoucherType = ? AND ACCOUNTS_entryid = ? AND ACCOUNTS_setupid != ?",
+//               whereArgs: [voucherType, entryId, setupId],
+//               limit: 1,
+//             );
+
+//             if (contraEntry.isNotEmpty) {
+//               String contraSetupId =
+//                   contraEntry.first['ACCOUNTS_setupid'].toString();
+//               contraAccount =
+//                   setupIdToAccountName[contraSetupId] ?? 'Unknown Account';
+//               print('  Contra Account: $contraAccount');
+//             }
+//           } catch (e) {
+//             print('  Error finding contra entry: $e');
+//           }
+
+//           // Determine transaction type
+//           String txType = '';
+//           if (voucherType == 1) {
+//             // Payment voucher
+//             txType = isDebit ? 'Payment To' : 'Payment From';
+//           } else if (voucherType == 2) {
+//             // Receipt voucher
+//             txType = isDebit ? 'Receipt From' : 'Receipt To';
+//           } else {
+//             txType = 'Transaction';
+//           }
+
+//           transactionDescription =
+//               contraAccount.isNotEmpty
+//                   ? '$txType $contraAccount'
+//                   : tx['ACCOUNTS_remarks']?.toString() ?? 'Transaction';
+
+//           // Calculate running balance
+//           if (accountType == 'debit') {
+//             runningBalance =
+//                 isDebit ? runningBalance + amount : runningBalance - amount;
+//           } else {
+//             runningBalance =
+//                 isDebit ? runningBalance - amount : runningBalance + amount;
+//           }
+
+//           print('  Description: $transactionDescription');
+//           print('  Running Balance: $runningBalance');
+
+//           txList.add({
+//             'date': tx['ACCOUNTS_date'],
+//             'description': transactionDescription,
+//             'contraAccount': contraAccount,
+//             'debitAmount': isDebit ? amount : 0,
+//             'creditAmount': isDebit ? 0 : amount,
+//             'balance': runningBalance,
+//             'remarks': tx['ACCOUNTS_remarks'] ?? '',
+//             'voucherType': voucherType,
+//             'entryType': isDebit ? 'Dr' : 'Cr',
+//           });
+//         }
+
+//         print('\n=== Summary ===');
+//         print('Total Transactions: ${txList.length}');
+//         print('Debit Count: $drCount');
+//         print('Credit Count: $crCount');
+//         print('Total Debits: $debitsTotal');
+//         print('Total Credits: $creditsTotal');
+//         print('Closing Balance: $runningBalance');
+
+//         setState(() {
+//           transactions = txList;
+//           closingBalance = runningBalance;
+//           totalDebits = debitsTotal;
+//           totalCredits = creditsTotal;
+//           totalTransactions = txList.length;
+//           debitCount = drCount;
+//           creditCount = crCount;
+//         });
+//       }
+//     } catch (e) {
+//       print('Error loading transactions: $e');
+//       if (mounted) {
+//         ScaffoldMessenger.of(context).showSnackBar(
+//           SnackBar(content: Text('Error loading transactions: $e')),
+//         );
+//       }
+//     }
+//   }
+
+//   String _getDisplayStartDate() {
+//     return DateFormat('dd/MM/yyyy').format(selected_startDate);
+//   }
+
+//   String _getDisplayEndDate() {
+//     return DateFormat('dd/MM/yyyy').format(selected_endDate);
+//   }
+
+//   Widget _buildHeaderCell(String text, {required int flex}) {
+//     return Expanded(
+//       flex: flex,
+//       child: Container(
+//         height: 50,
+//         alignment: Alignment.center,
+//         padding: const EdgeInsets.all(4.0),
+//         decoration: BoxDecoration(
+//           border: Border(right: BorderSide(color: Colors.grey.shade400)),
+//           color: Colors.grey.shade200,
+//         ),
+//         child: Text(
+//           text,
+//           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+//           textAlign: TextAlign.center,
 //         ),
 //       ),
-//
-//
-//
-//
-//
-//
-//
-//
-//     ]), ),
-//
-//
-//
-//
-//
-//   );
-//
-//
+//     );
 //   }
-//
-// }
-// TextEditingController datePickerController = TextEditingController();
-// onTapFunction({required BuildContext context}) async {
-//   DateTime? pickedDate = await showDatePicker(
-//     context: context,
-//     lastDate: DateTime.now(),
-//     firstDate: DateTime(2015),
-//     initialDate: DateTime.now(),
-//   );
-//   if (pickedDate == null) return;
-//
-//   datePickerController.text = DateFormat('dd-MM-yyyy').format(pickedDate);
-//
-//
-//
-//
+
+//   Widget _buildDataCell(String text, {required int flex, Color? textColor}) {
+//     return Expanded(
+//       flex: flex,
+//       child: Container(
+//         height: 50,
+//         alignment: Alignment.center,
+//         padding: const EdgeInsets.all(4.0),
+//         decoration: BoxDecoration(
+//           border: Border(right: BorderSide(color: Colors.grey.shade300)),
+//         ),
+//         child: Text(
+//           text,
+//           textAlign: TextAlign.center,
+//           overflow: TextOverflow.ellipsis,
+//           style: TextStyle(
+//             fontSize: 10,
+//             color: textColor ?? Colors.black,
+//             fontWeight: textColor != null ? FontWeight.bold : FontWeight.normal,
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+
+//   Color _getBalanceColor(double balance) {
+//     if (balance > 0) return Colors.green;
+//     if (balance < 0) return Colors.red;
+//     return Colors.black;
+//   }
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       appBar: AppBar(
+//         backgroundColor: Colors.teal,
+//         leading: IconButton(
+//           onPressed: () => Navigator.pop(context),
+//           icon: const Icon(Icons.arrow_back, color: Colors.white),
+//         ),
+//         title: Text(
+//           '${widget.accountName} Ledger',
+//           style: const TextStyle(color: Colors.white, fontSize: 16),
+//         ),
+//       ),
+//       body: Column(
+//         children: [
+//           // Date selection
+//           Padding(
+//             padding: const EdgeInsets.all(10.0),
+//             child: Row(
+//               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+//               children: [
+//                 Expanded(
+//                   child: InkWell(
+//                     onTap: () => selectDate(true),
+//                     child: Container(
+//                       padding: const EdgeInsets.all(8),
+//                       margin: const EdgeInsets.symmetric(horizontal: 4),
+//                       decoration: BoxDecoration(
+//                         border: Border.all(color: Colors.black),
+//                         borderRadius: BorderRadius.circular(6),
+//                       ),
+//                       child: Row(
+//                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//                         children: [
+//                           Text(
+//                             _getDisplayStartDate(),
+//                             style: const TextStyle(fontSize: 13),
+//                           ),
+//                           const Icon(Icons.calendar_today, size: 16),
+//                         ],
+//                       ),
+//                     ),
+//                   ),
+//                 ),
+//                 Expanded(
+//                   child: InkWell(
+//                     onTap: () => selectDate(false),
+//                     child: Container(
+//                       padding: const EdgeInsets.all(8),
+//                       margin: const EdgeInsets.symmetric(horizontal: 4),
+//                       decoration: BoxDecoration(
+//                         border: Border.all(color: Colors.black),
+//                         borderRadius: BorderRadius.circular(6),
+//                       ),
+//                       child: Row(
+//                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//                         children: [
+//                           Text(
+//                             _getDisplayEndDate(),
+//                             style: const TextStyle(fontSize: 13),
+//                           ),
+//                           const Icon(Icons.calendar_today, size: 16),
+//                         ],
+//                       ),
+//                     ),
+//                   ),
+//                 ),
+//               ],
+//             ),
+//           ),
+
+//           // Transaction Summary Card
+//           Container(
+//             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+//             padding: const EdgeInsets.all(12),
+//             decoration: BoxDecoration(
+//               gradient: LinearGradient(
+//                 colors: [Colors.teal.shade50, Colors.teal.shade100],
+//               ),
+//               borderRadius: BorderRadius.circular(8),
+//               border: Border.all(color: Colors.teal.shade300),
+//             ),
+//             child: Column(
+//               children: [
+//                 Text(
+//                   'Transaction Summary',
+//                   style: TextStyle(
+//                     fontSize: 14,
+//                     fontWeight: FontWeight.bold,
+//                     color: Colors.teal.shade900,
+//                   ),
+//                 ),
+//                 const SizedBox(height: 10),
+//                 Row(
+//                   mainAxisAlignment: MainAxisAlignment.spaceAround,
+//                   children: [
+//                     _buildSummaryItem(
+//                       'Total\nTransactions',
+//                       totalTransactions.toString(),
+//                       Colors.blue,
+//                     ),
+//                     _buildSummaryItem(
+//                       'Debit\nEntries',
+//                       debitCount.toString(),
+//                       Colors.orange,
+//                     ),
+//                     _buildSummaryItem(
+//                       'Credit\nEntries',
+//                       creditCount.toString(),
+//                       Colors.purple,
+//                     ),
+//                   ],
+//                 ),
+//               ],
+//             ),
+//           ),
+
+//           // Balance Summary
+//           Container(
+//             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+//             padding: const EdgeInsets.all(10),
+//             decoration: BoxDecoration(
+//               color: Colors.blue.shade50,
+//               border: Border.all(color: Colors.blue.shade200),
+//               borderRadius: BorderRadius.circular(6),
+//             ),
+//             child: Row(
+//               mainAxisAlignment: MainAxisAlignment.spaceAround,
+//               children: [
+//                 _buildBalanceItem(
+//                   'Opening',
+//                   openingBalance,
+//                   _getBalanceColor(openingBalance),
+//                 ),
+//                 _buildBalanceItem('Total Dr', totalDebits, Colors.orange),
+//                 _buildBalanceItem('Total Cr', totalCredits, Colors.purple),
+//                 _buildBalanceItem(
+//                   'Closing',
+//                   closingBalance,
+//                   _getBalanceColor(closingBalance),
+//                 ),
+//               ],
+//             ),
+//           ),
+
+//           const SizedBox(height: 8),
+
+//           // Transactions table
+//           Expanded(
+//             child: Container(
+//               margin: const EdgeInsets.symmetric(horizontal: 12),
+//               decoration: BoxDecoration(
+//                 border: Border.all(color: Colors.black12),
+//               ),
+//               child: Column(
+//                 children: [
+//                   Container(
+//                     decoration: const BoxDecoration(
+//                       border: Border(bottom: BorderSide(color: Colors.black)),
+//                     ),
+//                     child: Row(
+//                       children: [
+//                         _buildHeaderCell('Date', flex: 2),
+//                         _buildHeaderCell('Description', flex: 3),
+//                         _buildHeaderCell('Type', flex: 1),
+//                         _buildHeaderCell('Debit', flex: 2),
+//                         _buildHeaderCell('Credit', flex: 2),
+//                         _buildHeaderCell('Balance', flex: 2),
+//                       ],
+//                     ),
+//                   ),
+//                   Expanded(
+//                     child:
+//                         transactions.isEmpty
+//                             ? const Center(
+//                               child: Text(
+//                                 'No transactions found for the selected period',
+//                                 style: TextStyle(
+//                                   fontSize: 13,
+//                                   color: Colors.grey,
+//                                 ),
+//                               ),
+//                             )
+//                             : ListView.builder(
+//                               controller: _verticalScrollController,
+//                               itemCount: transactions.length,
+//                               itemBuilder: (context, index) {
+//                                 final tx = transactions[index];
+//                                 return Container(
+//                                   decoration: BoxDecoration(
+//                                     color:
+//                                         index % 2 == 0
+//                                             ? Colors.white
+//                                             : Colors.grey.shade50,
+//                                     border: const Border(
+//                                       bottom: BorderSide(color: Colors.black12),
+//                                     ),
+//                                   ),
+//                                   child: Row(
+//                                     children: [
+//                                       _buildDataCell(tx['date'], flex: 2),
+//                                       _buildDataCell(
+//                                         tx['description'],
+//                                         flex: 3,
+//                                       ),
+//                                       _buildDataCell(
+//                                         tx['entryType'],
+//                                         flex: 1,
+//                                         textColor:
+//                                             tx['entryType'] == 'Dr'
+//                                                 ? Colors.orange
+//                                                 : Colors.purple,
+//                                       ),
+//                                       _buildDataCell(
+//                                         tx['debitAmount'] > 0
+//                                             ? tx['debitAmount'].toStringAsFixed(
+//                                               2,
+//                                             )
+//                                             : '-',
+//                                         flex: 2,
+//                                         textColor:
+//                                             tx['debitAmount'] > 0
+//                                                 ? Colors.orange
+//                                                 : Colors.grey,
+//                                       ),
+//                                       _buildDataCell(
+//                                         tx['creditAmount'] > 0
+//                                             ? tx['creditAmount']
+//                                                 .toStringAsFixed(2)
+//                                             : '-',
+//                                         flex: 2,
+//                                         textColor:
+//                                             tx['creditAmount'] > 0
+//                                                 ? Colors.purple
+//                                                 : Colors.grey,
+//                                       ),
+//                                       _buildDataCell(
+//                                         tx['balance'].toStringAsFixed(2),
+//                                         flex: 2,
+//                                         textColor: _getBalanceColor(
+//                                           tx['balance'],
+//                                         ),
+//                                       ),
+//                                     ],
+//                                   ),
+//                                 );
+//                               },
+//                             ),
+//                   ),
+//                 ],
+//               ),
+//             ),
+//           ),
+//           const SizedBox(height: 8),
+//         ],
+//       ),
+//     );
+//   }
+
+//   Widget _buildSummaryItem(String label, String value, Color color) {
+//     return Column(
+//       children: [
+//         Text(
+//           label,
+//           textAlign: TextAlign.center,
+//           style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+//         ),
+//         const SizedBox(height: 4),
+//         Container(
+//           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+//           decoration: BoxDecoration(
+//             color: color.withOpacity(0.2),
+//             borderRadius: BorderRadius.circular(12),
+//             border: Border.all(color: color),
+//           ),
+//           child: Text(
+//             value,
+//             style: TextStyle(
+//               fontSize: 16,
+//               fontWeight: FontWeight.bold,
+//               color: color,
+//             ),
+//           ),
+//         ),
+//       ],
+//     );
+//   }
+
+//   Widget _buildBalanceItem(String label, double value, Color color) {
+//     return Column(
+//       children: [
+//         Text(
+//           label,
+//           style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+//         ),
+//         const SizedBox(height: 2),
+//         Text(
+//           value.toStringAsFixed(2),
+//           style: TextStyle(
+//             fontSize: 12,
+//             fontWeight: FontWeight.bold,
+//             color: color,
+//           ),
+//         ),
+//       ],
+//     );
+//   }
 // }

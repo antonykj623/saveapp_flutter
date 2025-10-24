@@ -1,14 +1,8 @@
-// import 'dart:ui';
-// import 'package:flutter/foundation.dart';
+// import 'dart:convert';
 // import 'package:flutter/material.dart';
-// import 'package:new_project_2025/view_model/investment11/addinvestment.dart';
-// import 'package:path/path.dart' as path;
-// import 'package:quickalert/models/quickalert_type.dart';
-// import 'package:quickalert/widgets/quickalert_dialog.dart';
 // import 'package:intl/intl.dart';
-// import 'dart:math' as math;
-
-// import '../../services/dbhelper/dbhelper.dart';
+// import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
+// import 'package:new_project_2025/view_model/Task/tasks.dart';
 
 // class Tasks extends StatefulWidget {
 //   const Tasks({super.key});
@@ -17,84 +11,49 @@
 //   State<Tasks> createState() => _SlidebleListState1();
 // }
 
-// class _SlidebleListState1 extends State<Tasks> with TickerProviderStateMixin {
-//   bool _showTextBox = false;
-//   late TextEditingController _timeController;
-//   late AnimationController _fadeController;
-//   late AnimationController _slideController;
-//   late Animation<double> _fadeAnimation;
-//   late Animation<Offset> _slideAnimation;
-
-//   // Controllers initialized within the state
-//   late TextEditingController taskController;
-//   late TextEditingController emiAmountController;
-//   late TextEditingController emiPeriodController;
-//   late TextEditingController menuController;
-//   late TextEditingController menuController1;
-//   late TextEditingController typeController;
-
-//   DateTime selected_startDate = DateTime.now();
-//   DateTime selected_endDate = DateTime.now();
-
+// class _SlidebleListState1 extends State<Tasks> with SingleTickerProviderStateMixin {
+//   final dbHelper = DatabaseHelper();
+//   final TextEditingController task = TextEditingController();
+//   final TextEditingController startdateCtl = TextEditingController();
+//   final TextEditingController enddateCtl1 = TextEditingController();
+//   final TextEditingController reminddateCtl1 = TextEditingController();
+//   final TextEditingController _timeController = TextEditingController();
+//   final TextEditingController dropdownController = TextEditingController();
 //   String dropdownvalu = 'OneTime';
-//   final items1 = [
+//   final List<String> items1 = [
 //     'OneTime',
 //     'Daily',
-//     'Monthly',
 //     'Weekly',
+//     'Monthly',
 //     'Quarterly',
 //     'Half Yearly',
 //     'Yearly',
 //   ];
-//   final dbhelper = DatabaseHelper.instance;
+
+//   late AnimationController _buttonHoverController;
+//   late Animation<double> _buttonScaleAnimation;
 
 //   @override
 //   void initState() {
 //     super.initState();
-//     // Initialize controllers here to tie them to the widget's lifecycle
-//     taskController = TextEditingController();
-//     emiAmountController = TextEditingController();
-//     emiPeriodController = TextEditingController();
-//     menuController = TextEditingController();
-//     menuController1 = TextEditingController();
-//     typeController = TextEditingController();
-//     _timeController = TextEditingController();
-
-//     _fadeController = AnimationController(
-//       duration: const Duration(milliseconds: 800),
+//     _buttonHoverController = AnimationController(
+//       duration: const Duration(milliseconds: 200),
 //       vsync: this,
 //     );
-//     _slideController = AnimationController(
-//       duration: const Duration(milliseconds: 600),
-//       vsync: this,
+//     _buttonScaleAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
+//       CurvedAnimation(parent: _buttonHoverController, curve: Curves.easeInOut),
 //     );
-
-//     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-//       CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
-//     );
-
-//     _slideAnimation = Tween<Offset>(
-//       begin: const Offset(0, 0.5),
-//       end: Offset.zero,
-//     ).animate(
-//       CurvedAnimation(parent: _slideController, curve: Curves.elasticOut),
-//     );
-
-//     _fadeController.forward();
-//     _slideController.forward();
 //   }
 
 //   @override
 //   void dispose() {
-//     _fadeController.dispose();
-//     _slideController.dispose();
+//     task.dispose();
+//     startdateCtl.dispose();
+//     enddateCtl1.dispose();
+//     reminddateCtl1.dispose();
 //     _timeController.dispose();
-//     taskController.dispose();
-//     emiAmountController.dispose();
-//     emiPeriodController.dispose();
-//     menuController.dispose();
-//     menuController1.dispose();
-//     typeController.dispose();
+//     dropdownController.dispose();
+//     _buttonHoverController.dispose();
 //     super.dispose();
 //   }
 
@@ -102,577 +61,407 @@
 //     TimeOfDay? pickedTime = await showTimePicker(
 //       context: context,
 //       initialTime: TimeOfDay.now(),
-//       builder: (context, child) {
-//         return Theme(
-//           data: Theme.of(context).copyWith(
-//             colorScheme: ColorScheme.fromSeed(
-//               seedColor: Colors.teal,
-//               brightness: Brightness.light,
-//             ),
-//           ),
-//           child: child!,
-//         );
-//       },
 //     );
 
 //     if (pickedTime != null) {
-//       final formattedTime = pickedTime.format(context);
 //       setState(() {
-//         _timeController.text = formattedTime;
+//         _timeController.text = pickedTime.format(context);
 //       });
 //     }
+//   }
+
+//   Future<void> saveTaskToDB() async {
+//     if (task.text.isEmpty || startdateCtl.text.isEmpty || enddateCtl1.text.isEmpty) {
+//       ScaffoldMessenger.of(context).showSnackBar(
+//         const SnackBar(
+//           content: Text('Please fill all required fields'),
+//           backgroundColor: Colors.red,
+//         ),
+//       );
+//       return;
+//     }
+
+//     try {
+//       final DateTime startDate = DateFormat('dd/MM/yyyy').parse(startdateCtl.text.trim());
+//       final DateTime endDate = DateFormat('dd/MM/yyyy').parse(enddateCtl1.text.trim());
+//       DateTime? remindDateUpTo = reminddateCtl1.text.isNotEmpty
+//           ? DateFormat('dd/MM/yyyy').parse(reminddateCtl1.text.trim())
+//           : null;
+
+//       Future<void> saveRow(DateTime date, DateTime remindDate) async {
+//         Map<String, dynamic> taskData = {
+//           "task": task.text,
+//           "statrdatectrl": DateFormat('dd/MM/yyyy').format(date),
+//           "enddatectrl": DateFormat('dd/MM/yyyy').format(remindDate),
+//           "timectrl": _timeController.text,
+//           "reminddateupto": remindDateUpTo != null ? DateFormat('dd/MM/yyyy').format(remindDateUpTo) : "no data",
+//           "selectedItem": dropdownvalu,
+//           "status": "initial",
+//         };
+
+//         await dbHelper.addData("TABLE_TASK", jsonEncode(taskData));
+
+//         if (mounted) {
+//           ScaffoldMessenger.of(context).showSnackBar(
+//             const SnackBar(
+//               content: Text('Task added successfully!'),
+//               backgroundColor: Colors.green,
+//             ),
+//           );
+//         }
+//       }
+
+//       if (dropdownvalu == "OneTime") {
+//         await saveRow(startDate, endDate);
+//       } else {
+//         DateTime loopDate = startDate;
+//         DateTime loopEndDate = endDate;
+
+//         while (remindDateUpTo != null &&
+//             (loopDate.isBefore(remindDateUpTo) || loopDate.isAtSameMomentAs(remindDateUpTo))) {
+//           await saveRow(loopDate, loopEndDate);
+
+//           switch (dropdownvalu) {
+//             case "Daily":
+//               loopDate = loopDate.add(const Duration(days: 1));
+//               loopEndDate = loopEndDate.add(const Duration(days: 1));
+//               break;
+//             case "Weekly":
+//               loopDate = loopDate.add(const Duration(days: 7));
+//               loopEndDate = loopEndDate.add(const Duration(days: 7));
+//               break;
+//             case "Monthly":
+//               loopDate = DateTime(loopDate.year, loopDate.month + 1, loopDate.day);
+//               loopEndDate = DateTime(loopEndDate.year, loopEndDate.month + 1, loopEndDate.day);
+//               break;
+//             case "Quarterly":
+//               loopDate = DateTime(loopDate.year, loopDate.month + 3, loopDate.day);
+//               loopEndDate = DateTime(loopEndDate.year, loopEndDate.month + 3, loopEndDate.day);
+//               break;
+//             case "Half Yearly":
+//               loopDate = DateTime(loopDate.year, loopDate.month + 6, loopDate.day);
+//               loopEndDate = DateTime(loopEndDate.year, loopEndDate.month + 6, loopEndDate.day);
+//               break;
+//             case "Yearly":
+//               loopDate = DateTime(loopDate.year + 1, loopDate.month, loopDate.day);
+//               loopEndDate = DateTime(loopEndDate.year + 1, loopEndDate.month, loopEndDate.day);
+//               break;
+//           }
+//         }
+//       }
+
+//       if (mounted) {
+//         Navigator.pushReplacement(
+//           context,
+//           MaterialPageRoute(builder: (context) => const TaskScreen()),
+//         );
+//       }
+//     } catch (e) {
+//       if (mounted) {
+//         ScaffoldMessenger.of(context).showSnackBar(
+//           SnackBar(
+//             content: Text('Error saving task: $e'),
+//             backgroundColor: Colors.red,
+//           ),
+//         );
+//       }
+//     }
+//   }
+
+//   Widget _buildModernButton({
+//     required String text,
+//     required VoidCallback onPressed,
+//     required List<Color> gradientColors,
+//     required String borderType,
+//   }) {
+//     return AnimatedBuilder(
+//       animation: _buttonScaleAnimation,
+//       builder: (context, child) {
+//         return Transform.scale(
+//           scale: _buttonScaleAnimation.value,
+//           child: AnimatedBorderWidget(
+//             borderType: borderType,
+//             customColors: gradientColors,
+//             borderWidth: 2.0,
+//             glowSize: 6.0,
+//             borderRadius: BorderRadius.circular(25),
+//             isActive: true,
+//             child: Container(
+//               decoration: BoxDecoration(
+//                 gradient: LinearGradient(
+//                   colors: gradientColors,
+//                   begin: Alignment.topLeft,
+//                   end: Alignment.bottomRight,
+//                 ),
+//                 borderRadius: BorderRadius.circular(25),
+//                 boxShadow: [
+//                   BoxShadow(
+//                     color: gradientColors[0].withOpacity(0.3),
+//                     blurRadius: 15,
+//                     offset: const Offset(0, 8),
+//                     spreadRadius: 2,
+//                   ),
+//                 ],
+//               ),
+//               child: Material(
+//                 color: Colors.transparent,
+//                 child: InkWell(
+//                   borderRadius: BorderRadius.circular(25),
+//                   onTap: onPressed,
+//                   onTapDown: (_) => _buttonHoverController.forward(),
+//                   onTapUp: (_) => _buttonHoverController.reverse(),
+//                   onTapCancel: () => _buttonHoverController.reverse(),
+//                   child: Container(
+//                     padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+//                     child: Center(
+//                       child: Text(
+//                         text,
+//                         style: const TextStyle(
+//                           color: Colors.white,
+//                           fontSize: 18,
+//                           fontWeight: FontWeight.w700,
+//                           letterSpacing: 1.2,
+//                           shadows: [
+//                             Shadow(
+//                               color: Colors.black26,
+//                               blurRadius: 4,
+//                               offset: Offset(0, 2),
+//                             ),
+//                           ],
+//                         ),
+//                       ),
+//                     ),
+//                   ),
+//                 ),
+//               ),
+//             ),
+//           ),
+//         );
+//       },
+//     );
 //   }
 
 //   @override
 //   Widget build(BuildContext context) {
-//     void selectDate(bool isStart) {
-//       showDatePicker(
-//         context: context,
-//         firstDate: DateTime(2000),
-//         lastDate: DateTime(2100),
-//         builder: (context, child) {
-//           return Theme(
-//             data: Theme.of(context).copyWith(
-//               colorScheme: ColorScheme.fromSeed(
-//                 seedColor: Colors.teal,
-//                 brightness: Brightness.light,
-//               ),
-//             ),
-//             child: child!,
-//           );
-//         },
-//       ).then((pickedDate) {
-//         if (pickedDate != null) {
-//           setState(() {
-//             if (isStart) {
-//               selected_startDate = pickedDate;
-//             } else {
-//               selected_endDate = pickedDate;
-//             }
-//           });
-//         }
-//       });
-//     }
-
 //     return Scaffold(
-//       body: Container(
-//         decoration: BoxDecoration(
-//           gradient: LinearGradient(
-//             begin: Alignment.topLeft,
-//             end: Alignment.bottomRight,
-//             colors: [
-//               Colors.teal.shade50,
-//               Colors.cyan.shade50,
-//               Colors.blue.shade50,
-//             ],
-//           ),
-//         ),
-//         child: SafeArea(
-//           child: Column(
-//             children: [
-//               // Custom App Bar with Glassmorphism
-//               Container(
-//                 height: 100,
-//                 margin: const EdgeInsets.all(16),
-//                 child: ClipRRect(
-//                   borderRadius: BorderRadius.circular(20),
-//                   child: BackdropFilter(
-//                     filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-//                     child: Container(
-//                       decoration: BoxDecoration(
-//                         gradient: LinearGradient(
-//                           colors: [
-//                             Colors.white.withOpacity(0.2),
-//                             Colors.white.withOpacity(0.1),
-//                           ],
-//                         ),
-//                         borderRadius: BorderRadius.circular(20),
-//                         border: Border.all(
-//                           color: Colors.white.withOpacity(0.3),
-//                           width: 1,
-//                         ),
-//                       ),
-//                       child: Row(
-//                         children: [
-//                           IconButton(
-//                             onPressed: () {
-//                               Navigator.pop(context);
-//                             },
-//                             icon: Container(
-//                               padding: const EdgeInsets.all(8),
-//                               decoration: BoxDecoration(
-//                                 color: Colors.white.withOpacity(0.3),
-//                                 borderRadius: BorderRadius.circular(12),
-//                               ),
-//                               child: const Icon(
-//                                 Icons.arrow_back_ios_rounded,
-//                                 color: Colors.teal,
-//                                 size: 20,
-//                               ),
-//                             ),
-//                           ),
-//                           Expanded(
-//                             child: Center(
-//                               child: Row(
-//                                 mainAxisAlignment: MainAxisAlignment.center,
-//                                 children: [
-//                                   Container(
-//                                     padding: const EdgeInsets.all(8),
-//                                     decoration: BoxDecoration(
-//                                       gradient: LinearGradient(
-//                                         colors: [Colors.teal, Colors.cyan],
-//                                       ),
-//                                       borderRadius: BorderRadius.circular(10),
-//                                     ),
-//                                     child: const Icon(
-//                                       Icons.task_alt,
-//                                       color: Colors.white,
-//                                       size: 20,
-//                                     ),
-//                                   ),
-//                                   const SizedBox(width: 12),
-//                                   const Text(
-//                                     'Create Task',
-//                                     style: TextStyle(
-//                                       fontSize: 22,
-//                                       fontWeight: FontWeight.bold,
-//                                       color: Colors.teal,
-//                                     ),
-//                                   ),
-//                                 ],
-//                               ),
-//                             ),
-//                           ),
-//                           const SizedBox(width: 48), // Balance the back button
-//                         ],
-//                       ),
-//                     ),
-//                   ),
-//                 ),
-//               ),
-
-//               // Main Content
-//               Expanded(
-//                 child: FadeTransition(
-//                   opacity: _fadeAnimation,
-//                   child: SlideTransition(
-//                     position: _slideAnimation,
-//                     child: SingleChildScrollView(
-//                       padding: const EdgeInsets.all(20.0),
-//                       child: Column(
-//                         crossAxisAlignment: CrossAxisAlignment.start,
-//                         children: [
-//                           // Task Input Field
-//                           _buildSectionHeader(
-//                             "Task Details",
-//                             Icons.edit_rounded,
-//                           ),
-//                           const SizedBox(height: 16),
-//                           AnimatedTextField(
-//                             controller: taskController,
-//                             labelText: "Enter your task",
-//                             borderType: 'electric',
-//                             validator: (value) {
-//                               if (value == null || value.isEmpty) {
-//                                 return 'Please enter a task';
-//                               }
-//                               return null;
-//                             },
-//                             borderRadius: 16,
-//                             prefixIcon: Container(
-//                               margin: const EdgeInsets.all(8),
-//                               padding: const EdgeInsets.all(8),
-//                               decoration: BoxDecoration(
-//                                 gradient: LinearGradient(
-//                                   colors: [Colors.teal, Colors.cyan],
-//                                 ),
-//                                 borderRadius: BorderRadius.circular(8),
-//                               ),
-//                               child: const Icon(
-//                                 Icons.task,
-//                                 color: Colors.white,
-//                                 size: 16,
-//                               ),
-//                             ),
-//                             backgroundColor: Colors.white.withOpacity(0.9),
-//                           ),
-
-//                           const SizedBox(height: 24),
-
-//                           // Date and Time Section
-//                           _buildSectionHeader(
-//                             "Schedule",
-//                             Icons.schedule_rounded,
-//                           ),
-//                           const SizedBox(height: 16),
-
-//                           // Start Date
-//                           _buildAnimatedDatePicker(
-//                             "Start Date",
-//                             _getDisplayStartDate(),
-//                             Icons.date_range_rounded,
-//                             () => selectDate(true),
-//                             'fire',
-//                           ),
-
-//                           const SizedBox(height: 16),
-
-//                           // Time Picker
-//                           AnimatedTextField(
-//                             controller: _timeController,
-//                             labelText: "Select Time",
-//                             borderType: 'neon',
-//                             onTap: () => _selectTime(context),
-//                             borderRadius: 16,
-//                             prefixIcon: Container(
-//                               margin: const EdgeInsets.all(8),
-//                               padding: const EdgeInsets.all(8),
-//                               decoration: BoxDecoration(
-//                                 gradient: LinearGradient(
-//                                   colors: [Colors.orange, Colors.pink],
-//                                 ),
-//                                 borderRadius: BorderRadius.circular(8),
-//                               ),
-//                               child: const Icon(
-//                                 Icons.access_time_rounded,
-//                                 color: Colors.white,
-//                                 size: 16,
-//                               ),
-//                             ),
-//                             backgroundColor: Colors.white.withOpacity(0.9),
-//                           ),
-
-//                           const SizedBox(height: 16),
-
-//                           // End Date
-//                           _buildAnimatedDatePicker(
-//                             "End Date",
-//                             _getDisplayEndDate(),
-//                             Icons.event_available_rounded,
-//                             () => selectDate(false),
-//                             'ocean',
-//                           ),
-
-//                           const SizedBox(height: 24),
-
-//                           // Frequency Section
-//                           _buildSectionHeader(
-//                             "Frequency",
-//                             Icons.repeat_rounded,
-//                           ),
-//                           const SizedBox(height: 16),
-
-//                           AnimatedBorderWidget(
-//                             borderType: 'rainbow',
-//                             borderRadius: BorderRadius.circular(16),
-//                             child: Container(
-//                               decoration: BoxDecoration(
-//                                 borderRadius: BorderRadius.circular(16),
-//                                 color: Colors.white.withOpacity(0.9),
-//                               ),
-//                               child: DropdownButtonFormField<String>(
-//                                 value: dropdownvalu,
-//                                 decoration: InputDecoration(
-//                                   prefixIcon: Container(
-//                                     margin: const EdgeInsets.all(8),
-//                                     padding: const EdgeInsets.all(8),
-//                                     decoration: BoxDecoration(
-//                                       gradient: LinearGradient(
-//                                         colors: [Colors.purple, Colors.blue],
-//                                       ),
-//                                       borderRadius: BorderRadius.circular(8),
-//                                     ),
-//                                     child: const Icon(
-//                                       Icons.repeat,
-//                                       color: Colors.white,
-//                                       size: 16,
-//                                     ),
-//                                   ),
-//                                   labelText: "Repeat Frequency",
-//                                   border: InputBorder.none,
-//                                   contentPadding: const EdgeInsets.symmetric(
-//                                     horizontal: 20,
-//                                     vertical: 16,
-//                                   ),
-//                                 ),
-//                                 items:
-//                                     items1.map((String item) {
-//                                       return DropdownMenuItem<String>(
-//                                         value: item,
-//                                         child: Text(
-//                                           item,
-//                                           style: const TextStyle(
-//                                             fontSize: 16,
-//                                             fontWeight: FontWeight.w500,
-//                                           ),
-//                                         ),
-//                                       );
-//                                     }).toList(),
-//                                 onChanged: (String? newValue) {
-//                                   setState(() {
-//                                     dropdownvalu = newValue!;
-//                                   });
-//                                 },
-//                                 dropdownColor: Colors.white,
-//                                 icon: Container(
-//                                   margin: const EdgeInsets.only(right: 12),
-//                                   child: const Icon(
-//                                     Icons.keyboard_arrow_down_rounded,
-//                                     color: Colors.teal,
-//                                     size: 28,
-//                                   ),
-//                                 ),
-//                               ),
-//                             ),
-//                           ),
-
-//                           const SizedBox(height: 40),
-
-//                           // Save Button
-//                           Center(
-//                             child: AnimatedBorderWidget(
-//                               borderType: 'electric',
-//                               borderRadius: BorderRadius.circular(20),
-//                               child: Container(
-//                                 width: 200,
-//                                 height: 60,
-//                                 decoration: BoxDecoration(
-//                                   borderRadius: BorderRadius.circular(20),
-//                                   gradient: LinearGradient(
-//                                     begin: Alignment.topLeft,
-//                                     end: Alignment.bottomRight,
-//                                     colors: [
-//                                       Colors.teal,
-//                                       Colors.cyan,
-//                                       Colors.teal.shade700,
-//                                     ],
-//                                   ),
-//                                   boxShadow: [
-//                                     BoxShadow(
-//                                       color: Colors.teal.withOpacity(0.3),
-//                                       blurRadius: 20,
-//                                       offset: const Offset(0, 10),
-//                                     ),
-//                                   ],
-//                                 ),
-//                                 child: Material(
-//                                   color: Colors.transparent,
-//                                   child: InkWell(
-//                                     borderRadius: BorderRadius.circular(20),
-//                                     onTap: () {
-//                                       _showSuccessDialog();
-//                                     },
-//                                     child: Container(
-//                                       alignment: Alignment.center,
-//                                       child: Row(
-//                                         mainAxisAlignment:
-//                                             MainAxisAlignment.center,
-//                                         children: [
-//                                           const Icon(
-//                                             Icons.save_rounded,
-//                                             color: Colors.white,
-//                                             size: 24,
-//                                           ),
-//                                           const SizedBox(width: 8),
-//                                           const Text(
-//                                             "Save Task",
-//                                             style: TextStyle(
-//                                               color: Colors.white,
-//                                               fontSize: 18,
-//                                               fontWeight: FontWeight.bold,
-//                                             ),
-//                                           ),
-//                                         ],
-//                                       ),
-//                                     ),
-//                                   ),
-//                                 ),
-//                               ),
-//                             ),
-//                           ),
-
-//                           const SizedBox(height: 20),
-//                         ],
-//                       ),
-//                     ),
-//                   ),
-//                 ),
-//               ),
-//             ],
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-
-//   Widget _buildSectionHeader(String title, IconData icon) {
-//     return Row(
-//       children: [
-//         Container(
-//           padding: const EdgeInsets.all(8),
-//           decoration: BoxDecoration(
-//             gradient: LinearGradient(colors: [Colors.teal, Colors.cyan]),
-//             borderRadius: BorderRadius.circular(10),
-//           ),
-//           child: Icon(icon, color: Colors.white, size: 20),
-//         ),
-//         const SizedBox(width: 12),
-//         Text(
-//           title,
-//           style: const TextStyle(
-//             fontSize: 20,
-//             fontWeight: FontWeight.bold,
-//             color: Colors.teal,
-//           ),
-//         ),
-//       ],
-//     );
-//   }
-
-//   Widget _buildAnimatedDatePicker(
-//     String label,
-//     String displayDate,
-//     IconData icon,
-//     VoidCallback onTap,
-//     String borderType,
-//   ) {
-//     return AnimatedBorderWidget(
-//       borderType: borderType,
-//       borderRadius: BorderRadius.circular(16),
-//       child: Container(
-//         decoration: BoxDecoration(
-//           borderRadius: BorderRadius.circular(16),
-//           color: Colors.white.withOpacity(0.9),
-//         ),
-//         child: ListTile(
-//           leading: Container(
-//             padding: const EdgeInsets.all(8),
-//             decoration: BoxDecoration(
+//       body: Column(
+//         children: [
+//           Container(
+//             width: double.infinity,
+//             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+//             decoration: const BoxDecoration(
 //               gradient: LinearGradient(
-//                 colors: _getGradientForBorderType(borderType),
+//                 begin: Alignment.topLeft,
+//                 end: Alignment.bottomRight,
+//                 colors: [Color(0xFF667eea), Color(0xFF764ba2), Color(0xFFF093fb)],
 //               ),
-//               borderRadius: BorderRadius.circular(8),
 //             ),
-//             child: Icon(icon, color: Colors.white, size: 20),
-//           ),
-//           title: Text(
-//             label,
-//             style: const TextStyle(
-//               fontSize: 14,
-//               color: Colors.grey,
-//               fontWeight: FontWeight.w500,
-//             ),
-//           ),
-//           subtitle: Text(
-//             displayDate,
-//             style: const TextStyle(
-//               fontSize: 16,
-//               fontWeight: FontWeight.bold,
-//               color: Colors.black87,
-//             ),
-//           ),
-//           trailing: const Icon(
-//             Icons.calendar_today_rounded,
-//             color: Colors.teal,
-//           ),
-//           onTap: onTap,
-//         ),
-//       ),
-//     );
-//   }
-
-//   List<Color> _getGradientForBorderType(String borderType) {
-//     switch (borderType) {
-//       case 'fire':
-//         return [Colors.orange, Colors.red];
-//       case 'ocean':
-//         return [Colors.blue, Colors.cyan];
-//       case 'neon':
-//         return [Colors.pink, Colors.purple];
-//       default:
-//         return [Colors.teal, Colors.cyan];
-//     }
-//   }
-
-//   void _showSuccessDialog() {
-//     showDialog(
-//       context: context,
-//       builder:
-//           (context) => Dialog(
-//             backgroundColor: Colors.transparent,
-//             child: Container(
-//               padding: const EdgeInsets.all(20),
-//               decoration: BoxDecoration(
-//                 color: Colors.white,
-//                 borderRadius: BorderRadius.circular(20),
-//                 boxShadow: [
-//                   BoxShadow(
-//                     color: Colors.black.withOpacity(0.1),
-//                     blurRadius: 20,
-//                     offset: const Offset(0, 10),
-//                   ),
-//                 ],
-//               ),
-//               child: Column(
+//             child: GestureDetector(
+//               onTap: () => Navigator.pop(context),
+//               child: Row(
 //                 mainAxisSize: MainAxisSize.min,
 //                 children: [
 //                   Container(
-//                     padding: const EdgeInsets.all(16),
+//                     padding: const EdgeInsets.all(10),
 //                     decoration: BoxDecoration(
-//                       gradient: LinearGradient(
-//                         colors: [Colors.green, Colors.teal],
-//                       ),
+//                       color: Colors.white.withOpacity(0.15),
 //                       shape: BoxShape.circle,
 //                     ),
-//                     child: const Icon(
-//                       Icons.check_rounded,
-//                       color: Colors.white,
-//                       size: 32,
-//                     ),
+//                     child: const Icon(Icons.arrow_back, color: Colors.white),
 //                   ),
-//                   const SizedBox(height: 16),
+//                   const SizedBox(width: 8),
 //                   const Text(
-//                     'Task Created!',
+//                     'Add Task',
 //                     style: TextStyle(
-//                       fontSize: 20,
-//                       fontWeight: FontWeight.bold,
-//                       color: Colors.teal,
-//                     ),
-//                   ),
-//                   const SizedBox(height: 8),
-//                   const Text(
-//                     'Your task has been successfully created.',
-//                     textAlign: TextAlign.center,
-//                     style: TextStyle(color: Colors.grey),
-//                   ),
-//                   const SizedBox(height: 20),
-//                   ElevatedButton(
-//                     onPressed: () => Navigator.pop(context),
-//                     style: ElevatedButton.styleFrom(
-//                       backgroundColor: Colors.teal,
-//                       shape: RoundedRectangleBorder(
-//                         borderRadius: BorderRadius.circular(12),
-//                       ),
-//                     ),
-//                     child: const Text(
-//                       'OK',
-//                       style: TextStyle(color: Colors.white),
+//                       color: Colors.white,
+//                       fontSize: 16,
+//                       fontWeight: FontWeight.w500,
 //                     ),
 //                   ),
 //                 ],
 //               ),
 //             ),
 //           ),
+//           Expanded(
+//             child: SingleChildScrollView(
+//               padding: const EdgeInsets.all(16),
+//               child: Column(
+//                 crossAxisAlignment: CrossAxisAlignment.center,
+//                 children: [
+//                   AnimatedTextField(
+//                     controller: task,
+//                     labelText: "Task",
+//                     borderType: "neon",
+//                     customColors: [
+//                       Colors.transparent,
+//                       const Color(0xFF667eea).withOpacity(0.4),
+//                       const Color(0xFF764ba2),
+//                       const Color(0xFF89f7fe),
+//                       const Color(0xFF66a6ff),
+//                       const Color(0xFF89f7fe),
+//                       const Color(0xFF764ba2),
+//                       Colors.transparent,
+//                     ],
+//                     onTap: () {},
+//                   ),
+//                   const SizedBox(height: 20),
+//                   AnimatedTextField(
+//                     controller: startdateCtl,
+//                     labelText: 'Start Date',
+//                     borderType: "fire",
+//                     customColors: [
+//                       Colors.transparent,
+//                       const Color(0xFFFF6B35).withOpacity(0.3),
+//                       const Color(0xFFFF8C42).withOpacity(0.6),
+//                       const Color(0xFFFFA500),
+//                       const Color(0xFFFFD700),
+//                       const Color(0xFFFF6347),
+//                       Colors.transparent,
+//                     ],
+//                     onTap: () async {
+//                       FocusScope.of(context).requestFocus(FocusNode());
+//                       DateTime? date = await showDatePicker(
+//                         context: context,
+//                         initialDate: DateTime.now(),
+//                         firstDate: DateTime(1900),
+//                         lastDate: DateTime(2100),
+//                       );
+//                       if (date != null) {
+//                         setState(() {
+//                           startdateCtl.text = DateFormat('dd/MM/yyyy').format(date);
+//                         });
+//                       }
+//                     },
+//                   ),
+//                   const SizedBox(height: 20),
+//                   AnimatedTextField(
+//                     controller: _timeController,
+//                     labelText: "Select Time",
+//                     borderType: "rainbow",
+//                     customColors: [
+//                       Colors.transparent,
+//                       Colors.red.withOpacity(0.3),
+//                       Colors.orange.withOpacity(0.6),
+//                       Colors.yellow,
+//                       Colors.green,
+//                       Colors.blue,
+//                       Colors.transparent,
+//                     ],
+//                     onTap: () => _selectTime(context),
+//                   ),
+//                   const SizedBox(height: 20),
+//                   AnimatedTextField(
+//                     controller: enddateCtl1,
+//                     labelText: 'Remind Date',
+//                     borderType: "electric",
+//                     customColors: [
+//                       Colors.transparent,
+//                       const Color(0xFF00D4FF).withOpacity(0.3),
+//                       const Color(0xFF0099FF).withOpacity(0.6),
+//                       const Color(0xFF0066FF),
+//                       const Color(0xFF3366FF),
+//                       Colors.transparent,
+//                     ],
+//                     onTap: () async {
+//                       FocusScope.of(context).requestFocus(FocusNode());
+//                       DateTime? date = await showDatePicker(
+//                         context: context,
+//                         initialDate: DateTime.now(),
+//                         firstDate: DateTime(1900),
+//                         lastDate: DateTime(2100),
+//                       );
+//                       if (date != null) {
+//                         setState(() {
+//                           enddateCtl1.text = DateFormat('dd/MM/yyyy').format(date);
+//                         });
+//                       }
+//                     },
+//                   ),
+//                   const SizedBox(height: 20),
+//                   AnimatedTextField(
+//                     controller: dropdownController,
+//                     labelText: 'Select Item',
+//                     borderType: "fire",
+//                     customColors: [
+//                       Colors.transparent,
+//                       const Color(0xFFFF6B35).withOpacity(0.3),
+//                       const Color(0xFFFF8C42).withOpacity(0.6),
+//                       const Color(0xFFFFA500),
+//                       const Color(0xFFFFD700),
+//                       Colors.transparent,
+//                     ],
+//                     onTap: () async {
+//                       String? selected = await showDialog<String>(
+//                         context: context,
+//                         builder: (BuildContext context) {
+//                           return SimpleDialog(
+//                             title: const Text('Select an item'),
+//                             children: items1.map((item) {
+//                               return SimpleDialogOption(
+//                                 child: Text(item),
+//                                 onPressed: () {
+//                                   Navigator.pop(context, item);
+//                                 },
+//                               );
+//                             }).toList(),
+//                           );
+//                         },
+//                       );
+//                       if (selected != null) {
+//                         setState(() {
+//                           dropdownController.text = selected;
+//                           dropdownvalu = selected;
+//                         });
+//                       }
+//                     },
+//                   ),
+//                   if (dropdownvalu != "OneTime") ...[
+//                     const SizedBox(height: 20),
+//                     AnimatedTextField(
+//                       controller: reminddateCtl1,
+//                       labelText: 'Remind Date Up To',
+//                       borderType: "electric",
+//                       customColors: [
+//                         Colors.transparent,
+//                         const Color(0xFF00D4FF).withOpacity(0.3),
+//                         const Color(0xFF0099FF).withOpacity(0.6),
+//                         const Color(0xFF0066FF),
+//                         Colors.transparent,
+//                       ],
+//                       onTap: () async {
+//                         FocusScope.of(context).requestFocus(FocusNode());
+//                         DateTime? date = await showDatePicker(
+//                           context: context,
+//                           initialDate: DateTime.now(),
+//                           firstDate: DateTime(1900),
+//                           lastDate: DateTime(2100),
+//                         );
+//                         if (date != null) {
+//                           setState(() {
+//                             reminddateCtl1.text = DateFormat('dd/MM/yyyy').format(date);
+//                           });
+//                         }
+//                       },
+//                     ),
+//                   ],
+//                   const SizedBox(height: 40),
+//                   _buildModernButton(
+//                     text: 'Submit',
+//                     onPressed: saveTaskToDB,
+//                     gradientColors: const [
+//                       Color(0xFF667eea),
+//                       Color(0xFF764ba2),
+//                     ],
+//                     borderType: "neon",
+//                   ),
+//                 ],
+//               ),
+//             ),
+//           ),
+//         ],
+//       ),
 //     );
 //   }
-// }
-
-// String _getDisplayStartDate() {
-//   return DateFormat('dd/MM/yyyy').format(selected_startDate);
-// }
-
-// String _getDisplayEndDate() {
-//   return DateFormat('dd/MM/yyyy').format(selected_endDate);
 // }
 
 // class AnimatedBorderWidget extends StatefulWidget {
@@ -746,17 +535,17 @@
 //       case 'electric':
 //         return [
 //           Colors.transparent,
-//           Color(0xFF00D4FF).withOpacity(0.3),
-//           Color(0xFF0099FF).withOpacity(0.6),
-//           Color(0xFF0066FF),
-//           Color(0xFF3366FF),
-//           Color(0xFF6633FF),
-//           Color(0xFF9933FF),
-//           Color(0xFFCC33FF),
-//           Color(0xFF9933FF),
-//           Color(0xFF6633FF),
-//           Color(0xFF3366FF),
-//           Color(0xFF0066FF),
+//           const Color(0xFF00D4FF).withOpacity(0.3),
+//           const Color(0xFF0099FF).withOpacity(0.6),
+//           const Color(0xFF0066FF),
+//           const Color(0xFF3366FF),
+//           const Color(0xFF6633FF),
+//           const Color(0xFF9933FF),
+//           const Color(0xFFCC33FF),
+//           const Color(0xFF9933FF),
+//           const Color(0xFF6633FF),
+//           const Color(0xFF3366FF),
+//           const Color(0xFF0066FF),
 //           Colors.transparent,
 //         ];
 //       case 'rainbow':
@@ -782,55 +571,55 @@
 //       case 'fire':
 //         return [
 //           Colors.transparent,
-//           Color(0xFFFF6B35).withOpacity(0.3),
-//           Color(0xFFFF8C42).withOpacity(0.6),
-//           Color(0xFFFFA500),
-//           Color(0xFFFFD700),
-//           Color(0xFFFF6347),
-//           Color(0xFFFF4500),
-//           Color(0xFFDC143C),
-//           Color(0xFFB22222),
-//           Color(0xFFDC143C),
-//           Color(0xFFFF4500),
-//           Color(0xFFFF6347),
-//           Color(0xFFFFD700),
-//           Color(0xFFFFA500),
+//           const Color(0xFFFF6B35).withOpacity(0.3),
+//           const Color(0xFFFF8C42).withOpacity(0.6),
+//           const Color(0xFFFFA500),
+//           const Color(0xFFFFD700),
+//           const Color(0xFFFF6347),
+//           const Color(0xFFFF4500),
+//           const Color(0xFFDC143C),
+//           const Color(0xFFB22222),
+//           const Color(0xFFDC143C),
+//           const Color(0xFFFF4500),
+//           const Color(0xFFFF6347),
+//           const Color(0xFFFFD700),
+//           const Color(0xFFFFA500),
 //           Colors.transparent,
 //         ];
 //       case 'ocean':
 //         return [
 //           Colors.transparent,
-//           Color(0xFF00CED1).withOpacity(0.3),
-//           Color(0xFF20B2AA).withOpacity(0.6),
-//           Color(0xFF008B8B),
-//           Color(0xFF00FFFF),
-//           Color(0xFF40E0D0),
-//           Color(0xFF48D1CC),
-//           Color(0xFF00CED1),
-//           Color(0xFF5F9EA0),
-//           Color(0xFF00CED1),
-//           Color(0xFF48D1CC),
-//           Color(0xFF40E0D0),
-//           Color(0xFF00FFFF),
-//           Color(0xFF008B8B),
+//           const Color(0xFF00CED1).withOpacity(0.3),
+//           const Color(0xFF20B2AA).withOpacity(0.6),
+//           const Color(0xFF008B8B),
+//           const Color(0xFF00FFFF),
+//           const Color(0xFF40E0D0),
+//           const Color(0xFF48D1CC),
+//           const Color(0xFF00CED1),
+//           const Color(0xFF5F9EA0),
+//           const Color(0xFF00CED1),
+//           const Color(0xFF48D1CC),
+//           const Color(0xFF40E0D0),
+//           const Color(0xFF00FFFF),
+//           const Color(0xFF008B8B),
 //           Colors.transparent,
 //         ];
 //       case 'neon':
 //         return [
 //           Colors.transparent,
-//           Color(0xFFFF073A).withOpacity(0.3),
-//           Color(0xFFFF073A).withOpacity(0.6),
-//           Color(0xFFFF073A),
-//           Color(0xFF39FF14),
-//           Color(0xFF00FFFF),
-//           Color(0xFFFF1493),
-//           Color(0xFFFFFF00),
-//           Color(0xFF9400D3),
-//           Color(0xFFFFFF00),
-//           Color(0xFFFF1493),
-//           Color(0xFF00FFFF),
-//           Color(0xFF39FF14),
-//           Color(0xFFFF073A),
+//           const Color(0xFFFF073A).withOpacity(0.3),
+//           const Color(0xFFFF073A).withOpacity(0.6),
+//           const Color(0xFFFF073A),
+//           const Color(0xFF39FF14),
+//           const Color(0xFF00FFFF),
+//           const Color(0xFFFF1493),
+//           const Color(0xFFFFFF00),
+//           const Color(0xFF9400D3),
+//           const Color(0xFFFFFF00),
+//           const Color(0xFFFF1493),
+//           const Color(0xFF00FFFF),
+//           const Color(0xFF39FF14),
+//           const Color(0xFFFF073A),
 //           Colors.transparent,
 //         ];
 //       default:
@@ -846,8 +635,7 @@
 //         return CustomAnimatedBorder(
 //           borderSize: widget.isActive ? widget.borderWidth : 1.0,
 //           glowSize: widget.isActive ? widget.glowSize : 0.0,
-//           gradientColors:
-//               widget.isActive ? _getGradientColors() : [Colors.grey.shade300],
+//           gradientColors: widget.isActive ? _getGradientColors() : [Colors.grey.shade300],
 //           animationProgress: _animationController.value,
 //           borderRadius: widget.borderRadius ?? BorderRadius.circular(12),
 //           child: widget.child,
@@ -880,38 +668,31 @@
 //     return Container(
 //       decoration: BoxDecoration(
 //         borderRadius: borderRadius,
-//         boxShadow:
-//             glowSize > 0
-//                 ? [
-//                   BoxShadow(
-//                     color:
-//                         gradientColors.isNotEmpty
-//                             ? gradientColors[gradientColors.length ~/ 2]
-//                                 .withOpacity(0.8)
-//                             : Colors.blue.withOpacity(0.8),
-//                     blurRadius: glowSize,
-//                     spreadRadius: glowSize / 4,
-//                   ),
-//                   BoxShadow(
-//                     color:
-//                         gradientColors.isNotEmpty
-//                             ? gradientColors[gradientColors.length ~/ 3]
-//                                 .withOpacity(0.5)
-//                             : Colors.blue.withOpacity(0.5),
-//                     blurRadius: glowSize * 1.5,
-//                     spreadRadius: glowSize / 3,
-//                   ),
-//                   BoxShadow(
-//                     color:
-//                         gradientColors.isNotEmpty
-//                             ? gradientColors[gradientColors.length ~/ 4]
-//                                 .withOpacity(0.3)
-//                             : Colors.blue.withOpacity(0.3),
-//                     blurRadius: glowSize * 2,
-//                     spreadRadius: glowSize / 2,
-//                   ),
-//                 ]
-//                 : null,
+//         boxShadow: glowSize > 0
+//             ? [
+//                 BoxShadow(
+//                   color: gradientColors.isNotEmpty
+//                       ? gradientColors[gradientColors.length ~/ 2].withOpacity(0.8)
+//                       : Colors.blue.withOpacity(0.8),
+//                   blurRadius: glowSize,
+//                   spreadRadius: glowSize / 4,
+//                 ),
+//                 BoxShadow(
+//                   color: gradientColors.isNotEmpty
+//                       ? gradientColors[gradientColors.length ~/ 3].withOpacity(0.5)
+//                       : Colors.blue.withOpacity(0.5),
+//                   blurRadius: glowSize * 1.5,
+//                   spreadRadius: glowSize / 3,
+//                 ),
+//                 BoxShadow(
+//                   color: gradientColors.isNotEmpty
+//                       ? gradientColors[gradientColors.length ~/ 4].withOpacity(0.3)
+//                       : Colors.blue.withOpacity(0.3),
+//                   blurRadius: glowSize * 2,
+//                   spreadRadius: glowSize / 2,
+//                 ),
+//               ]
+//             : null,
 //       ),
 //       child: CustomPaint(
 //         painter: AnimatedBorderPainter(
@@ -942,12 +723,10 @@
 //   @override
 //   void paint(Canvas canvas, Size size) {
 //     if (gradientColors.length <= 1) {
-//       final paint =
-//           Paint()
-//             ..color =
-//                 gradientColors.isNotEmpty ? gradientColors.first : Colors.grey
-//             ..style = PaintingStyle.stroke
-//             ..strokeWidth = borderSize;
+//       final paint = Paint()
+//         ..color = gradientColors.isNotEmpty ? gradientColors.first : Colors.grey
+//         ..style = PaintingStyle.stroke
+//         ..strokeWidth = borderSize;
 
 //       final rect = Rect.fromLTWH(
 //         borderSize / 2,
@@ -973,29 +752,9 @@
 //         final trainLength = totalLength * 0.4;
 //         final trainPosition = (animationProgress * totalLength) % totalLength;
 
-//         _drawGradientTrain(
-//           canvas,
-//           pathMetric,
-//           totalLength,
-//           trainLength,
-//           trainPosition,
-//         );
-
-//         _drawSparkleEffects(
-//           canvas,
-//           pathMetric,
-//           totalLength,
-//           trainPosition,
-//           trainLength,
-//         );
-
-//         _drawTrailingGlow(
-//           canvas,
-//           pathMetric,
-//           totalLength,
-//           trainPosition,
-//           trainLength,
-//         );
+//         _drawGradientTrain(canvas, pathMetric, totalLength, trainLength, trainPosition);
+//         _drawSparkleEffects(canvas, pathMetric, totalLength, trainPosition, trainLength);
+//         _drawTrailingGlow(canvas, pathMetric, totalLength, trainPosition, trainLength);
 //       }
 //     }
 //   }
@@ -1009,16 +768,14 @@
 //   ) {
 //     for (int i = 0; i < gradientColors.length; i++) {
 //       final segmentLength = trainLength / gradientColors.length;
-//       final segmentStart =
-//           (trainPosition - trainLength / 2 + i * segmentLength) % totalLength;
+//       final segmentStart = (trainPosition - trainLength / 2 + i * segmentLength) % totalLength;
 //       final segmentEnd = (segmentStart + segmentLength) % totalLength;
 
-//       final paint =
-//           Paint()
-//             ..color = gradientColors[i]
-//             ..style = PaintingStyle.stroke
-//             ..strokeWidth = borderSize
-//             ..strokeCap = StrokeCap.round;
+//       final paint = Paint()
+//         ..color = gradientColors[i]
+//         ..style = PaintingStyle.stroke
+//         ..strokeWidth = borderSize
+//         ..strokeCap = StrokeCap.round;
 
 //       try {
 //         if (segmentStart < segmentEnd && segmentEnd <= totalLength) {
@@ -1026,17 +783,11 @@
 //           canvas.drawPath(segmentPath, paint);
 //         } else if (segmentStart >= 0 && segmentStart < totalLength) {
 //           if (segmentStart < totalLength) {
-//             final segmentPath1 = pathMetric.extractPath(
-//               segmentStart,
-//               totalLength,
-//             );
+//             final segmentPath1 = pathMetric.extractPath(segmentStart, totalLength);
 //             canvas.drawPath(segmentPath1, paint);
 //           }
 //           if (segmentEnd > 0) {
-//             final segmentPath2 = pathMetric.extractPath(
-//               0,
-//               math.min(segmentEnd, totalLength),
-//             );
+//             final segmentPath2 = pathMetric.extractPath(0, segmentEnd.clamp(0, totalLength));
 //             canvas.drawPath(segmentPath2, paint);
 //           }
 //         }
@@ -1059,18 +810,15 @@
 //       (trainPosition + trainLength * 0.8) % totalLength,
 //     ];
 
-//     final sparklePaint =
-//         Paint()
-//           ..color = Colors.white.withOpacity(0.9)
-//           ..style = PaintingStyle.fill;
+//     final sparklePaint = Paint()
+//       ..color = Colors.white.withOpacity(0.9)
+//       ..style = PaintingStyle.fill;
 
-//     final sparkleGlowPaint =
-//         Paint()
-//           ..color = Colors.white.withOpacity(0.3)
-//           ..style = PaintingStyle.fill;
+//     final sparkleGlowPaint = Paint()
+//       ..color = Colors.white.withOpacity(0.3)
+//       ..style = PaintingStyle.fill;
 
-//     for (int i = 0; i < sparklePositions.length; i++) {
-//       final pos = sparklePositions[i];
+//     for (final pos in sparklePositions) {
 //       try {
 //         if (pos >= 0 && pos <= totalLength) {
 //           final tangent = pathMetric.getTangentForOffset(pos);
@@ -1095,15 +843,13 @@
 //     final trailStart = (trainPosition - trainLength * 0.6) % totalLength;
 //     final trailEnd = (trainPosition - trainLength * 0.3) % totalLength;
 
-//     final trailPaint =
-//         Paint()
-//           ..color =
-//               gradientColors.isNotEmpty
-//                   ? gradientColors[gradientColors.length ~/ 2].withOpacity(0.3)
-//                   : Colors.white.withOpacity(0.3)
-//           ..style = PaintingStyle.stroke
-//           ..strokeWidth = borderSize * 1.5
-//           ..strokeCap = StrokeCap.round;
+//     final trailPaint = Paint()
+//       ..color = gradientColors.isNotEmpty
+//           ? gradientColors[gradientColors.length ~/ 2].withOpacity(0.3)
+//           : Colors.white.withOpacity(0.3)
+//       ..style = PaintingStyle.stroke
+//       ..strokeWidth = borderSize * 1.5
+//       ..strokeCap = StrokeCap.round;
 
 //     try {
 //       if (trailStart < trailEnd && trailEnd <= totalLength) {
@@ -1131,10 +877,11 @@
 //   final int maxLines;
 //   final String? Function(String?)? validator;
 //   final TextInputType? keyboardType;
-//   final VoidCallback? onTap;
+//   final Icon? prefixIcon;
 //   final int borderRadius;
-//   final Widget prefixIcon;
 //   final Color backgroundColor;
+//   final List<Color>? customColors;
+//   final VoidCallback onTap;
 
 //   const AnimatedTextField({
 //     Key? key,
@@ -1145,10 +892,11 @@
 //     this.maxLines = 1,
 //     this.validator,
 //     this.keyboardType,
-//     this.onTap,
-//     required this.borderRadius,
-//     required this.prefixIcon,
-//     required this.backgroundColor,
+//     this.prefixIcon,
+//     this.borderRadius = 12,
+//     this.backgroundColor = Colors.white,
+//     this.customColors,
+//     required this.onTap,
 //   }) : super(key: key);
 
 //   @override
@@ -1156,25 +904,21 @@
 // }
 
 // class _AnimatedTextFieldState extends State<AnimatedTextField> {
-//   late FocusNode _focusNode;
+//   final FocusNode _focusNode = FocusNode();
 //   bool _isFocused = false;
 
 //   @override
 //   void initState() {
 //     super.initState();
-//     _focusNode = FocusNode();
 //     _focusNode.addListener(() {
-//       if (mounted) {
-//         setState(() {
-//           _isFocused = _focusNode.hasFocus;
-//         });
-//       }
+//       setState(() {
+//         _isFocused = _focusNode.hasFocus;
+//       });
 //     });
 //   }
 
 //   @override
 //   void dispose() {
-//     _focusNode.removeListener(() {});
 //     _focusNode.dispose();
 //     super.dispose();
 //   }
@@ -1183,14 +927,24 @@
 //   Widget build(BuildContext context) {
 //     return AnimatedBorderWidget(
 //       borderType: widget.borderType,
+//       customColors: widget.customColors,
 //       isActive: _isFocused,
-//       borderWidth: _isFocused ? 3.0 : 1.0,
-//       glowSize: _isFocused ? 15.0 : 0.0,
+//       borderWidth: _isFocused ? 3.0 : 1.5,
+//       glowSize: _isFocused ? 12.0 : 0.0,
 //       borderRadius: BorderRadius.circular(widget.borderRadius.toDouble()),
 //       child: Container(
 //         decoration: BoxDecoration(
 //           borderRadius: BorderRadius.circular(widget.borderRadius.toDouble()),
-//           color: widget.backgroundColor,
+//           color: _isFocused ? widget.backgroundColor.withOpacity(0.95) : widget.backgroundColor.withOpacity(0.92),
+//           boxShadow: _isFocused
+//               ? [
+//                   BoxShadow(
+//                     color: Colors.black.withOpacity(0.05),
+//                     blurRadius: 10,
+//                     offset: const Offset(0, 4),
+//                   ),
+//                 ]
+//               : null,
 //         ),
 //         child: TextFormField(
 //           controller: widget.controller,
@@ -1202,18 +956,28 @@
 //           decoration: InputDecoration(
 //             labelText: widget.labelText,
 //             labelStyle: TextStyle(
-//               color: _isFocused ? Colors.teal[700] : Colors.grey[600],
-//               fontWeight: _isFocused ? FontWeight.w600 : FontWeight.normal,
+//               color: _isFocused ? Colors.blue.shade700 : Colors.grey.shade600,
+//               fontWeight: _isFocused ? FontWeight.w600 : FontWeight.w500,
+//               fontSize: 16,
 //             ),
-//             prefixIcon: widget.prefixIcon,
+//             prefixIcon: widget.prefixIcon != null
+//                 ? Padding(
+//                     padding: const EdgeInsets.only(left: 8, right: 12),
+//                     child: widget.prefixIcon,
+//                   )
+//                 : null,
 //             border: InputBorder.none,
-//             contentPadding: const EdgeInsets.symmetric(
-//               horizontal: 20,
-//               vertical: 16,
+//             contentPadding: EdgeInsets.symmetric(
+//               horizontal: widget.prefixIcon != null ? 8 : 24,
+//               vertical: widget.maxLines > 1 ? 20 : 18,
 //             ),
 //             floatingLabelBehavior: FloatingLabelBehavior.auto,
 //           ),
-//           style: const TextStyle(color: Colors.black87, fontSize: 16),
+//           style: TextStyle(
+//             color: Colors.grey.shade800,
+//             fontSize: 16,
+//             fontWeight: FontWeight.w500,
+//           ),
 //           validator: widget.validator,
 //         ),
 //       ),

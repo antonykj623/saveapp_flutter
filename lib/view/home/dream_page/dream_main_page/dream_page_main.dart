@@ -4,7 +4,7 @@ import 'package:new_project_2025/view/home/dream_page/model_dream_page/model_dre
 import 'package:new_project_2025/view/home/dream_page/view_details_screen/view_details_screen.dart';
 import 'package:new_project_2025/view/home/dream_page/dream_class/db_class.dart';
 
-import '../../widget/save_DB/Budegt_database_helper/Save_DB.dart'; // Import DatabaseHelper
+import '../../widget/save_DB/Budegt_database_helper/Save_DB.dart';
 
 class MyDreamScreen extends StatefulWidget {
   @override
@@ -14,18 +14,34 @@ class MyDreamScreen extends StatefulWidget {
 class _MyDreamScreenState extends State<MyDreamScreen> {
   List<Dream> dreams = [];
   final DatabaseHelper _dbHelper = DatabaseHelper();
+  List<TargetCategory> targetCategories = []; // Add this
 
   @override
   void initState() {
     super.initState();
-    _loadDreams();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    await _loadTargetCategories(); // Load categories first
+    await _loadDreams();
+  }
+
+  Future<void> _loadTargetCategories() async {
+    try {
+      final categories = await TargetCategoryService.getAllTargetCategories();
+      setState(() {
+        targetCategories = categories;
+      });
+    } catch (e) {
+      print('Error loading target categories: $e');
+    }
   }
 
   Future<void> _loadDreams() async {
     try {
       final loadedDreams = await _dbHelper.getAllDreams();
       if (loadedDreams.isEmpty) {
-        // Insert default dream if none exist
         final defaultDream = Dream(
           name: "Hhh",
           category: "Vehicle",
@@ -66,6 +82,43 @@ class _MyDreamScreenState extends State<MyDreamScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Failed to add dream: $e')));
+    }
+  }
+
+  // NEW METHOD: Get category icon for a dream
+  Widget _getCategoryIcon(String categoryName) {
+    try {
+      final category = targetCategories.firstWhere(
+        (cat) => cat.name == categoryName,
+        orElse: () => throw Exception('Category not found'),
+      );
+
+      // All categories (default and custom) use stored images
+      if (category.iconImage != null && category.iconImage!.isNotEmpty) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: Image.memory(
+            category.iconImage!,
+            width: 32,
+            height: 32,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Icon(
+                Icons.broken_image,
+                size: 32,
+                color: Colors.grey[400],
+              );
+            },
+          ),
+        );
+      } else {
+        // Fallback if image is missing
+        return Icon(Icons.category, size: 32, color: Colors.grey[400]);
+      }
+    } catch (e) {
+      print('Error getting category icon for $categoryName: $e');
+      // Fallback icon if category not found
+      return Icon(Icons.help_outline, size: 32, color: Colors.grey[400]);
     }
   }
 
@@ -112,12 +165,8 @@ class _MyDreamScreenState extends State<MyDreamScreen> {
                           children: [
                             Row(
                               children: [
-                                Icon(
-                                  Icons
-                                      .directions_car, // TODO: Map category to icon
-                                  size: 32,
-                                  color: Colors.teal,
-                                ),
+                                // FIXED: Use dynamic category icon
+                                _getCategoryIcon(dream.category),
                                 SizedBox(width: 12),
                                 Text(
                                   dream.category,

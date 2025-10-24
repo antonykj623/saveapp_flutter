@@ -2230,7 +2230,7 @@ class _ContactPickerBottomSheetState extends State<ContactPickerBottomSheet>
                   ),
                 ),
               );
-            }).toList(),
+            }).toList(),  
       ),
     );
   }
