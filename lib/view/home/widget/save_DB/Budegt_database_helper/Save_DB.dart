@@ -16,7 +16,7 @@ import 'package:sqflite/sqflite.dart';
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
   static Database? _database;
-
+ 
   DatabaseHelper._internal();
 
   factory DatabaseHelper() => _instance;
@@ -575,6 +575,32 @@ class DatabaseHelper {
   }
 
   // Method to get account opening balance
+  // Future<double> getAccountOpeningBalance(String accountName) async {
+  //   try {
+  //     final db = await database;
+  //     final accounts = await db.query('TABLE_ACCOUNTSETTINGS');
+
+  //     for (var account in accounts) {
+  //       final dataValue = account['data'];
+  //       if (dataValue != null) {
+  //         Map<String, dynamic> data = jsonDecode(dataValue.toString());
+  //         final storedAccountName = data['Accountname'];
+  //         if (storedAccountName != null &&
+  //             storedAccountName.toString().toLowerCase() ==
+  //                 accountName.toLowerCase()) {
+  //           final openingBalance = data['OpeningBalance'] ?? data['Amount'];
+  //           return double.tryParse(openingBalance?.toString() ?? '0') ?? 0.0;
+  //         }
+  //       }
+  //     }
+  //     return 0.0;
+  //   } catch (e) {
+  //     print('Error getting opening balance: $e');
+  //     return 0.0;
+  //   }
+  // }
+  // Also replace the getAccountOpeningBalance method for backward compatibility:
+
   Future<double> getAccountOpeningBalance(String accountName) async {
     try {
       final db = await database;
@@ -588,7 +614,12 @@ class DatabaseHelper {
           if (storedAccountName != null &&
               storedAccountName.toString().toLowerCase() ==
                   accountName.toLowerCase()) {
-            final openingBalance = data['OpeningBalance'] ?? data['Amount'];
+            // FIXED: Check both "balance" and "Amount" for backward compatibility
+            final openingBalance =
+                data['balance'] ??
+                data['OpeningBalance'] ??
+                data['Amount'] ??
+                '0';
             return double.tryParse(openingBalance?.toString() ?? '0') ?? 0.0;
           }
         }
@@ -1786,6 +1817,7 @@ class DatabaseHelper {
     }
     return accountNames;
   }
+  // Replace the updateaccountdet method in Save_DB.dart with this fixed version:
 
   Future<void> updateaccountdet(
     String accountname,
@@ -1795,30 +1827,81 @@ class DatabaseHelper {
     String year,
     String keyid,
   ) async {
-    Database db = await database;
-    Map<String, dynamic> accountData = {
-      "Accountname": accountname,
-      "Accounttype": category,
-      "Amount": openingbalance,
-      "Type": accountype,
-      "year": year,
-    };
-    Map<String, dynamic> datatoupdate = {
-      "keyid": keyid,
-      "data": jsonEncode(accountData),
-    };
-    var res = await db.update(
-      'TABLE_ACCOUNTSETTINGS',
-      datatoupdate,
-      where: 'keyid = ?',
-      whereArgs: [keyid],
-    );
-    if (res == 1) {
-      print("Account updated successfully: $res");
-    } else {
-      print("Account update failed");
+    try {
+      Database db = await database;
+
+      // FIXED: Use "balance" instead of "Amount" to match Add_Acount.dart
+      Map<String, dynamic> accountData = {
+        "Accountname": accountname,
+        "Accounttype": category,
+        "balance": openingbalance, // Changed from "Amount" to "balance"
+        "Type": accountype,
+        "year": year,
+      };
+
+      Map<String, dynamic> datatoupdate = {"data": jsonEncode(accountData)};
+
+      int parsedKeyid = int.tryParse(keyid) ?? 0;
+
+      if (parsedKeyid <= 0) {
+        print("❌ Error: Invalid keyid: $keyid");
+        return;
+      }
+
+      var res = await db.update(
+        'TABLE_ACCOUNTSETTINGS',
+        datatoupdate,
+        where: 'keyid = ?',
+        whereArgs: [parsedKeyid],
+      );
+
+      if (res == 1) {
+        print("✅ Account updated successfully!");
+        print("📋 ID: $keyid");
+        print("👤 Account Name: $accountname");
+        print("💰 Opening Balance: $openingbalance");
+        print("📊 Type: $accountype");
+      } else {
+        print("❌ Account update failed - No record found with keyid: $keyid");
+      }
+    } catch (e, stackTrace) {
+      print("❌ Error updating account: $e");
+      print("Stack trace: $stackTrace");
     }
   }
+
+  // Future<void> updateaccountdet(
+  //   String accountname,
+  //   String category,
+  //   String openingbalance,
+  //   String accountype,
+  //   String year,
+  //   String keyid,
+  // ) async {
+  //   Database db = await database;
+  //   Map<String, dynamic> accountData = {
+  //     "Accountname": accountname,
+  //     "Accounttype": category,
+  //     "Amount": openingbalance,
+  //     "Type": accountype,
+  //     "year": year,
+  //   };
+  //   Map<String, dynamic> datatoupdate = {
+  //     "keyid": keyid,
+  //     "data": jsonEncode(accountData),
+  //   };
+  //   var res = await db.update(
+  //     'TABLE_ACCOUNTSETTINGS',
+  //     datatoupdate,
+  //     where: 'keyid = ?',
+  //     whereArgs: [keyid],
+  //   );
+  //   if (res == 1) {
+  //     print("Account updated successfully: $res");
+  //   } else {
+  //     print("Account update failed");
+  //   }
+  // }
 
   Future<List<Map<String, dynamic>>> queryallacc() async {
     Database db = await database;

@@ -40,6 +40,7 @@ class _JournalPageState extends State<Journal> {
   String selectedYearMonth = DateFormat('MMM/yyyy').format(DateTime.now());
   List<Map<String, dynamic>> journalEntries = [];
   double total = 0;
+  bool isLoading = true;
   final ScrollController _verticalScrollController = ScrollController();
 
   @override
@@ -56,6 +57,10 @@ class _JournalPageState extends State<Journal> {
 
   Future<void> _loadJournalEntries() async {
     try {
+      setState(() {
+        isLoading = true;
+      });
+
       final db = await DatabaseHelper().database;
       final monthYear = selectedYearMonth.split('/');
       final month = monthYear[0].toLowerCase();
@@ -100,9 +105,13 @@ class _JournalPageState extends State<Journal> {
       setState(() {
         journalEntries = entries;
         total = _calculateTotal(entries);
+        isLoading = false;
       });
     } catch (e) {
       print('Error loading journal entries: $e');
+      setState(() {
+        isLoading = false;
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading journal entries: $e')),
@@ -175,14 +184,15 @@ class _JournalPageState extends State<Journal> {
                   DropdownButton<String>(
                     value: selectedMonth,
                     isExpanded: true,
-                    items: months
-                        .map(
-                          (month) => DropdownMenuItem(
-                            value: month,
-                            child: Text(month),
-                          ),
-                        )
-                        .toList(),
+                    items:
+                        months
+                            .map(
+                              (month) => DropdownMenuItem(
+                                value: month,
+                                child: Text(month),
+                              ),
+                            )
+                            .toList(),
                     onChanged: (value) {
                       setStateSB(() {
                         selectedMonth = value!;
@@ -193,14 +203,15 @@ class _JournalPageState extends State<Journal> {
                   DropdownButton<String>(
                     value: selectedYear,
                     isExpanded: true,
-                    items: years
-                        .map(
-                          (year) => DropdownMenuItem(
-                            value: year,
-                            child: Text(year),
-                          ),
-                        )
-                        .toList(),
+                    items:
+                        years
+                            .map(
+                              (year) => DropdownMenuItem(
+                                value: year,
+                                child: Text(year),
+                              ),
+                            )
+                            .toList(),
                     onChanged: (value) {
                       setStateSB(() {
                         selectedYear = value!;
@@ -242,7 +253,7 @@ class _JournalPageState extends State<Journal> {
 
   void _editItem(int index) async {
     final entry = journalEntries[index];
-    
+
     // Create JournalEntry object for editing
     final journalEntry = JournalEntry(
       entryId: int.parse(entry['entryId']),
@@ -259,7 +270,7 @@ class _JournalPageState extends State<Journal> {
         builder: (context) => AddJournal(journalEntry: journalEntry),
       ),
     );
-    
+
     if (result == true) {
       _loadJournalEntries();
     }
@@ -269,56 +280,58 @@ class _JournalPageState extends State<Journal> {
     final entryId = journalEntries[index]['entryId'];
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirm Delete'),
-        content: const Text(
-          'Are you sure you want to delete this journal entry?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              try {
-                final db = await DatabaseHelper().database;
-                await db.delete(
-                  'TABLE_ACCOUNTS',
-                  where: "ACCOUNTS_VoucherType = ? AND ACCOUNTS_entryid = ?",
-                  whereArgs: [4, entryId], // Changed to VoucherType 4
-                );
-                setState(() {
-                  journalEntries.removeAt(index);
-                  total = _calculateTotal(journalEntries);
-                });
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Journal entry deleted successfully'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              } catch (e) {
-                print('Error deleting journal entry: $e');
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error deleting journal entry: $e'),
-                    ),
-                  );
-                }
-              }
-              Navigator.pop(context);
-            },
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: Colors.red),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Confirm Delete'),
+            content: const Text(
+              'Are you sure you want to delete this journal entry?',
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  try {
+                    final db = await DatabaseHelper().database;
+                    await db.delete(
+                      'TABLE_ACCOUNTS',
+                      where:
+                          "ACCOUNTS_VoucherType = ? AND ACCOUNTS_entryid = ?",
+                      whereArgs: [4, entryId], // Changed to VoucherType 4
+                    );
+                    setState(() {
+                      journalEntries.removeAt(index);
+                      total = _calculateTotal(journalEntries);
+                    });
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Journal entry deleted successfully'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    print('Error deleting journal entry: $e');
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Error deleting journal entry: $e'),
+                        ),
+                      );
+                    }
+                  }
+                  Navigator.pop(context);
+                },
+                child: const Text(
+                  'Delete',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -332,6 +345,13 @@ class _JournalPageState extends State<Journal> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
         ),
         title: const Text('Journal', style: TextStyle(color: Colors.white)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: _loadJournalEntries,
+            tooltip: 'Refresh',
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -365,73 +385,134 @@ class _JournalPageState extends State<Journal> {
           ),
           // Table Section
           Expanded(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.black),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                children: [
-                  // Table Header
-                  Container(
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: Colors.teal.shade50,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(8),
-                        topRight: Radius.circular(8),
-                      ),
-                      border: const Border(
-                        bottom: BorderSide(color: Colors.black, width: 2),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        _buildHeaderCell('Date', flex: 4),
-                        _buildHeaderCell('Debit', flex: 3),
-                        _buildHeaderCell('Amount', flex: 2),
-                        _buildHeaderCell('Credit', flex: 3),
-                        _buildHeaderCell('Actions', flex: 3),
-                      ],
-                    ),
-                  ),
-                  // Table Body
-                  Expanded(
-                    child: journalEntries.isEmpty
-                        ? const Center(
-                            child: Text(
-                              'No journal entries found',
-                              style: TextStyle(fontSize: 16, color: Colors.grey),
+            child:
+                isLoading
+                    ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.teal,
                             ),
-                          )
-                        : ListView.builder(
-                            controller: _verticalScrollController,
-                            itemCount: journalEntries.length,
-                            itemBuilder: (context, index) {
-                              final item = journalEntries[index];
-                              return Container(
-                                decoration: const BoxDecoration(
-                                  border: Border(
-                                    bottom: BorderSide(color: Colors.black, width: 1),
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    _buildDataCell(item['date'], flex: 4),
-                                    _buildDataCell(item['debitAccount'], flex: 3),
-                                    _buildDataCell('₹${item['amount']}', flex: 2),
-                                    _buildDataCell(item['creditAccount'], flex: 3),
-                                    _buildActionCell(index, flex: 3),
-                                  ],
-                                ),
-                              );
-                            },
                           ),
-                  ),
-                ],
-              ),
-            ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Loading Journal Entries...',
+                            style: TextStyle(
+                              color: Colors.teal[800],
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                    : journalEntries.isEmpty
+                    ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.book_outlined,
+                            size: 80,
+                            color: Colors.teal[200],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No journal entries found for $selectedYearMonth',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.teal[800],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Add a new journal entry to get started!',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                    : Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.black),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        children: [
+                          // Table Header - Only show when there is data
+                          Container(
+                            height: 60,
+                            decoration: BoxDecoration(
+                              color: Colors.teal.shade50,
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(8),
+                                topRight: Radius.circular(8),
+                              ),
+                              border: const Border(
+                                bottom: BorderSide(
+                                  color: Colors.black,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                _buildHeaderCell('Date', flex: 4),
+                                _buildHeaderCell('Debit', flex: 3),
+                                _buildHeaderCell('Amount', flex: 2),
+                                _buildHeaderCell('Credit', flex: 3),
+                                _buildHeaderCell('Actions', flex: 3),
+                              ],
+                            ),
+                          ),
+                          // Table Body
+                          Expanded(
+                            child: ListView.builder(
+                              controller: _verticalScrollController,
+                              itemCount: journalEntries.length,
+                              itemBuilder: (context, index) {
+                                final item = journalEntries[index];
+                                return Container(
+                                  decoration: const BoxDecoration(
+                                    border: Border(
+                                      bottom: BorderSide(
+                                        color: Colors.black,
+                                        width: 1,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      _buildDataCell(item['date'], flex: 4),
+                                      _buildDataCell(
+                                        item['debitAccount'],
+                                        flex: 3,
+                                      ),
+                                      _buildDataCell(
+                                        '₹${item['amount']}',
+                                        flex: 2,
+                                      ),
+                                      _buildDataCell(
+                                        item['creditAccount'],
+                                        flex: 3,
+                                      ),
+                                      _buildActionCell(index, flex: 3),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
           ),
           // Total Section and Add Button
           Container(
@@ -555,36 +636,37 @@ class _JournalPageState extends State<Journal> {
   void _handleEdit(int index) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Action'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.edit, color: Colors.blue),
-              title: const Text('Edit'),
-              onTap: () {
-                Navigator.pop(context);
-                _editItem(index);
-              },
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Action'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.edit, color: Colors.blue),
+                  title: const Text('Edit'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _editItem(index);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.delete, color: Colors.red),
+                  title: const Text('Delete'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _deleteItem(index);
+                  },
+                ),
+              ],
             ),
-            ListTile(
-              leading: const Icon(Icons.delete, color: Colors.red),
-              title: const Text('Delete'),
-              onTap: () {
-                Navigator.pop(context);
-                _deleteItem(index);
-              },
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 }

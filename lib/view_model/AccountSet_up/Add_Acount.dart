@@ -16,7 +16,7 @@ class Addaccountsdet extends StatefulWidget {
 var items1 = [
   'Asset Account',
   'Bank',
-  'Cash',
+  'Cash',   
   'Credit Card',
   'Customers',
   'Expense Account',
@@ -48,8 +48,8 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
       case 'expense account':
       case 'insurance':
       case 'investment':
-      default:
-        return 'Debit';
+      default:  
+        return 'Debit';  
     }
   }
 
@@ -76,7 +76,6 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
     if (widget.accountData.isNotEmpty) {
       setState(() {
         accountname.text = widget.accountData["Accountname"] ?? "";
-        // Try multiple field names for backward compatibility
         openingbalance.text =
             widget.accountData["balance"] ??
             widget.accountData["OpeningBalance"] ??

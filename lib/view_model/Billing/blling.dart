@@ -138,9 +138,6 @@ class _BillingPageState extends State<Billing> {
       print("Error loading bill data: $e");
     }
   }
-  //Finds the account name corresponding to a setup ID by reading and decoding data from the database.
-  //
-  // Used for showing partyName and creditAccount in the table.
 
   Future<String> _getAccountName(String id) async {
     try {
@@ -158,11 +155,6 @@ class _BillingPageState extends State<Billing> {
     }
   }
 
-  //Formats selectedStartDate to "MM/yyyy".
-  //
-  // Used in the date picker display box.
-  //
-  // selectedEndDate is defined but not used for filtering.
   String _getDisplayStartDate() {
     return DateFormat('MM/yyyy').format(selectedStartDate);
   }
@@ -170,9 +162,6 @@ class _BillingPageState extends State<Billing> {
   String _getDisplayEndDate() {
     return DateFormat('dd/MM/yyyy').format(selectedEndDate);
   }
-  //Opens a date picker.
-  //
-  // Updates selectedStartDate (or selectedEndDate) and reloads data if a date is picked.
 
   void selectDate(bool isStart) {
     showDatePicker(
@@ -250,72 +239,107 @@ class _BillingPageState extends State<Billing> {
               ],
             ),
           ),
-          // Table Section
+          // Table Section - Only show if there's data
           Expanded(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.black),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                children: [
-                  // Table Header
-                  Container(
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: Colors.teal.shade50,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(8),
-                        topRight: Radius.circular(8),
-                      ),
-                      border: const Border(
-                        bottom: BorderSide(color: Colors.black, width: 2),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        _buildHeaderCell('Date', flex: 4),
-                        _buildHeaderCell('Name of Party', flex: 3),
-                        _buildHeaderCell('Amount', flex: 2),
-                        _buildHeaderCell('Credit Account', flex: 3),
-                        _buildHeaderCell('Actions', flex: 3),
-                      ],
-                    ),
-                  ),
-                  // Table Body
-                  Expanded(
-                    child: ListView.builder(
-                      controller: _verticalScrollController,
-                      itemCount: billData.length,
-                      itemBuilder: (context, index) {
-                        final item = billData[index];
-                        return Container(
-                          decoration: BoxDecoration(
-                            border: Border(
-                              bottom: BorderSide(color: Colors.black, width: 1),
+            child:
+                billData.isEmpty
+                    ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.receipt_long,
+                            size: 80,
+                            color: Colors.grey.shade400,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No bills found for this month',
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: Colors.grey.shade600,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          child: Row(
-                            children: [
-                              _buildDataCell(item['date'], flex: 4),
-                              _buildDataCell(item['partyName'], flex: 3),
-                              _buildDataCell(item['amount'], flex: 2),
-                              _buildDataCell(item['creditAccount'], flex: 3),
-                              _buildActionCell(
-                                index,
-                                item['billNumber'],
-                                flex: 3,
+                        ],
+                      ),
+                    )
+                    : Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.black),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        children: [
+                          // Table Header
+                          Container(
+                            height: 60,
+                            decoration: BoxDecoration(
+                              color: Colors.teal.shade50,
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(8),
+                                topRight: Radius.circular(8),
                               ),
-                            ],
+                              border: const Border(
+                                bottom: BorderSide(
+                                  color: Colors.black,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                _buildHeaderCell('Date', flex: 4),
+                                _buildHeaderCell('Name of Party', flex: 3),
+                                _buildHeaderCell('Amount', flex: 2),
+                                _buildHeaderCell('Credit Account', flex: 3),
+                                _buildHeaderCell('Actions', flex: 3),
+                              ],
+                            ),
                           ),
-                        );
-                      },
+                          // Table Body
+                          Expanded(
+                            child: ListView.builder(
+                              controller: _verticalScrollController,
+                              itemCount: billData.length,
+                              itemBuilder: (context, index) {
+                                final item = billData[index];
+                                return Container(
+                                  decoration: BoxDecoration(
+                                    border: Border(
+                                      bottom: BorderSide(
+                                        color: Colors.black,
+                                        width: 1,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      _buildDataCell(item['date'], flex: 4),
+                                      _buildDataCell(
+                                        item['partyName'],
+                                        flex: 3,
+                                      ),
+                                      _buildDataCell(item['amount'], flex: 2),
+                                      _buildDataCell(
+                                        item['creditAccount'],
+                                        flex: 3,
+                                      ),
+                                      _buildActionCell(
+                                        index,
+                                        item['billNumber'],
+                                        flex: 3,
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
           ),
           // Total Section
           Container(
@@ -351,7 +375,7 @@ class _BillingPageState extends State<Billing> {
                       MaterialPageRoute(builder: (context) => const AddBill()),
                     );
                     if (result == true) {
-                      _loadBillData(); // Refresh data after adding a new bill
+                      _loadBillData();
                     }
                   },
                   child: const Icon(Icons.add, color: Colors.white, size: 25),
@@ -421,7 +445,7 @@ class _BillingPageState extends State<Billing> {
                     ),
                   ).then((value) {
                     if (value == true) {
-                      _loadBillData(); // Refresh data after editing/deleting
+                      _loadBillData();
                     }
                   });
                 },

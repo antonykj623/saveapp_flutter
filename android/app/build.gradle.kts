@@ -39,6 +39,13 @@ android {
         multiDexEnabled = true  // Enable multidex
     }
 
+    // ADD THIS SECTION - Disable lint to prevent file locking issues on Windows
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+        disable += setOf("MissingTranslation", "ExtraTranslation")
+    }
+
     signingConfigs {
         create("release") {
             keyAlias = keystoreProperties["keyAlias"] as String

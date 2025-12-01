@@ -97,7 +97,7 @@ class _LoginScreenState extends State<LoginScreen>
     });
 
     var uuid = Uuid().v4();
-    String timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
+    String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
 
     Map<String, String> logdata = {
       "mobile": _mobilenumber.text.trim(),
@@ -107,8 +107,9 @@ class _LoginScreenState extends State<LoginScreen>
     };
 
     try {
+      // Updated to use premium login endpoint
       String logresponse = await apidata.postApiResponse(
-        "UserLogin.php",
+        "userLoginPremium.php",
         logdata,
       );
       await handleLoginResponse(context, logresponse);
@@ -133,26 +134,23 @@ class _LoginScreenState extends State<LoginScreen>
       final data = jsonDecode(response);
 
       int status = data['status'];
-      String message = data['message'];
+      String message = data['message'] ?? 'Login response received';
 
-
-
-
-
-
-      if (status == 0) { 
+      if (status == 0) {
+        // Login Failed
         _showErrorDialog("Login Failed", message);
-      } else if (status == 2) {
+      } else if (status == 1 || status == 2) {
+        // Success - Save data and navigate to home
         final prefs = await SharedPreferences.getInstance();
         await prefs.setInt('status', status);
-        await prefs.setString('token', data['token']);
-        await prefs.setString('userid', data['userid']);
+        await prefs.setString('token', data['token'] ?? '');
+        await prefs.setString('userid', data['userid'] ?? '');
         await prefs.setString('message', message);
 
         debugPrint('Login successful - navigating to main app');
 
+        // Navigate directly to home screen on success
         if (mounted) {
-          // Navigate directly to main app
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (context) => const SaveApp()),
@@ -167,6 +165,118 @@ class _LoginScreenState extends State<LoginScreen>
         "An error occurred while processing the login response.",
       );
     }
+  }
+
+  void _showSuccessMessageDialog(
+    String message, {
+    bool navigateToHome = false,
+  }) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => Dialog(
+            backgroundColor: Colors.transparent,
+            child: Container(
+              padding: const EdgeInsets.all(25),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Colors.white, Colors.green.shade50],
+                ),
+                borderRadius: BorderRadius.circular(25),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.green.withOpacity(0.3),
+                    blurRadius: 30,
+                    spreadRadius: 5,
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(15),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.check_circle,
+                      color: Colors.green,
+                      size: 50,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    "Success!",
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 15),
+                  Text(
+                    message,
+                    style: const TextStyle(fontSize: 16, color: Colors.black87),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 25),
+                  Container(
+                    width: double.infinity,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Colors.green, Color(0xFF4CAF50)],
+                      ),
+                      borderRadius: BorderRadius.circular(15),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.green.withOpacity(0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        if (navigateToHome && mounted) {
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const SaveApp(),
+                            ),
+                            (Route<dynamic> route) => false,
+                          );
+                        }
+                      },
+                      child: const Text(
+                        "OK",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+    );
   }
 
   Future<void> _launchSignUpURL() async {
@@ -946,9 +1056,9 @@ class _LoginScreenState extends State<LoginScreen>
 
                                 const SizedBox(height: 40),
 
-                                // Sign up link
+                                
                                 Container(
-                                  padding: const EdgeInsets.symmetric(
+                                  padding:  EdgeInsets.symmetric(
                                     horizontal: 20,
                                     vertical: 15,
                                   ),

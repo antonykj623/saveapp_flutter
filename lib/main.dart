@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:new_project_2025/Design.dart';
 import 'package:new_project_2025/app/Modules/login/login_page.dart';
 import 'package:new_project_2025/view/home/widget/home_screen.dart';
 import 'package:new_project_2025/view/home/widget/setting_page/app_lock/check_pattern.dart';
 import 'package:new_project_2025/view/home/widget/setting_page/app_lock/set_pattern.dart';
+import 'package:new_project_2025/view_model/Task/notification_service/notification.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await TaskNotificationService.initialize();
+  debugPrint('✅ Notification service initialized');
 
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
@@ -18,20 +23,66 @@ void main() async {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({Key? key}) : super(key: key);
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  // Global navigator key for auto backup
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
+  final _autoBackupService = AutoBackupService();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
+    // Initialize auto backup service after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final context = navigatorKey.currentContext;
+      if (context != null) {
+        _autoBackupService.initialize(context);
+        debugPrint('✅ Auto Backup Service initialized with daily scheduler');
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _autoBackupService.dispose();
+    debugPrint('🔴 Auto Backup Service disposed');
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    // Check auto backup when app comes to foreground
+    if (state == AppLifecycleState.resumed) {
+      final context = navigatorKey.currentContext;
+      if (context != null) {
+        debugPrint('📱 App resumed - checking for pending auto backups');
+        _autoBackupService.onAppResume(context);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'SAVE App',
       theme: ThemeData(
         primarySwatch: Colors.teal,
-        // Add fallback theme properties for stability
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      // Add error handling for navigation
       builder: (context, child) {
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(textScaleFactor: 1.0),
@@ -68,7 +119,12 @@ class _SplashPageState extends State<SplashPage> {
     try {
       await Future.delayed(const Duration(milliseconds: 500));
 
-      // Then proceed with your existing logic
+      final hasPermissions = await TaskNotificationService.checkPermissions();
+      if (!hasPermissions) {
+        debugPrint('⚠️ Requesting notification permissions...');
+        await TaskNotificationService.requestPermissions();
+      }
+
       await delayedFunction();
     } catch (e, stackTrace) {
       debugPrint('Error in _initializeApp: $e');
@@ -79,7 +135,6 @@ class _SplashPageState extends State<SplashPage> {
         _errorMessage = 'Failed to initialize app: $e';
       });
 
-      // Fallback to login screen after error
       await Future.delayed(const Duration(seconds: 2));
       if (mounted) {
         _navigateToLogin();
@@ -164,7 +219,6 @@ class _SplashPageState extends State<SplashPage> {
         _errorMessage = 'Navigation error: $e';
       });
 
-      // Fallback to login
       await Future.delayed(const Duration(seconds: 1));
       if (mounted) {
         _navigateToLogin();
@@ -172,7 +226,6 @@ class _SplashPageState extends State<SplashPage> {
     }
   }
 
-  // Safe navigation methods with error handling
   void _navigateToLogin() {
     try {
       Navigator.pushReplacement(
@@ -191,9 +244,10 @@ class _SplashPageState extends State<SplashPage> {
         context,
         MaterialPageRoute(builder: (context) => SaveApp()),
       );
+      debugPrint('✅ Navigated to Home - Auto backup will check shortly');
     } catch (e) {
       debugPrint('Error navigating to home: $e');
-      _navigateToLogin(); // Fallback to login
+      _navigateToLogin();
     }
   }
 
@@ -205,7 +259,7 @@ class _SplashPageState extends State<SplashPage> {
       );
     } catch (e) {
       debugPrint('Error navigating to check pattern: $e');
-      _navigateToLogin(); // Fallback to login
+      _navigateToLogin();
     }
   }
 
@@ -217,7 +271,7 @@ class _SplashPageState extends State<SplashPage> {
       );
     } catch (e) {
       debugPrint('Error navigating to set pattern: $e');
-      _navigateToLogin(); // Fallback to login
+      _navigateToLogin();
     }
   }
 

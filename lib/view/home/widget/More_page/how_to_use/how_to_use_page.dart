@@ -1,23 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:translator/translator.dart';
 
-
 class HowtouseScreen extends StatefulWidget {
   @override
   _TranslatorScreenState createState() => _TranslatorScreenState();
 }
 
-class _TranslatorScreenState extends State<HowtouseScreen> {
+class _TranslatorScreenState extends State<HowtouseScreen>
+    with TickerProviderStateMixin {
   final GoogleTranslator _translator = GoogleTranslator();
   String _selectedLanguage = 'en';
   String _translatedText = '';
+  bool _isTranslating = false;
+  late AnimationController _animationController;
+  late AnimationController _floatingController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _floatingAnimation;
+
   String _originalText = ''' 
    Account Setup
 
   To create an account head (ledger).
 
   1. Display all existing/default account heads in alphabetical order
-  Use “Edit/Delete” for modification/deletion.
+  Use "Edit/Delete" for modification/deletion.
   3. Press + button to create a new ledger.
   4. Enter the account name.
   5. Select the category.
@@ -29,7 +36,7 @@ class _TranslatorScreenState extends State<HowtouseScreen> {
   Payment is used to record expenses/payments
 
   1. The screen displays current month transactions.
-  2. Use “Edit/Delete” for modification/deletion.
+  2. Use "Edit/Delete" for modification/deletion.
   3. Touch + button to enter new expenses/payment.
   4. Select date of payment.
   5. Select the payment account from the list or Press + to create a new account.
@@ -43,7 +50,7 @@ class _TranslatorScreenState extends State<HowtouseScreen> {
   Receipts is used to record receipts/incomes
 
   1. The screen displays current month transactions.
-  2. Use “Edit/Delete” for modification/deletion.
+  2. Use "Edit/Delete" for modification/deletion.
   3. Touch + button to enter new receipt/income.
   4. Select the date of receipt.
   5. Select the receipt account from the list or press + to create a new account.
@@ -57,7 +64,7 @@ class _TranslatorScreenState extends State<HowtouseScreen> {
   Journal is used for adjustment entries between two accounts.
 
   1. The screen displays current month transactions.
-  2. Use “Edit/Delete” for modification/deletion.
+  2. Use "Edit/Delete" for modification/deletion.
   3. Touch + button to enter new transaction
   4. Select date of Journal.
   5. Select the debit account from the list or press + to create a new account.
@@ -70,7 +77,7 @@ class _TranslatorScreenState extends State<HowtouseScreen> {
   To bank transactions like cash deposits and withdrawals.
 
   1. The screen displays current month transactions.
-  2. Use “Edit/Delete” for modification/deletion.
+  2. Use "Edit/Delete" for modification/deletion.
   3. Touch + button to enter new transaction
   4. Select the date of deposit/withdrawal.
   5. Select the bank account or press + to create a new account.
@@ -83,8 +90,8 @@ class _TranslatorScreenState extends State<HowtouseScreen> {
   To issue a sales/service bill
 
   1. The screen displays current month transactions.
-  2. Use “Edit/Delete” for modification/deletion.
-  3. Use “Get Receipt” to receive the bill amount from the customer.
+  2. Use "Edit/Delete" for modification/deletion.
+  3. Use "Get Receipt" to receive the bill amount from the customer.
   4. Touch + button to enter a new transaction
   5. Select the date of the bill.
   6. Select the customer or press + to create a new customer.
@@ -105,15 +112,15 @@ class _TranslatorScreenState extends State<HowtouseScreen> {
 
   1. Screen shows the current closing balance of cash and bank accounts.
   2. Select period to show the transactions
-  3. Click “View” to display transactions for the selected period.
+  3. Click "View" to display transactions for the selected period.
 
   Asset
 
   To list movable and immovable assets.
 
   1. The Screen displays already saved assets.
-  2. Use “Edit or Delete” for modification.
-  3. Press + button to create a new asset. “Example – Car”
+  2. Use "Edit or Delete" for modification.
+  3. Press + button to create a new asset. "Example – Car"
   4. Category by default will be Asset account
   5. Enter the current value if any
   6. All assets will be in Debit as default
@@ -129,8 +136,8 @@ class _TranslatorScreenState extends State<HowtouseScreen> {
   To list loans and liabilities
 
   1. The screen displays already saved loans and liabilities.
-  2. Use “Edit or Delete” for modification.
-  3. Press + button to create a new liability. “Example – Housing loan”
+  2. Use "Edit or Delete" for modification.
+  3. Press + button to create a new liability. "Example – Housing loan"
   4. Category by default will be a Liability account
   5. Enter the current balance
   6. All liabilities will be in Credit as default.
@@ -147,8 +154,8 @@ class _TranslatorScreenState extends State<HowtouseScreen> {
   Used to record information about the insurance policies.
 
   1. The screen displays already saved insurance.
-  2. Use “Edit or Delete” for modification.
-  3. Press + button to create new insurance. “Example – Life insurance”
+  2. Use "Edit or Delete" for modification.
+  3. Press + button to create new insurance. "Example – Life insurance"
   4. Category by default will be insurance
   5. Enter the paid-up value.
   6. All insurance will be in Debit as default.
@@ -163,8 +170,8 @@ class _TranslatorScreenState extends State<HowtouseScreen> {
   Used to record information about the investments.
 
   1. The screen displays already saved investments.
-  2. Use “Edit or Delete” for modification.
-  3. Press + button to create new investment. “Example – Recurring deposit scheme”
+  2. Use "Edit or Delete" for modification.
+  3. Press + button to create new investment. "Example – Recurring deposit scheme"
   4. Category by default will be an investment.
   5. Enter the current deposit value.
   6. All insurance will be in Debit as default.
@@ -233,7 +240,6 @@ class _TranslatorScreenState extends State<HowtouseScreen> {
 
   ''';
 
-
   final Map<String, String> _languageCodes = {
     'English': 'en',
     'Hindi': 'hi',
@@ -243,33 +249,296 @@ class _TranslatorScreenState extends State<HowtouseScreen> {
     'Tamil': 'ta',
   };
 
+  @override
+  void initState() {
+    super.initState();
+    _translatedText = _originalText;
+
+    _animationController = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 800),
+    );
+
+    _floatingController = AnimationController(
+      vsync: this,
+      duration: Duration(seconds: 3),
+    )..repeat(reverse: true);
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+
+    _floatingAnimation = Tween<double>(begin: -10, end: 10).animate(
+      CurvedAnimation(parent: _floatingController, curve: Curves.easeInOut),
+    );
+
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _floatingController.dispose();
+    super.dispose();
+  }
+
   Future<void> _translateTo(String langCode) async {
-    final translated = await _translator.translate(_originalText, to: langCode);
     setState(() {
-      _translatedText = translated.text;
-      _selectedLanguage = langCode;
+      _isTranslating = true;
     });
+
+    try {
+      final translated = await _translator.translate(
+        _originalText,
+        to: langCode,
+      );
+      setState(() {
+        _translatedText = translated.text;
+        _selectedLanguage = langCode;
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.white),
+              SizedBox(width: 12),
+              Expanded(child: Text('Translation failed. Please try again.')),
+            ],
+          ),
+          backgroundColor: Colors.red.shade400,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          margin: EdgeInsets.all(16),
+        ),
+      );
+    } finally {
+      setState(() {
+        _isTranslating = false;
+      });
+    }
   }
 
   void _showLanguageDialog() {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Select Language'),
-          content: Container(
-            width: double.maxFinite,
-            child: ListView(
-              shrinkWrap: true,
-              children: _languageCodes.entries.map((entry) {
-                return ListTile(
-                  title: Text(entry.key),
-                  onTap: () async {
-                    Navigator.pop(context); // Close dialog
-                    await _translateTo(entry.value); // Auto-translate
-                  },
-                );
-              }).toList(),
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.purple.shade50,
+                  Colors.blue.shade50,
+                  Colors.pink.shade50,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.purple.withOpacity(0.3),
+                  blurRadius: 30,
+                  offset: Offset(0, 15),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                    ),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(28),
+                      topRight: Radius.circular(28),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Icon(
+                          Icons.language,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                      ),
+                      SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Select Language',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            Text(
+                              'Choose your preferred language',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.white.withOpacity(0.9),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  constraints: BoxConstraints(maxHeight: 420),
+                  padding: EdgeInsets.all(16),
+                  child: ListView(
+                    shrinkWrap: true,
+                    children:
+                        _languageCodes.entries.map((entry) {
+                          bool isSelected = _selectedLanguage == entry.value;
+                          return TweenAnimationBuilder(
+                            duration: Duration(milliseconds: 300),
+                            tween: Tween<double>(begin: 0, end: 1),
+                            builder: (context, double value, child) {
+                              return Transform.scale(
+                                scale: 0.9 + (value * 0.1),
+                                child: Opacity(opacity: value, child: child),
+                              );
+                            },
+                            child: Container(
+                              margin: EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                gradient:
+                                    isSelected
+                                        ? LinearGradient(
+                                          colors: [
+                                            Color(0xFF667eea).withOpacity(0.15),
+                                            Color(0xFF764ba2).withOpacity(0.15),
+                                          ],
+                                        )
+                                        : null,
+                                color: isSelected ? null : Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color:
+                                      isSelected
+                                          ? Color(0xFF667eea)
+                                          : Colors.grey.shade200,
+                                  width: isSelected ? 2 : 1,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color:
+                                        isSelected
+                                            ? Color(0xFF667eea).withOpacity(0.3)
+                                            : Colors.black.withOpacity(0.03),
+                                    blurRadius: isSelected ? 12 : 6,
+                                    offset: Offset(0, isSelected ? 6 : 3),
+                                  ),
+                                ],
+                              ),
+                              child: ListTile(
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                leading: Container(
+                                  padding: EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    gradient:
+                                        isSelected
+                                            ? LinearGradient(
+                                              colors: [
+                                                Color(0xFF667eea),
+                                                Color(0xFF764ba2),
+                                              ],
+                                            )
+                                            : null,
+                                    color:
+                                        isSelected
+                                            ? null
+                                            : Colors.grey.shade100,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Icon(
+                                    Icons.translate_rounded,
+                                    color:
+                                        isSelected
+                                            ? Colors.white
+                                            : Colors.grey.shade600,
+                                    size: 24,
+                                  ),
+                                ),
+                                title: Text(
+                                  entry.key,
+                                  style: TextStyle(
+                                    fontWeight:
+                                        isSelected
+                                            ? FontWeight.bold
+                                            : FontWeight.w600,
+                                    fontSize: 16,
+                                    color:
+                                        isSelected
+                                            ? Color(0xFF667eea)
+                                            : Colors.grey.shade800,
+                                  ),
+                                ),
+                                trailing:
+                                    isSelected
+                                        ? Container(
+                                          padding: EdgeInsets.all(6),
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              colors: [
+                                                Color(0xFF667eea),
+                                                Color(0xFF764ba2),
+                                              ],
+                                            ),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Icon(
+                                            Icons.check,
+                                            color: Colors.white,
+                                            size: 18,
+                                          ),
+                                        )
+                                        : Icon(
+                                          Icons.arrow_forward_ios,
+                                          color: Colors.grey.shade400,
+                                          size: 16,
+                                        ),
+                                onTap: () async {
+                                  Navigator.pop(context);
+                                  await _translateTo(entry.value);
+                                },
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                  ),
+                ),
+                SizedBox(height: 8),
+              ],
             ),
           ),
         );
@@ -278,43 +547,218 @@ class _TranslatorScreenState extends State<HowtouseScreen> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    _translatedText = _originalText; // Show English text on start
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.teal,
-        title: Text(
-          'How To Use',
-          style: TextStyle(color: Colors.white),
-        ),
-        iconTheme: IconThemeData(color: Colors.white),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.language),
-            tooltip: 'Select Language',
-            onPressed: _showLanguageDialog,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF667eea), Color(0xFF764ba2), Color(0xFFf093fb)],
+            stops: [0.0, 0.5, 1.0],
           ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            SizedBox(height: 10),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Text(
-                  _translatedText,
-                  style: TextStyle(fontSize: 16),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Gorgeous App Bar
+              Container(
+                padding: EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.25),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.3),
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.arrow_back_ios_new,
+                          color: Colors.white,
+                        ),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ),
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'How To Use',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 28,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          Text(
+                            'Your Complete Guide',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.85),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    AnimatedBuilder(
+                      animation: _floatingAnimation,
+                      builder: (context, child) {
+                        return Transform.translate(
+                          offset: Offset(0, _floatingAnimation.value),
+                          child: child,
+                        );
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 15,
+                              offset: Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: IconButton(
+                          icon: Icon(
+                            Icons.language_rounded,
+                            color: Color(0xFF667eea),
+                          ),
+                          tooltip: 'Select Language',
+                          onPressed: _showLanguageDialog,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
+
+              // Beautiful Content Area
+              Expanded(
+                child: Container(
+                  margin: EdgeInsets.only(top: 10),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.white, Colors.grey.shade50],
+                    ),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(40),
+                      topRight: Radius.circular(40),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 20,
+                        offset: Offset(0, -5),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(40),
+                      topRight: Radius.circular(40),
+                    ),
+                    child:
+                        _isTranslating
+                            ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: EdgeInsets.all(20),
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          Color(0xFF667eea).withOpacity(0.1),
+                                          Color(0xFF764ba2).withOpacity(0.1),
+                                        ],
+                                      ),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: CircularProgressIndicator(
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Color(0xFF667eea),
+                                      ),
+                                      strokeWidth: 3,
+                                    ),
+                                  ),
+                                  SizedBox(height: 24),
+                                  Text(
+                                    'Translating...',
+                                    style: TextStyle(
+                                      color: Color(0xFF667eea),
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'Please wait a moment',
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                            : FadeTransition(
+                              opacity: _fadeAnimation,
+                              child: SlideTransition(
+                                position: _slideAnimation,
+                                child: SingleChildScrollView(
+                                  padding: EdgeInsets.fromLTRB(24, 32, 24, 40),
+                                  child: Container(
+                                    padding: EdgeInsets.all(24),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(24),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.04),
+                                          blurRadius: 20,
+                                          offset: Offset(0, 10),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Text(
+                                      _translatedText,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        height: 1.8,
+                                        color: Colors.grey.shade800,
+                                        letterSpacing: 0.3,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

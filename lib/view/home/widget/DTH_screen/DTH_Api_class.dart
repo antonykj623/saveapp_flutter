@@ -165,7 +165,6 @@ class ApiHelper1 {
     }
   }
 
-  // Get DTH Plans
   Future<String> getDTHPlans(String operatorCode, String type) async {
     final timestamp = DateTime.now().microsecondsSinceEpoch.toString();
     final url =
@@ -174,17 +173,14 @@ class ApiHelper1 {
     return await getApiResponse(url);
   }
 
-  // Get user details
   Future<String> getUserDetails() async {
     return await postApiResponse("getUserDetails.php", {});
   }
 
-  // Get payment credentials
   Future<String> getPaymentCredentials() async {
     return await postApiResponse("ecommerce_api/getPaymentCredentials.php", {});
   }
 
-  // Update payment details
   Future<String> updatePaymentDetails(Map<String, String> params) async {
     final timestamp = DateTime.now().microsecondsSinceEpoch.toString();
     final url =
@@ -193,12 +189,10 @@ class ApiHelper1 {
     return await postApiResponse(url, params);
   }
 
-  // Post transaction data
   Future<String> postTransactionData(Map<String, String> params) async {
     return await postApiResponse("PostTransactionata.php", params);
   }
 
-  // Update recharge status
   Future<String> updateRechargeStatus(Map<String, String> params) async {
     final timestamp = DateTime.now().microsecondsSinceEpoch.toString();
     final url =
@@ -241,7 +235,6 @@ class ApiHelper1 {
     return json.decode(response);
   }
 
-  // Show alert dialog
   static showAlertDialog(
     BuildContext context,
     String title,

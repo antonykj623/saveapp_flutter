@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import 'package:new_project_2025/view/home/widget/DTH_screen/d_t_h_plans_screen.dart';
 import 'Utils.dart';
 
@@ -12,18 +13,11 @@ class DTHRechargeDashboard extends StatefulWidget {
 class _DTHRechargeDashboardState extends State<DTHRechargeDashboard>
     with TickerProviderStateMixin {
   late AnimationController _fadeController;
-  late AnimationController _slideController;
-  late AnimationController _pulseController;
-  late AnimationController _rotateController;
-  late AnimationController _scaleController;
-  late AnimationController _waveController;
+  late AnimationController _floatController;
+  late AnimationController _rippleController;
 
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
-  late Animation<double> _pulseAnimation;
-  late Animation<double> _rotateAnimation;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _waveAnimation;
+  int? _selectedIndex;
+  int? _hoveredIndex;
 
   final List<Plan> plans = [
     Plan(
@@ -63,171 +57,384 @@ class _DTHRechargeDashboardState extends State<DTHRechargeDashboard>
     ),
   ];
 
-  // Unique vibrant colors for each card
-  final List<List<Color>> cardGradients = [
-    [Color(0xFFFF6B6B), Color(0xFFFFE66D)], // Coral to Yellow
-    [Color(0xFF4ECDC4), Color(0xFF44A08D)], // Turquoise to Teal
-    [Color(0xFFFF9A9E), Color(0xFFFECFEF)], // Pink to Light Pink
-    [Color(0xFF667eea), Color(0xFF764ba2)], // Blue to Purple
-    [Color(0xFFffecd2), Color(0xFFfcb69f)], // Cream to Peach
-  ];
-
-  final List<Color> accentColors = [
-    Color(0xFFFF4757), // Red Orange
-    Color(0xFF2ed573), // Mint Green
-    Color(0xFFff6348), // Orange Red
-    Color(0xFF5352ed), // Indigo
-    Color(0xFFffa502), // Orange
+  final List<Color> brandColors = [
+    Color(0xFFE63946), // Red
+    Color(0xFF457B9D), // Blue
+    Color(0xFFF77F00), // Orange
+    Color(0xFF06A77D), // Teal
+    Color(0xFF9B59B6), // Purple
   ];
 
   @override
   void initState() {
     super.initState();
+    _initializeAnimations();
+  }
 
+  void _initializeAnimations() {
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
-    );
+    )..forward();
 
-    _slideController = AnimationController(
+    _floatController = AnimationController(
+      duration: const Duration(milliseconds: 2500),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _rippleController = AnimationController(
       duration: const Duration(milliseconds: 1200),
       vsync: this,
     );
-
-    _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 3000),
-      vsync: this,
-    );
-
-    _rotateController = AnimationController(
-      duration: const Duration(milliseconds: 20000),
-      vsync: this,
-    );
-
-    _scaleController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-
-    _waveController = AnimationController(
-      duration: const Duration(milliseconds: 4000),
-      vsync: this,
-    );
-
-    _fadeAnimation = CurvedAnimation(
-      parent: _fadeController,
-      curve: Curves.easeInOutCubic,
-    );
-
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 1.2),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _slideController, curve: Curves.elasticOut),
-    );
-
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.08).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOutSine),
-    );
-
-    _rotateAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _rotateController, curve: Curves.linear));
-
-    _scaleAnimation = CurvedAnimation(
-      parent: _scaleController,
-      curve: Curves.elasticOut,
-    );
-
-    _waveAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _waveController, curve: Curves.easeInOut),
-    );
-
-    // Start animations
-    _fadeController.forward();
-    _slideController.forward();
-    _pulseController.repeat(reverse: true);
-    _rotateController.repeat();
-    _scaleController.forward();
-    _waveController.repeat(reverse: true);
   }
 
   @override
   void dispose() {
     _fadeController.dispose();
-    _slideController.dispose();
-    _pulseController.dispose();
-    _rotateController.dispose();
-    _scaleController.dispose();
-    _waveController.dispose();
+    _floatController.dispose();
+    _rippleController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF1e3c72), // Deep Blue
-              Color(0xFF2a5298), // Royal Blue
-              Color(0xFF8360c3), // Purple
-              Color(0xFFf093fb), // Light Pink
-              Color(0xFFf5576c), // Coral
-            ],
-            stops: [0.0, 0.25, 0.5, 0.75, 1.0],
-          ),
-        ),
-        child: Stack(
-          children: [
-            // Animated Background Circles
-            ...List.generate(5, (index) => _buildFloatingCircle(index)),
-
-            SafeArea(
-              child: Column(
-                children: [
-                  // Animated Header
-                  _buildAnimatedHeader(),
-
-                  // Floating Title with Wave Animation
-                  _buildWaveTitle(),
-
-                  const SizedBox(height: 20),
-
-                  // Grid View with Staggered Animations
-                  Expanded(
-                    child: FadeTransition(
-                      opacity: _fadeAnimation,
-                      child: SlideTransition(
-                        position: _slideAnimation,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: GridView.builder(
-                            physics: const BouncingScrollPhysics(),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  crossAxisSpacing: 16,
-                                  mainAxisSpacing: 20,
-                                  childAspectRatio: 0.9,
-                                ),
-                            itemCount: plans.length,
-                            itemBuilder: (context, index) {
-                              return _buildMagicalProviderCard(
-                                plans[index],
-                                index,
-                              );
-                            },
+      body: AnimatedBuilder(
+        animation: _floatController,
+        builder: (context, child) {
+          return Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFFFFECEC), // Soft pink
+                  Color(0xFFE8F4FF), // Sky blue
+                  Color(0xFFFFE8F5), // Rose
+                  Color(0xFFE8FFE8), // Mint
+                  Color(0xFFFFF4E8), // Peach
+                ],
+                stops: [
+                  0.0,
+                  0.25 + (_floatController.value * 0.05),
+                  0.5,
+                  0.75 - (_floatController.value * 0.05),
+                  1.0,
+                ],
+              ),
+            ),
+            child: Stack(
+              children: [
+                // Animated floating orbs
+                ...List.generate(5, (index) {
+                  return Positioned(
+                    top:
+                        50 +
+                        (index * 150.0) +
+                        (30 *
+                            math.sin(
+                              (_floatController.value + index * 0.2) * math.pi,
+                            )),
+                    left:
+                        20 +
+                        (index * 70.0) +
+                        (20 *
+                            math.cos(
+                              (_floatController.value + index * 0.3) * math.pi,
+                            )),
+                    child: Opacity(
+                      opacity: 0.15,
+                      child: Container(
+                        width: 100 + (index * 20.0),
+                        height: 100 + (index * 20.0),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              [
+                                Color(0xFFFF6B9D),
+                                Color(0xFFFFC371),
+                                Color(0xFF667EEA),
+                                Color(0xFFA8E6CF),
+                                Color(0xFFFFD93D),
+                              ][index],
+                              [
+                                Color(0xFFFF6B9D),
+                                Color(0xFFFFC371),
+                                Color(0xFF667EEA),
+                                Color(0xFFA8E6CF),
+                                Color(0xFFFFD93D),
+                              ][index].withOpacity(0.0),
+                            ],
                           ),
                         ),
                       ),
                     ),
+                  );
+                }),
+                // Beautiful mesh gradient overlay
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(
+                        center: Alignment.topRight,
+                        radius: 1.5,
+                        colors: [
+                          Color(0xFFFF6B9D).withOpacity(0.08),
+                          Color(0xFF667EEA).withOpacity(0.06),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
                   ),
-                ],
+                ),
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(
+                        center: Alignment.bottomLeft,
+                        radius: 1.5,
+                        colors: [
+                          Color(0xFFFFC371).withOpacity(0.08),
+                          Color(0xFFA8E6CF).withOpacity(0.06),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // Subtle light spots
+                Positioned(
+                  top: 100,
+                  right: 50,
+                  child: Opacity(
+                    opacity: 0.4,
+                    child: Container(
+                      width: 200,
+                      height: 200,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            Colors.white.withOpacity(0.3),
+                            Colors.white.withOpacity(0.0),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 150,
+                  left: 30,
+                  child: Opacity(
+                    opacity: 0.35,
+                    child: Container(
+                      width: 180,
+                      height: 180,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            Colors.white.withOpacity(0.4),
+                            Colors.white.withOpacity(0.0),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                child!,
+              ],
+            ),
+          );
+        },
+
+        child: SafeArea(
+          child: CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(child: _buildHeader()),
+              SliverToBoxAdapter(child: const SizedBox(height: 32)),
+              SliverToBoxAdapter(child: _buildTitle()),
+              SliverToBoxAdapter(child: const SizedBox(height: 40)),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 0.85,
+                  ),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    return _buildProviderCard(plans[index], index);
+                  }, childCount: plans.length),
+                ),
+              ),
+              SliverToBoxAdapter(child: const SizedBox(height: 40)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return FadeTransition(
+      opacity: _fadeController,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: Offset(0, -0.5),
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(parent: _fadeController, curve: Curves.easeOutCubic),
+        ),
+        child: Container(
+          margin: const EdgeInsets.all(20),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 20,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Color(0xFFF8F9FA),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.arrow_back_ios_new,
+                    size: 18,
+                    color: Color(0xFF2C3E50),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "DTH Recharge",
+                      style: TextStyle(
+                        color: Color(0xFF2C3E50),
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "Fast & Secure",
+                      style: TextStyle(
+                        color: Color(0xFF95A5A6),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              AnimatedBuilder(
+                animation: _floatController,
+                builder: (context, child) {
+                  return Transform.translate(
+                    offset: Offset(
+                      0,
+                      3 * math.sin(_floatController.value * math.pi),
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0xFF667EEA).withOpacity(0.3),
+                            blurRadius: 12,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.satellite_alt,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTitle() {
+    return FadeTransition(
+      opacity: _fadeController,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 40,
+                  height: 2,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.transparent, Color(0xFF667EEA)],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    "Select Your Provider",
+                    style: TextStyle(
+                      color: Color(0xFF2C3E50),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                Container(
+                  width: 40,
+                  height: 2,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF667EEA), Colors.transparent],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              "Choose from top DTH providers",
+              style: TextStyle(
+                color: Color(0xFF95A5A6),
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
@@ -236,425 +443,252 @@ class _DTHRechargeDashboardState extends State<DTHRechargeDashboard>
     );
   }
 
-  Widget _buildFloatingCircle(int index) {
-    return AnimatedBuilder(
-      animation: _rotateController,
-      builder: (context, child) {
-        return Positioned(
-          top: 100 + (index * 150).toDouble(),
-          left:
-              (MediaQuery.of(context).size.width * 0.1) +
-              (index.isEven ? 50 : -20) +
-              (30 * _rotateAnimation.value * (index.isEven ? 1 : -1)),
-          child: Container(
-            width: 60 + (index * 10),
-            height: 60 + (index * 10),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  accentColors[index % accentColors.length].withOpacity(0.3),
-                  accentColors[index % accentColors.length].withOpacity(0.1),
-                ],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: accentColors[index % accentColors.length].withOpacity(
-                    0.2,
-                  ),
-                  blurRadius: 20,
-                  spreadRadius: 5,
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
+  Widget _buildProviderCard(Plan plan, int index) {
+    final isSelected = _selectedIndex == index;
+    final isHovered = _hoveredIndex == index;
 
-  Widget _buildAnimatedHeader() {
-    return AnimatedBuilder(
-      animation: _scaleAnimation,
-      builder: (context, child) {
-        return Transform.scale(
-          scale: _scaleAnimation.value,
-          child: Container(
-            margin: const EdgeInsets.all(20),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.white.withOpacity(0.25),
-                  Colors.white.withOpacity(0.1),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(30),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.3),
-                width: 2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Color(0xFF8360c3).withOpacity(0.3),
-                  blurRadius: 30,
-                  offset: const Offset(0, 15),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFF6B6B), Color(0xFFFFE66D)],
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Color(0xFFFF6B6B).withOpacity(0.4),
-                          blurRadius: 15,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.arrow_back_ios,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "DTH Recharge",
-                        style: TextStyle(
+    return TweenAnimationBuilder<double>(
+      duration: Duration(milliseconds: 800 + (index * 100)),
+      tween: Tween(begin: 0.0, end: 1.0),
+      curve: Curves.easeOutCubic,
+      builder: (context, entryValue, child) {
+        return AnimatedBuilder(
+          animation: _floatController,
+          builder: (context, child) {
+            final floatOffset =
+                4 * math.sin((_floatController.value + index * 0.2) * math.pi);
+
+            return Transform.translate(
+              offset: Offset(0, (1 - entryValue) * 50 + floatOffset),
+              child: Opacity(
+                opacity: entryValue,
+                child: Transform.scale(
+                  scale: isSelected ? 0.95 : 1.0,
+                  child: GestureDetector(
+                    onTapDown: (_) {
+                      setState(() => _selectedIndex = index);
+                      _rippleController.forward(from: 0);
+                    },
+                    onTapUp: (_) {
+                      Future.delayed(Duration(milliseconds: 150), () {
+                        setState(() => _selectedIndex = null);
+                        _navigateToPlans(plan, index);
+                      });
+                    },
+                    onTapCancel: () => setState(() => _selectedIndex = null),
+                    child: MouseRegion(
+                      onEnter: (_) => setState(() => _hoveredIndex = index),
+                      onExit: (_) => setState(() => _hoveredIndex = null),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOutCubic,
+                        decoration: BoxDecoration(
                           color: Colors.white,
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF4ECDC4), Color(0xFF44A08D)],
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Text(
-                          "Premium Service",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                AnimatedBuilder(
-                  animation: _rotateController,
-                  builder: (context, child) {
-                    return Transform.rotate(
-                      angle: _rotateAnimation.value * 6.28,
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF667eea), Color(0xFF764ba2)],
-                          ),
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(24),
                           boxShadow: [
                             BoxShadow(
-                              color: Color(0xFF667eea).withOpacity(0.4),
-                              blurRadius: 15,
-                              offset: const Offset(0, 5),
+                              color:
+                                  isHovered
+                                      ? brandColors[index % brandColors.length]
+                                          .withOpacity(0.15)
+                                      : Colors.black.withOpacity(0.06),
+                              blurRadius: isHovered ? 20 : 15,
+                              offset: Offset(0, isHovered ? 8 : 4),
+                              spreadRadius: isHovered ? 2 : 0,
                             ),
                           ],
                         ),
-                        child: const Icon(
-                          Icons.satellite_alt,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
+                        child: Stack(
+                          children: [
+                            // Subtle gradient overlay
+                            Positioned.fill(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(24),
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      brandColors[index % brandColors.length]
+                                          .withOpacity(0.03),
+                                      Colors.transparent,
+                                      brandColors[index % brandColors.length]
+                                          .withOpacity(0.05),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
 
-  Widget _buildWaveTitle() {
-    return AnimatedBuilder(
-      animation: _waveAnimation,
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, 10 * _waveAnimation.value),
-          child: AnimatedBuilder(
-            animation: _pulseAnimation,
-            builder: (context, child) {
-              return Transform.scale(
-                scale: _pulseAnimation.value,
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 30),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 16,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [
-                        Color(0xFFf093fb),
-                        Color(0xFFf5576c),
-                        Color(0xFFFFE66D),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(25),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Color(0xFFf5576c).withOpacity(0.4),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.star, color: Colors.white, size: 20),
-                      const SizedBox(width: 8),
-                      const Text(
-                        "Choose Your Provider",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.star, color: Colors.white, size: 20),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildMagicalProviderCard(Plan plan, int index) {
-    return AnimatedBuilder(
-      animation: _fadeController,
-      builder: (context, child) {
-        return TweenAnimationBuilder<double>(
-          duration: Duration(milliseconds: 800 + (index * 200)),
-          tween: Tween(begin: 0.0, end: 1.0),
-          curve: Curves.elasticOut,
-          builder: (context, value, child) {
-            return Transform.scale(
-              scale: value,
-              child: Transform.rotate(
-                angle: (1 - value) * 0.5,
-                child: GestureDetector(
-                  onTap: () => _navigateToPlans(plan, index),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(28),
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: cardGradients[index % cardGradients.length],
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: cardGradients[index % cardGradients.length][0]
-                              .withOpacity(0.3),
-                          blurRadius: 25,
-                          offset: const Offset(0, 15),
-                          spreadRadius: 2,
-                        ),
-                        BoxShadow(
-                          color: Colors.white.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(-5, -5),
-                        ),
-                      ],
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(28),
-                        splashColor: Colors.white.withOpacity(0.3),
-                        highlightColor: Colors.white.withOpacity(0.2),
-                        onTap: () => _navigateToPlans(plan, index),
-                        child: Container(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              // Animated Logo Container
-                              AnimatedBuilder(
-                                animation: _pulseController,
-                                builder: (context, child) {
-                                  return Transform.scale(
-                                    scale: 1.0 + (0.05 * _pulseAnimation.value),
+                            // Card content
+                            Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  // Logo with animated border
+                                  AnimatedContainer(
+                                    duration: const Duration(milliseconds: 300),
+                                    transform:
+                                        Matrix4.identity()
+                                          ..scale(isHovered ? 1.05 : 1.0),
                                     child: Container(
                                       width: 90,
                                       height: 90,
+                                      padding: const EdgeInsets.all(3),
                                       decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(25),
-                                        color: Colors.white,
+                                        shape: BoxShape.circle,
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            brandColors[index %
+                                                brandColors.length],
+                                            brandColors[index %
+                                                    brandColors.length]
+                                                .withOpacity(0.6),
+                                          ],
+                                        ),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: Colors.white.withOpacity(
-                                              0.8,
-                                            ),
-                                            blurRadius: 20,
-                                            spreadRadius: 3,
-                                          ),
-                                          BoxShadow(
-                                            color: accentColors[index %
-                                                    accentColors.length]
-                                                .withOpacity(0.2),
-                                            blurRadius: 15,
-                                            offset: const Offset(0, 8),
+                                            color: brandColors[index %
+                                                    brandColors.length]
+                                                .withOpacity(0.3),
+                                            blurRadius: 12,
+                                            offset: Offset(0, 4),
                                           ),
                                         ],
                                       ),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(25),
-                                        child: Image.asset(
-                                          plan.image,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (
-                                            context,
-                                            error,
-                                            stackTrace,
-                                          ) {
-                                            return Container(
-                                              decoration: BoxDecoration(
-                                                gradient: LinearGradient(
-                                                  colors:
-                                                      cardGradients[index %
-                                                          cardGradients.length],
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: ClipOval(
+                                          child: Image.asset(
+                                            plan.image,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (
+                                              context,
+                                              error,
+                                              stackTrace,
+                                            ) {
+                                              return Container(
+                                                color: brandColors[index %
+                                                        brandColors.length]
+                                                    .withOpacity(0.1),
+                                                child: Icon(
+                                                  Icons.tv,
+                                                  size: 40,
+                                                  color:
+                                                      brandColors[index %
+                                                          brandColors.length],
                                                 ),
-                                              ),
-                                              child: const Icon(
-                                                Icons.tv,
-                                                size: 45,
-                                                color: Colors.white,
-                                              ),
-                                            );
-                                          },
+                                              );
+                                            },
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  );
-                                },
-                              ),
-
-                              const SizedBox(height: 16),
-
-                              // Provider Name with Glow
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: Colors.white.withOpacity(0.3),
-                                    width: 1,
                                   ),
-                                ),
-                                child: Text(
-                                  plan.name,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 0.5,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
 
-                              const SizedBox(height: 12),
+                                  const SizedBox(height: 16),
 
-                              // Action Button with Gradient
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Colors.white.withOpacity(0.9),
-                                      Colors.white.withOpacity(0.7),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(20),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.1),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 4),
+                                  // Provider name
+                                  Text(
+                                    plan.name,
+                                    style: TextStyle(
+                                      color: Color(0xFF2C3E50),
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.3,
                                     ),
-                                  ],
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.flash_on,
-                                      size: 16,
-                                      color:
-                                          cardGradients[index %
-                                              cardGradients.length][0],
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+
+                                  const SizedBox(height: 16),
+
+                                  // Action button
+                                  AnimatedContainer(
+                                    duration: const Duration(milliseconds: 300),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 10,
                                     ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      "Recharge",
-                                      style: TextStyle(
-                                        color:
-                                            cardGradients[index %
-                                                cardGradients.length][0],
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.bold,
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          brandColors[index %
+                                              brandColors.length],
+                                          brandColors[index %
+                                                  brandColors.length]
+                                              .withOpacity(0.8),
+                                        ],
                                       ),
+                                      borderRadius: BorderRadius.circular(20),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: brandColors[index %
+                                                  brandColors.length]
+                                              .withOpacity(
+                                                isHovered ? 0.4 : 0.2,
+                                              ),
+                                          blurRadius: isHovered ? 12 : 8,
+                                          offset: Offset(0, 4),
+                                        ),
+                                      ],
                                     ),
-                                  ],
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.arrow_forward,
+                                          size: 16,
+                                          color: Colors.white,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          "Select",
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // Ripple effect on tap
+                            if (isSelected)
+                              Positioned.fill(
+                                child: AnimatedBuilder(
+                                  animation: _rippleController,
+                                  builder: (context, child) {
+                                    return Container(
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(24),
+                                        border: Border.all(
+                                          color: brandColors[index %
+                                                  brandColors.length]
+                                              .withOpacity(
+                                                0.5 *
+                                                    (1 -
+                                                        _rippleController
+                                                            .value),
+                                              ),
+                                          width: 2,
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
                               ),
-                            ],
-                          ),
+                          ],
                         ),
                       ),
                     ),
@@ -675,14 +709,14 @@ class _DTHRechargeDashboardState extends State<DTHRechargeDashboard>
         pageBuilder:
             (context, animation, secondaryAnimation) => DTHPlansScreen(plan),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(1.0, 0.0),
-              end: Offset.zero,
-            ).animate(
-              CurvedAnimation(parent: animation, curve: Curves.easeInOutCubic),
+          return FadeTransition(
+            opacity: animation,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.9, end: 1.0).animate(
+                CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+              ),
+              child: child,
             ),
-            child: FadeTransition(opacity: animation, child: child),
           );
         },
         transitionDuration: const Duration(milliseconds: 400),

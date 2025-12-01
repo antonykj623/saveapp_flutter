@@ -16,10 +16,14 @@ class _EmergencyNumbersScreenState extends State<EmergencyNumbersScreen>
   String selectedCategory = 'All';
   String searchQuery = '';
   bool isLoading = true;
+  bool isListening = false;
   DatabaseHelper _databaseHelper = DatabaseHelper();
   TextEditingController _searchController = TextEditingController();
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+
+  // Voice Search Channel
+  static const voiceChannel = MethodChannel('com.example.voicesearch/channel');
 
   final List<String> categories = [
     'All',
@@ -99,6 +103,38 @@ class _EmergencyNumbersScreenState extends State<EmergencyNumbersScreen>
             return categoryMatch && searchMatch;
           }).toList();
     });
+  }
+
+  // Voice Search Method
+  Future<void> _startVoiceSearch() async {
+    setState(() => isListening = true);
+
+    try {
+      final result = await voiceChannel.invokeMethod('startVoiceSearch');
+
+      if (result != null && result is String && result.isNotEmpty) {
+        setState(() {
+          searchQuery = result;
+          _searchController.text = result;
+        });
+        _filterContacts();
+        _showSuccessSnackBar('Voice search: "$result"');
+      }
+    } on PlatformException catch (e) {
+      if (e.code == 'SPEECH_NOT_AVAILABLE') {
+        _showErrorSnackBar('Speech recognition not available on this device');
+      } else if (e.code == 'NO_SPEECH') {
+        _showErrorSnackBar('No speech detected. Please try again.');
+      } else if (e.code == 'CANCELLED') {
+        // User cancelled - do nothing
+      } else {
+        _showErrorSnackBar('Voice search error: ${e.message}');
+      }
+    } catch (e) {
+      _showErrorSnackBar('Failed to start voice search');
+    } finally {
+      setState(() => isListening = false);
+    }
   }
 
   void _showAddContactDialog() {
@@ -335,33 +371,61 @@ class _EmergencyNumbersScreenState extends State<EmergencyNumbersScreen>
           ),
         ],
       ),
-      child: TextField(
-        controller: _searchController,
-        onChanged: (value) {
-          setState(() {
-            searchQuery = value;
-          });
-          _filterContacts();
-        },
-        decoration: InputDecoration(
-          hintText: 'Search contacts...',
-          prefixIcon: Icon(Icons.search, color: Colors.grey),
-          suffixIcon:
-              searchQuery.isNotEmpty
-                  ? IconButton(
-                    icon: Icon(Icons.clear, color: Colors.grey),
-                    onPressed: () {
-                      _searchController.clear();
-                      setState(() {
-                        searchQuery = '';
-                      });
-                      _filterContacts();
-                    },
-                  )
-                  : null,
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-        ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) {
+                setState(() {
+                  searchQuery = value;
+                });
+                _filterContacts();
+              },
+              decoration: InputDecoration(
+                hintText: 'Search contacts...',
+                prefixIcon: Icon(Icons.search, color: Colors.grey),
+                suffixIcon:
+                    searchQuery.isNotEmpty
+                        ? IconButton(
+                          icon: Icon(Icons.clear, color: Colors.grey),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() {
+                              searchQuery = '';
+                            });
+                            _filterContacts();
+                          },
+                        )
+                        : null,
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 15,
+                ),
+              ),
+            ),
+          ),
+          // Voice Search Button
+          Container(
+            margin: EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color:
+                  isListening
+                      ? Colors.red.withOpacity(0.1)
+                      : Colors.transparent,
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: Icon(
+                isListening ? Icons.mic : Icons.mic_none,
+                color: isListening ? Colors.red : Color(0xFF667eea),
+                size: 28,
+              ),
+              onPressed: isListening ? null : _startVoiceSearch,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -447,11 +511,14 @@ class _EmergencyNumbersScreenState extends State<EmergencyNumbersScreen>
             ),
             SizedBox(height: 8),
             Text(
-              'Try adjusting your search or category filter',
+              searchQuery.isNotEmpty
+                  ? 'Try voice search or adjust filters'
+                  : 'Try adjusting your search or category filter',
               style: TextStyle(
                 color: Colors.white.withOpacity(0.8),
                 fontSize: 16,
               ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -713,7 +780,7 @@ class _EmergencyNumbersScreenState extends State<EmergencyNumbersScreen>
   }
 }
 
-// Add Contact Dialog Widget
+// Add Contact Dialog Widget (unchanged from original)
 class _AddContactDialog extends StatefulWidget {
   final EmergencyContact? contact;
   final Function(EmergencyContact) onContactAdded;

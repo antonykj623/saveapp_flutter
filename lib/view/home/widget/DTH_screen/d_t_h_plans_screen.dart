@@ -23,8 +23,10 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
   final TextEditingController searchController = TextEditingController();
   late AnimationController _animationController;
   late AnimationController _slideController;
+  late AnimationController _shimmerController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+  late Animation<double> _shimmerAnimation;
   bool isLoading = false;
 
   _DTHPlansScreenState(this.plan);
@@ -33,23 +35,31 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
   void initState() {
     super.initState();
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
     _slideController = AnimationController(
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 800),
       vsync: this,
     );
+    _shimmerController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat();
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
 
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
+      begin: const Offset(0, 0.5),
       end: Offset.zero,
     ).animate(
       CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
+    );
+
+    _shimmerAnimation = Tween<double>(begin: -2, end: 2).animate(
+      CurvedAnimation(parent: _shimmerController, curve: Curves.easeInOut),
     );
 
     getDTHPlans(selectedtype);
@@ -59,6 +69,7 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
   void dispose() {
     _animationController.dispose();
     _slideController.dispose();
+    _shimmerController.dispose();
     searchController.dispose();
     super.dispose();
   }
@@ -66,111 +77,154 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: const Color(0xFFF5F7FA),
       body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
         slivers: [
+          // Stunning App Bar with Parallax Effect
           SliverAppBar(
-            expandedHeight: 120,
+            expandedHeight: 180,
             floating: false,
             pinned: true,
             elevation: 0,
             backgroundColor: Colors.transparent,
             flexibleSpace: Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    Color(0xFF667eea),
-                    Color(0xFF764ba2),
-                    Color(0xFFf093fb),
+                    const Color(0xFFFF6B95),
+                    const Color(0xFFFF8E53),
+                    const Color(0xFFFFC371),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(30),
-                  bottomRight: Radius.circular(30),
-                ),
               ),
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(30),
-                    bottomRight: Radius.circular(30),
-                  ),
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.white.withOpacity(0.1),
-                      Colors.white.withOpacity(0.05),
-                    ],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-                ),
-                child: FlexibleSpaceBar(
-                  centerTitle: true,
-                  title: Text(
-                    "${plan.name} Plans",
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      shadows: [
-                        Shadow(
-                          offset: Offset(0, 2),
-                          blurRadius: 4,
-                          color: Colors.black26,
-                        ),
-                      ],
+              child: Stack(
+                children: [
+                  // Animated Background Circles
+                  Positioned(
+                    right: -80,
+                    top: -80,
+                    child: AnimatedBuilder(
+                      animation: _shimmerAnimation,
+                      builder: (context, child) {
+                        return Transform.translate(
+                          offset: Offset(_shimmerAnimation.value * 10, 0),
+                          child: Container(
+                            width: 250,
+                            height: 250,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: RadialGradient(
+                                colors: [
+                                  Colors.white.withOpacity(0.2),
+                                  Colors.white.withOpacity(0.05),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
-                  background: Container(
-                    decoration: const BoxDecoration(
-                      borderRadius: BorderRadius.only(
-                        bottomLeft: Radius.circular(30),
-                        bottomRight: Radius.circular(30),
+                  Positioned(
+                    left: -60,
+                    bottom: -60,
+                    child: AnimatedBuilder(
+                      animation: _shimmerAnimation,
+                      builder: (context, child) {
+                        return Transform.translate(
+                          offset: Offset(-_shimmerAnimation.value * 8, 0),
+                          child: Container(
+                            width: 180,
+                            height: 180,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: RadialGradient(
+                                colors: [
+                                  Colors.white.withOpacity(0.15),
+                                  Colors.white.withOpacity(0.03),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  // Glass Morphism Effect
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.white.withOpacity(0.1),
+                          Colors.white.withOpacity(0.05),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
                       ),
                     ),
-                    child: Stack(
+                  ),
+                  // Content
+                  FlexibleSpaceBar(
+                    centerTitle: true,
+                    titlePadding: const EdgeInsets.only(bottom: 16),
+                    title: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Positioned(
-                          right: -50,
-                          top: -50,
-                          child: Container(
-                            width: 150,
-                            height: 150,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white.withOpacity(0.1),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.25),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.4),
+                              width: 2,
                             ),
                           ),
+                          child: const Icon(
+                            Icons.satellite_alt,
+                            color: Colors.white,
+                            size: 28,
+                          ),
                         ),
-                        Positioned(
-                          left: -30,
-                          bottom: -30,
-                          child: Container(
-                            width: 100,
-                            height: 100,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white.withOpacity(0.08),
-                            ),
+                        const SizedBox(height: 12),
+                        Text(
+                          "${plan.name} Plans",
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: 0.5,
+                            shadows: [
+                              Shadow(
+                                offset: Offset(0, 3),
+                                blurRadius: 8,
+                                color: Colors.black38,
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
+                ],
               ),
             ),
             leading: Container(
               margin: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
+                color: Colors.white.withOpacity(0.25),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.4),
+                  width: 1.5,
+                ),
               ),
               child: IconButton(
                 icon: const Icon(
-                  Icons.arrow_back_ios,
+                  Icons.arrow_back_ios_new,
                   color: Colors.white,
                   size: 20,
                 ),
@@ -182,36 +236,29 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
           // Content
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.all(20.0),
+              padding: const EdgeInsets.all(24.0),
               child: Column(
                 children: [
-                  // Enhanced Type Selector with Glass Morphism
+                  // Premium Type Selector
                   SlideTransition(
                     position: _slideAnimation,
                     child: FadeTransition(
                       opacity: _fadeAnimation,
                       child: Container(
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Colors.white, Colors.grey[50]!],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(20),
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF667eea).withOpacity(0.2),
+                              color: const Color(0xFFFF6B95).withOpacity(0.3),
                               spreadRadius: 0,
-                              blurRadius: 20,
-                              offset: const Offset(0, 10),
+                              blurRadius: 30,
+                              offset: const Offset(0, 15),
                             ),
                           ],
                         ),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 4,
-                          ),
+                          padding: const EdgeInsets.all(6),
                           child: Row(
                             children:
                                 arr_type.map((type) {
@@ -219,35 +266,35 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
                                   return Expanded(
                                     child: AnimatedContainer(
                                       duration: const Duration(
-                                        milliseconds: 300,
+                                        milliseconds: 400,
                                       ),
-                                      curve: Curves.easeInOut,
+                                      curve: Curves.easeInOutCubic,
                                       margin: const EdgeInsets.symmetric(
-                                        horizontal: 2,
+                                        horizontal: 3,
                                       ),
                                       decoration: BoxDecoration(
                                         gradient:
                                             isSelected
                                                 ? const LinearGradient(
                                                   colors: [
-                                                    Color(0xFF667eea),
-                                                    Color(0xFF764ba2),
+                                                    Color(0xFFFF6B95),
+                                                    Color(0xFFFF8E53),
                                                   ],
                                                   begin: Alignment.topLeft,
                                                   end: Alignment.bottomRight,
                                                 )
                                                 : null,
-                                        borderRadius: BorderRadius.circular(16),
+                                        borderRadius: BorderRadius.circular(18),
                                         boxShadow:
                                             isSelected
                                                 ? [
                                                   BoxShadow(
                                                     color: const Color(
                                                       0xFF667eea,
-                                                    ).withOpacity(0.4),
+                                                    ).withOpacity(0.5),
                                                     spreadRadius: 0,
-                                                    blurRadius: 8,
-                                                    offset: const Offset(0, 4),
+                                                    blurRadius: 15,
+                                                    offset: const Offset(0, 6),
                                                   ),
                                                 ]
                                                 : null,
@@ -256,7 +303,7 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
                                         color: Colors.transparent,
                                         child: InkWell(
                                           borderRadius: BorderRadius.circular(
-                                            16,
+                                            18,
                                           ),
                                           onTap: () {
                                             setState(() {
@@ -266,19 +313,39 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
                                           },
                                           child: Container(
                                             padding: const EdgeInsets.symmetric(
-                                              vertical: 16,
+                                              vertical: 18,
                                             ),
-                                            child: Text(
-                                              type,
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w600,
-                                                color:
-                                                    isSelected
-                                                        ? Colors.white
-                                                        : Colors.grey[600],
-                                              ),
+                                            child: Column(
+                                              children: [
+                                                Icon(
+                                                  type == "COMBO"
+                                                      ? Icons.favorite
+                                                      : type == "BROADCASTER"
+                                                      ? Icons
+                                                          .broadcast_on_personal
+                                                      : Icons
+                                                          .add_circle_outline,
+                                                  color:
+                                                      isSelected
+                                                          ? Colors.white
+                                                          : Colors.grey[400],
+                                                  size: 20,
+                                                ),
+                                                const SizedBox(height: 6),
+                                                Text(
+                                                  type,
+                                                  textAlign: TextAlign.center,
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w700,
+                                                    letterSpacing: 0.3,
+                                                    color:
+                                                        isSelected
+                                                            ? Colors.white
+                                                            : Colors.grey[600],
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
                                         ),
@@ -291,48 +358,59 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 28),
 
-                  // Enhanced Search Box
+                  // Stunning Search Box with Animation
                   SlideTransition(
                     position: _slideAnimation,
                     child: FadeTransition(
                       opacity: _fadeAnimation,
                       child: Container(
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Colors.white, Colors.grey[50]!],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(20),
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.grey.withOpacity(0.1),
+                              color: Colors.grey.withOpacity(0.08),
                               spreadRadius: 0,
-                              blurRadius: 20,
-                              offset: const Offset(0, 8),
+                              blurRadius: 30,
+                              offset: const Offset(0, 10),
                             ),
                           ],
                         ),
                         child: TextField(
                           controller: searchController,
                           onChanged: (value) => setState(() {}),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
                           decoration: InputDecoration(
-                            hintText: "Search by amount or name...",
-                            hintStyle: TextStyle(color: Colors.grey[400]),
+                            hintText: "Search plans...",
+                            hintStyle: TextStyle(
+                              color: Colors.grey[400],
+                              fontWeight: FontWeight.w500,
+                            ),
                             prefixIcon: Container(
-                              margin: const EdgeInsets.all(12),
+                              margin: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
                                   colors: [
-                                    Color(0xFF667eea),
-                                    Color(0xFF764ba2),
+                                    Color(0xFFFF6B95),
+                                    Color(0xFFFF8E53),
                                   ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
                                 ),
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(
+                                      0xFFFF6B95,
+                                    ).withOpacity(0.3),
+                                    spreadRadius: 0,
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
                               ),
                               child: const Icon(
                                 Icons.search,
@@ -343,9 +421,9 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
                             suffixIcon:
                                 searchController.text.isNotEmpty
                                     ? IconButton(
-                                      icon: const Icon(
+                                      icon: Icon(
                                         Icons.clear,
-                                        color: Colors.grey,
+                                        color: Colors.grey[400],
                                       ),
                                       onPressed: () {
                                         searchController.clear();
@@ -354,19 +432,19 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
                                     )
                                     : null,
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(20),
+                              borderRadius: BorderRadius.circular(24),
                               borderSide: BorderSide.none,
                             ),
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 20,
-                              vertical: 16,
+                              vertical: 18,
                             ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 28),
                 ],
               ),
             ),
@@ -374,21 +452,47 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
 
           // Enhanced Packs List
           if (isLoading)
-            const SliverToBoxAdapter(
+            SliverToBoxAdapter(
               child: Center(
                 child: Padding(
-                  padding: EdgeInsets.all(50.0),
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Color(0xFF667eea),
-                    ),
+                  padding: const EdgeInsets.all(60.0),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                            strokeWidth: 3,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        "Loading Plans...",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF2D3748),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             )
           else
             SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
@@ -410,249 +514,289 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
                     if (index >= filteredPacks.length) return null;
                     final pack = filteredPacks[index];
 
-                    return SlideTransition(
-                      position: _slideAnimation,
-                      child: FadeTransition(
-                        opacity: _fadeAnimation,
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 20),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [Colors.white, Colors.grey[50]!],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
+                    return TweenAnimationBuilder<double>(
+                      duration: Duration(milliseconds: 500 + (index * 100)),
+                      tween: Tween(begin: 0.0, end: 1.0),
+                      curve: Curves.easeOutCubic,
+                      builder: (context, value, child) {
+                        return Transform.translate(
+                          offset: Offset(0, 30 * (1 - value)),
+                          child: Opacity(opacity: value, child: child),
+                        );
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 24),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(28),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFFF6B95).withOpacity(0.08),
+                              spreadRadius: 0,
+                              blurRadius: 30,
+                              offset: const Offset(0, 12),
                             ),
-                            borderRadius: BorderRadius.circular(24),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF667eea).withOpacity(0.1),
-                                spreadRadius: 0,
-                                blurRadius: 20,
-                                offset: const Offset(0, 8),
-                              ),
-                            ],
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(24),
-                              onTap: () {},
-                              child: Padding(
-                                padding: const EdgeInsets.all(24.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // Header with gradient text
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 8,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: [
-                                            const Color(
-                                              0xFF667eea,
-                                            ).withOpacity(0.1),
-                                            const Color(
-                                              0xFF764ba2,
-                                            ).withOpacity(0.1),
+                          ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(28),
+                            onTap: () {},
+                            child: Padding(
+                              padding: const EdgeInsets.all(24.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Stunning Header
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(14),
+                                        decoration: BoxDecoration(
+                                          gradient: const LinearGradient(
+                                            colors: [
+                                              Color(0xFFFF6B95),
+                                              Color(0xFFFF8E53),
+                                            ],
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            18,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: const Color(
+                                                0xFFFF6B95,
+                                              ).withOpacity(0.4),
+                                              spreadRadius: 0,
+                                              blurRadius: 12,
+                                              offset: const Offset(0, 6),
+                                            ),
                                           ],
                                         ),
-                                        borderRadius: BorderRadius.circular(20),
+                                        child: const Icon(
+                                          Icons.tv,
+                                          color: Colors.white,
+                                          size: 22,
+                                        ),
                                       ),
-                                      child: Row(
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.all(8),
-                                            decoration: BoxDecoration(
-                                              gradient: const LinearGradient(
-                                                colors: [
-                                                  Color(0xFF667eea),
-                                                  Color(0xFF764ba2),
-                                                ],
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                            ),
-                                            child: const Icon(
-                                              Icons.tv,
-                                              color: Colors.white,
-                                              size: 16,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Text(
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
                                               pack.name.toString(),
                                               style: const TextStyle(
-                                                fontSize: 18,
+                                                fontSize: 19,
                                                 fontWeight: FontWeight.bold,
                                                 color: Color(0xFF2D3748),
+                                                letterSpacing: 0.3,
                                               ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(height: 20),
-
-                                    // Enhanced Price Cards
-                                    Wrap(
-                                      spacing: 12,
-                                      runSpacing: 12,
-                                      children:
-                                          pack.prices!.map((p) {
-                                            return GestureDetector(
-                                              onTap:
-                                                  () => showCardDialog(
-                                                    p.amount.toString(),
+                                            const SizedBox(height: 4),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 4,
                                                   ),
-                                              child: AnimatedContainer(
-                                                duration: const Duration(
-                                                  milliseconds: 200,
-                                                ),
-                                                width:
-                                                    (MediaQuery.of(
-                                                          context,
-                                                        ).size.width -
-                                                        88) /
-                                                    3,
-                                                decoration: BoxDecoration(
-                                                  gradient:
-                                                      const LinearGradient(
-                                                        colors: [
-                                                          Colors.white,
-                                                          Color(0xFFF8FAFC),
-                                                        ],
-                                                        begin:
-                                                            Alignment.topLeft,
-                                                        end:
-                                                            Alignment
-                                                                .bottomRight,
-                                                      ),
-                                                  borderRadius:
-                                                      BorderRadius.circular(16),
-                                                  border: Border.all(
-                                                    color: const Color(
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  colors: [
+                                                    const Color(
                                                       0xFF667eea,
                                                     ).withOpacity(0.1),
-                                                    width: 1.5,
-                                                  ),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: const Color(
-                                                        0xFF667eea,
-                                                      ).withOpacity(0.1),
-                                                      spreadRadius: 0,
-                                                      blurRadius: 12,
-                                                      offset: const Offset(
-                                                        0,
-                                                        4,
-                                                      ),
-                                                    ),
+                                                    const Color(
+                                                      0xFF764ba2,
+                                                    ).withOpacity(0.1),
                                                   ],
                                                 ),
-                                                child: Material(
-                                                  color: Colors.transparent,
-                                                  child: InkWell(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          16,
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                "${pack.prices!.length} Options",
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey[600],
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 24),
+
+                                  // Premium Price Cards
+                                  Wrap(
+                                    spacing: 14,
+                                    runSpacing: 14,
+                                    children:
+                                        pack.prices!.map((p) {
+                                          return GestureDetector(
+                                            onTap:
+                                                () => showCardDialog(
+                                                  p.amount.toString(),
+                                                ),
+                                            child: AnimatedContainer(
+                                              duration: const Duration(
+                                                milliseconds: 200,
+                                              ),
+                                              width:
+                                                  (MediaQuery.of(
+                                                        context,
+                                                      ).size.width -
+                                                      100) /
+                                                  3,
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  colors: [
+                                                    Colors.white,
+                                                    Colors.grey[50]!,
+                                                  ],
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                                border: Border.all(
+                                                  color: const Color(
+                                                    0xFFFF6B95,
+                                                  ).withOpacity(0.15),
+                                                  width: 2,
+                                                ),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: const Color(
+                                                      0xFFFF6B95,
+                                                    ).withOpacity(0.08),
+                                                    spreadRadius: 0,
+                                                    blurRadius: 15,
+                                                    offset: const Offset(0, 6),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: Material(
+                                                color: Colors.transparent,
+                                                child: InkWell(
+                                                  borderRadius:
+                                                      BorderRadius.circular(20),
+                                                  onTap:
+                                                      () => showCardDialog(
+                                                        p.amount.toString(),
+                                                      ),
+                                                  child: Container(
+                                                    padding:
+                                                        const EdgeInsets.all(
+                                                          18,
                                                         ),
-                                                    onTap:
-                                                        () => showCardDialog(
-                                                          p.amount.toString(),
+                                                    child: Column(
+                                                      children: [
+                                                        Container(
+                                                          padding:
+                                                              const EdgeInsets.symmetric(
+                                                                horizontal: 14,
+                                                                vertical: 8,
+                                                              ),
+                                                          decoration: BoxDecoration(
+                                                            gradient:
+                                                                const LinearGradient(
+                                                                  colors: [
+                                                                    Color(
+                                                                      0xFF00D4FF,
+                                                                    ),
+                                                                    Color(
+                                                                      0xFF0099FF,
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  20,
+                                                                ),
+                                                            boxShadow: [
+                                                              BoxShadow(
+                                                                color: const Color(
+                                                                  0xFF00D4FF,
+                                                                ).withOpacity(
+                                                                  0.4,
+                                                                ),
+                                                                spreadRadius: 0,
+                                                                blurRadius: 8,
+                                                                offset:
+                                                                    const Offset(
+                                                                      0,
+                                                                      4,
+                                                                    ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                          child: Text(
+                                                            "₹${p.amount}",
+                                                            style:
+                                                                const TextStyle(
+                                                                  fontSize: 17,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  color:
+                                                                      Colors
+                                                                          .white,
+                                                                  letterSpacing:
+                                                                      0.5,
+                                                                ),
+                                                          ),
                                                         ),
-                                                    child: Container(
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                            16,
-                                                          ),
-                                                      child: Column(
-                                                        children: [
-                                                          Container(
-                                                            padding:
-                                                                const EdgeInsets.symmetric(
-                                                                  horizontal:
-                                                                      12,
-                                                                  vertical: 6,
-                                                                ),
-                                                            decoration: BoxDecoration(
-                                                              gradient: const LinearGradient(
-                                                                colors: [
-                                                                  Color(
-                                                                    0xFF48BB78,
-                                                                  ),
-                                                                  Color(
-                                                                    0xFF38A169,
-                                                                  ),
-                                                                ],
+                                                        const SizedBox(
+                                                          height: 10,
+                                                        ),
+                                                        Container(
+                                                          padding:
+                                                              const EdgeInsets.symmetric(
+                                                                horizontal: 10,
+                                                                vertical: 6,
                                                               ),
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    20,
-                                                                  ),
-                                                            ),
-                                                            child: Text(
-                                                              "₹${p.amount}",
-                                                              style: const TextStyle(
-                                                                fontSize: 16,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .bold,
-                                                                color:
-                                                                    Colors
-                                                                        .white,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                          const SizedBox(
-                                                            height: 8,
-                                                          ),
-                                                          Container(
-                                                            padding:
-                                                                const EdgeInsets.symmetric(
-                                                                  horizontal: 8,
-                                                                  vertical: 4,
+                                                          decoration: BoxDecoration(
+                                                            color:
+                                                                Colors
+                                                                    .grey[100],
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  12,
                                                                 ),
-                                                            decoration: BoxDecoration(
+                                                          ),
+                                                          child: Text(
+                                                            p.validity
+                                                                .toString(),
+                                                            style: TextStyle(
+                                                              fontSize: 11,
                                                               color:
                                                                   Colors
-                                                                      .grey[100],
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    12,
-                                                                  ),
+                                                                      .grey[700],
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
                                                             ),
-                                                            child: Text(
-                                                              p.validity
-                                                                  .toString(),
-                                                              style: TextStyle(
-                                                                fontSize: 12,
-                                                                color:
-                                                                    Colors
-                                                                        .grey[600],
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w500,
-                                                              ),
-                                                              textAlign:
-                                                                  TextAlign
-                                                                      .center,
-                                                            ),
+                                                            textAlign:
+                                                                TextAlign
+                                                                    .center,
                                                           ),
-                                                        ],
-                                                      ),
+                                                        ),
+                                                      ],
                                                     ),
                                                   ),
                                                 ),
                                               ),
-                                            );
-                                          }).toList(),
-                                    ),
-                                  ],
-                                ),
+                                            ),
+                                          );
+                                        }).toList(),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -678,8 +822,7 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
               ),
             ),
 
-          // Bottom padding
-          const SliverToBoxAdapter(child: SizedBox(height: 30)),
+          const SliverToBoxAdapter(child: SizedBox(height: 40)),
         ],
       ),
     );
@@ -695,81 +838,89 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
       builder: (context) {
         return Dialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(32),
           ),
           elevation: 0,
           backgroundColor: Colors.transparent,
           child: Container(
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Colors.white, Color(0xFFF8FAFC)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(28),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(32),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF667eea).withOpacity(0.2),
+                  color: const Color(0xFFFF6B95).withOpacity(0.3),
                   spreadRadius: 0,
-                  blurRadius: 40,
-                  offset: const Offset(0, 20),
+                  blurRadius: 50,
+                  offset: const Offset(0, 25),
                 ),
               ],
             ),
             child: Padding(
-              padding: const EdgeInsets.all(28),
+              padding: const EdgeInsets.all(32),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Header with Icon
                   Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                        colors: [Color(0xFFFF6B95), Color(0xFFFF8E53)],
                       ),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF667eea).withOpacity(0.3),
+                          color: const Color(0xFFFF6B95).withOpacity(0.5),
                           spreadRadius: 0,
-                          blurRadius: 12,
-                          offset: const Offset(0, 8),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
                         ),
                       ],
                     ),
                     child: const Icon(
                       Icons.payment,
                       color: Colors.white,
-                      size: 32,
+                      size: 36,
                     ),
                   ),
-                  const SizedBox(height: 24),
-
+                  const SizedBox(height: 28),
                   const Text(
                     "Enter Details",
                     style: TextStyle(
-                      fontSize: 24,
+                      fontSize: 26,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF2D3748),
+                      letterSpacing: 0.5,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Amount: ₹$amount",
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w500,
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFF00D4FF).withOpacity(0.1),
+                          const Color(0xFF0099FF).withOpacity(0.1),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      "Amount: ₹$amount",
+                      style: const TextStyle(
+                        fontSize: 18,
+                        color: Color(0xFF0099FF),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 32),
-
-                  // Enhanced Input Fields
                   Container(
                     decoration: BoxDecoration(
                       color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: Colors.grey[200]!),
                     ),
                     child: TextField(
@@ -779,33 +930,32 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
                         labelText: "Card Number",
                         labelStyle: TextStyle(color: Colors.grey[600]),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(20),
                           borderSide: BorderSide.none,
                         ),
                         prefixIcon: Container(
-                          margin: const EdgeInsets.all(12),
+                          margin: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
-                              colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                              colors: [Color(0xFFFF6B95), Color(0xFFFF8E53)],
                             ),
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Icon(
                             Icons.credit_card,
                             color: Colors.white,
-                            size: 20,
+                            size: 22,
                           ),
                         ),
-                        contentPadding: const EdgeInsets.all(16),
+                        contentPadding: const EdgeInsets.all(18),
                       ),
                     ),
                   ),
                   const SizedBox(height: 20),
-
                   Container(
                     decoration: BoxDecoration(
                       color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: Colors.grey[200]!),
                     ),
                     child: TextField(
@@ -815,52 +965,50 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
                         labelText: "Phone Number",
                         labelStyle: TextStyle(color: Colors.grey[600]),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(20),
                           borderSide: BorderSide.none,
                         ),
                         prefixIcon: Container(
-                          margin: const EdgeInsets.all(12),
+                          margin: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
-                              colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                              colors: [Color(0xFFFF6B95), Color(0xFFFF8E53)],
                             ),
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Icon(
                             Icons.phone,
                             color: Colors.white,
-                            size: 20,
+                            size: 22,
                           ),
                         ),
-                        contentPadding: const EdgeInsets.all(16),
+                        contentPadding: const EdgeInsets.all(18),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 32),
-
-                  // Enhanced Action Buttons
+                  const SizedBox(height: 36),
                   Row(
                     children: [
                       Expanded(
                         child: Container(
+                          height: 56,
                           decoration: BoxDecoration(
                             color: Colors.grey[100],
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(18),
                           ),
                           child: TextButton(
                             style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(18),
                               ),
                             ),
                             onPressed: () => Navigator.pop(context),
                             child: Text(
                               "Cancel",
                               style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
+                                color: Colors.grey[700],
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ),
@@ -869,17 +1017,18 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
                       const SizedBox(width: 16),
                       Expanded(
                         child: Container(
+                          height: 56,
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
-                              colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                              colors: [Color(0xFFFF6B95), Color(0xFFFF8E53)],
                             ),
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(18),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF667eea).withOpacity(0.4),
+                                color: const Color(0xFFFF6B95).withOpacity(0.5),
                                 spreadRadius: 0,
-                                blurRadius: 12,
-                                offset: const Offset(0, 6),
+                                blurRadius: 15,
+                                offset: const Offset(0, 8),
                               ),
                             ],
                           ),
@@ -887,9 +1036,8 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.transparent,
                               shadowColor: Colors.transparent,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(18),
                               ),
                             ),
                             onPressed: () {
@@ -906,8 +1054,8 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
                               "Continue",
                               style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ),
@@ -934,7 +1082,7 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
         "title": "UPI Payment",
         "subtitle": "No convenience charges",
         "icon": Icons.account_balance_wallet,
-        "color": const Color(0xFF48BB78),
+        "color": const Color(0xFF7C3AED),
         "amount": amount,
         "mode": "upi",
       },
@@ -942,7 +1090,7 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
         "title": "Net Banking",
         "subtitle": "Gateway charge @1.5%",
         "icon": Icons.account_balance,
-        "color": const Color(0xFF4299E1),
+        "color": const Color(0xFFFF6B95),
         "amount": amount + (amount * 1.5 / 100),
         "mode": "Net banking",
       },
@@ -950,7 +1098,7 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
         "title": "Debit Card",
         "subtitle": "Gateway charge @0.4%",
         "icon": Icons.credit_card,
-        "color": const Color(0xFF9F7AEA),
+        "color": const Color(0xFF06B6D4),
         "amount": amount + (amount * 0.4 / 100),
         "mode": "Debit Card",
       },
@@ -958,7 +1106,7 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
         "title": "Credit Card",
         "subtitle": "Gateway charge @2.1%",
         "icon": Icons.credit_card_outlined,
-        "color": const Color(0xFFED8936),
+        "color": const Color(0xFFF59E0B),
         "amount": amount + (amount * 2.1 / 100),
         "mode": "Credit Card",
       },
@@ -970,7 +1118,7 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
       builder: (context) {
         return Dialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(32),
           ),
           elevation: 0,
           backgroundColor: Colors.transparent,
@@ -979,250 +1127,289 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
               maxHeight: MediaQuery.of(context).size.height * 0.8,
             ),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Colors.white, Color(0xFFF8FAFC)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(28),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(32),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF667eea).withOpacity(0.2),
+                  color: const Color(0xFF667eea).withOpacity(0.3),
                   spreadRadius: 0,
-                  blurRadius: 40,
-                  offset: const Offset(0, 20),
+                  blurRadius: 50,
+                  offset: const Offset(0, 25),
                 ),
               ],
             ),
             child: Padding(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(28),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Header
                   Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                        colors: [Color(0xFFFF6B95), Color(0xFFFF8E53)],
                       ),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF667eea).withOpacity(0.3),
+                          color: const Color(0xFFFF6B95).withOpacity(0.5),
                           spreadRadius: 0,
-                          blurRadius: 12,
-                          offset: const Offset(0, 8),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
                         ),
                       ],
                     ),
                     child: const Icon(
                       Icons.payment,
                       color: Colors.white,
-                      size: 32,
+                      size: 36,
                     ),
                   ),
-                  const SizedBox(height: 24),
-
+                  const SizedBox(height: 28),
                   const Text(
                     "Select Payment Method",
                     style: TextStyle(
-                      fontSize: 24,
+                      fontSize: 26,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF2D3748),
+                      letterSpacing: 0.5,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   Text(
-                    "Choose your preferred payment option",
+                    "Choose your preferred option",
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.grey[600],
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(height: 24),
-
-                  // Payment Options
+                  const SizedBox(height: 28),
                   Flexible(
                     child: ListView.builder(
                       shrinkWrap: true,
+                      physics: const BouncingScrollPhysics(),
                       itemCount: paymentOptions.length,
                       itemBuilder: (context, index) {
                         final option = paymentOptions[index];
-
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 16),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [Colors.white, Colors.grey[50]!],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: (option['color'] as Color).withOpacity(
-                                0.2,
+                        return TweenAnimationBuilder<double>(
+                          duration: Duration(milliseconds: 400 + (index * 100)),
+                          tween: Tween(begin: 0.0, end: 1.0),
+                          curve: Curves.easeOutCubic,
+                          builder: (context, value, child) {
+                            return Transform.translate(
+                              offset: Offset(50 * (1 - value), 0),
+                              child: Opacity(opacity: value, child: child),
+                            );
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Colors.white, Colors.grey[50]!],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
                               ),
-                              width: 1.5,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
                                 color: (option['color'] as Color).withOpacity(
-                                  0.1,
+                                  0.3,
                                 ),
-                                spreadRadius: 0,
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
+                                width: 2,
                               ),
-                            ],
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(20),
-                              onTap: () {
-                                Navigator.pop(context);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Row(
-                                      children: [
-                                        Icon(
-                                          option['icon'],
-                                          color: Colors.white,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text("Selected: ${option['title']}"),
-                                      ],
-                                    ),
-                                    backgroundColor: option['color'],
-                                    behavior: SnackBarBehavior.floating,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: (option['color'] as Color).withOpacity(
+                                    0.15,
                                   ),
-                                );
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder:
-                                        (context) => DthPaymentScreen(
-                                          plan,
-                                          cardnumber,
-                                          mobilenumber,
-                                          amount.toString(),
-                                          option['amount'].toString(),
-                                          option['mode'],
-                                        ),
-                                  ),
-                                );
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.all(20),
-                                child: Row(
-                                  children: [
-                                    // Icon Container
-                                    Container(
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color: (option['color'] as Color)
-                                            .withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                      child: Icon(
-                                        option['icon'],
-                                        color: option['color'],
-                                        size: 28,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-
-                                    // Content
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                  spreadRadius: 0,
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(24),
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Row(
                                         children: [
-                                          Text(
-                                            option['title'],
-                                            style: const TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                              color: Color(0xFF2D3748),
+                                          Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white.withOpacity(
+                                                0.2,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                            child: Icon(
+                                              option['icon'],
+                                              color: Colors.white,
+                                              size: 20,
                                             ),
                                           ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            option['subtitle'],
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: Colors.grey[600],
-                                              fontWeight: FontWeight.w500,
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Text(
+                                              "Selected: ${option['title']}",
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 15,
+                                              ),
                                             ),
                                           ),
                                         ],
                                       ),
+                                      backgroundColor: option['color'],
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      margin: const EdgeInsets.all(16),
                                     ),
-
-                                    // Amount
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.end,
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 6,
+                                  );
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) => DthPaymentScreen(
+                                            plan,
+                                            cardnumber,
+                                            mobilenumber,
+                                            amount.toString(),
+                                            option['amount'].toString(),
+                                            option['mode'],
                                           ),
-                                          decoration: BoxDecoration(
-                                            color: option['color'],
-                                            borderRadius: BorderRadius.circular(
-                                              20,
-                                            ),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: (option['color']
-                                                        as Color)
-                                                    .withOpacity(0.3),
-                                                spreadRadius: 0,
-                                                blurRadius: 8,
-                                                offset: const Offset(0, 4),
-                                              ),
+                                    ),
+                                  );
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.all(20),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              (option['color'] as Color),
+                                              (option['color'] as Color)
+                                                  .withOpacity(0.7),
                                             ],
                                           ),
-                                          child: Text(
-                                            "₹${option['amount'].toStringAsFixed(2)}",
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                            ),
+                                          borderRadius: BorderRadius.circular(
+                                            18,
                                           ),
-                                        ),
-                                        if (option['amount'] != amount)
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              top: 4,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: (option['color'] as Color)
+                                                  .withOpacity(0.4),
+                                              spreadRadius: 0,
+                                              blurRadius: 12,
+                                              offset: const Offset(0, 6),
                                             ),
-                                            child: Text(
-                                              "+₹${(option['amount'] - amount).toStringAsFixed(2)}",
+                                          ],
+                                        ),
+                                        child: Icon(
+                                          option['icon'],
+                                          color: Colors.white,
+                                          size: 28,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 18),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              option['title'],
+                                              style: const TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                                color: Color(0xFF2D3748),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Text(
+                                              option['subtitle'],
                                               style: TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.grey[500],
+                                                fontSize: 14,
+                                                color: Colors.grey[600],
                                                 fontWeight: FontWeight.w500,
                                               ),
                                             ),
+                                          ],
+                                        ),
+                                      ),
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 14,
+                                              vertical: 8,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                colors: [
+                                                  (option['color'] as Color),
+                                                  (option['color'] as Color)
+                                                      .withOpacity(0.8),
+                                                ],
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: (option['color']
+                                                          as Color)
+                                                      .withOpacity(0.3),
+                                                  spreadRadius: 0,
+                                                  blurRadius: 10,
+                                                  offset: const Offset(0, 4),
+                                                ),
+                                              ],
+                                            ),
+                                            child: Text(
+                                              "₹${option['amount'].toStringAsFixed(2)}",
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 17,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
                                           ),
-                                      ],
-                                    ),
-
-                                    const SizedBox(width: 8),
-                                    Icon(
-                                      Icons.arrow_forward_ios,
-                                      color: Colors.grey[400],
-                                      size: 16,
-                                    ),
-                                  ],
+                                          if (option['amount'] != amount)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                top: 6,
+                                              ),
+                                              child: Text(
+                                                "+₹${(option['amount'] - amount).toStringAsFixed(2)}",
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: Colors.grey[500],
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Icon(
+                                        Icons.arrow_forward_ios,
+                                        color: Colors.grey[400],
+                                        size: 18,
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -1231,30 +1418,27 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
                       },
                     ),
                   ),
-
-                  const SizedBox(height: 20),
-
-                  // Close Button
+                  const SizedBox(height: 24),
                   Container(
                     width: double.infinity,
+                    height: 56,
                     decoration: BoxDecoration(
                       color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(18),
                     ),
                     child: TextButton(
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(18),
                         ),
                       ),
                       onPressed: () => Navigator.pop(context),
                       child: Text(
                         "Close",
                         style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                          color: Colors.grey[700],
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
@@ -1291,9 +1475,8 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
           isLoading = false;
         });
 
-        // Start animations
-        _animationController.forward();
-        _slideController.forward();
+        _animationController.forward(from: 0);
+        _slideController.forward(from: 0);
       }
     } catch (e) {
       setState(() {
@@ -1302,20 +1485,39 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Row(
+          content: Row(
             children: [
-              Icon(Icons.error_outline, color: Colors.white),
-              SizedBox(width: 8),
-              Text("Failed to load plans. Please try again."),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.error_outline,
+                  color: Colors.white,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  "Failed to load plans. Please try again.",
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                ),
+              ),
             ],
           ),
           backgroundColor: Colors.red[400],
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
+          margin: const EdgeInsets.all(16),
         ),
       );
     }
+    ;
   }
 }
+ 

@@ -2,7 +2,7 @@ import 'dart:convert';
 
 class RechargeHistoryEntity {
   int? status;
-  String? message;
+  String? message;   
   List<RechargeHistoryData>? data;
 
   RechargeHistoryEntity({

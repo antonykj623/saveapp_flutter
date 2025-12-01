@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+// ignore: depend_on_referenced_packages
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:new_project_2025/view/home/widget/payment_recharge/Contact.dart';
 import 'package:new_project_2025/view/home/widget/payment_recharge/Rechargeapiclass.dart';
@@ -14,13 +17,14 @@ class MobileRechargeScreen extends StatefulWidget {
 }
 
 class _MobileRechargeScreenState extends State<MobileRechargeScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   final TextEditingController _mobileController = TextEditingController();
   String? _selectedCircle;
   String? _selectedOperator;
   List<Contact> _contacts = [];
   bool _isLoadingContacts = false;
   bool _isLoadingPlans = false;
+  bool _isPickingContact = false; // Track contact picker state
 
   late AnimationController _fadeController;
   late AnimationController _slideController;
@@ -31,11 +35,60 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
   late Animation<double> _pulseAnimation;
   late Animation<double> _operatorAnimation;
 
+      static const platform = MethodChannel('com.example.contactpicker/channel');
+  String? contactInfo;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // Add lifecycle observer
     _initAnimations();
     _mobileController.addListener(_onMobileNumberChanged);
+ checkPermission();
+
+
+  }
+
+      checkPermission()
+  async {
+    //checking permission
+    await Permission.contacts.request();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this); // Remove lifecycle observer
+    _mobileController.removeListener(_onMobileNumberChanged);
+    _mobileController.dispose();
+    if (_fadeController.isAnimating) _fadeController.stop();
+    if (_slideController.isAnimating) _slideController.stop();
+    if (_pulseController.isAnimating) _pulseController.stop();
+    if (_operatorController.isAnimating) _operatorController.stop();
+    _fadeController.dispose();
+    _slideController.dispose();
+    _pulseController.dispose();
+    _operatorController.dispose();
+    super.dispose();
+  }
+
+  // Handle app lifecycle changes
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    debugPrint('📱 App lifecycle state: $state');
+
+    if (state == AppLifecycleState.resumed) {
+      // App came back to foreground
+      debugPrint('✅ App resumed - contact picker returned');
+      setState(() {
+        _isPickingContact = false;
+      });
+    } else if (state == AppLifecycleState.paused) {
+      // App went to background
+      if (_isPickingContact) {
+        debugPrint('⏸️ App paused - contact picker opened');
+      }
+    }
   }
 
   void _initAnimations() {
@@ -55,26 +108,21 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
       duration: Duration(milliseconds: 800),
       vsync: this,
     );
-
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
     );
-
     _slideAnimation = Tween<Offset>(
       begin: Offset(0, 0.8),
       end: Offset.zero,
     ).animate(
       CurvedAnimation(parent: _slideController, curve: Curves.elasticOut),
     );
-
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
-
     _operatorAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _operatorController, curve: Curves.elasticOut),
     );
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _fadeController.forward();
@@ -90,7 +138,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
     if (number.length == 10) {
       _fetchCircleAndOperator(number);
     } else {
-      // Reset selections when number is changed
       if (mounted) {
         setState(() {
           _selectedCircle = null;
@@ -104,7 +151,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
     try {
       final data = await MobilePlansApiService.fetchCircleAndOperator(mobile);
       if (data != null && mounted) {
-        // Handle circle selection
         final circleCode = data['circle'];
         if (circleCode != null) {
           final index = operatorCircleCodes.indexOf(circleCode);
@@ -115,8 +161,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
             });
           }
         }
-
-        // Handle operator selection with fallback
         final operatorCode = data['operator'];
         if (operatorCode != null) {
           final operatorName = _getOperatorNameFromCode(operatorCode);
@@ -126,15 +170,12 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
             });
             _showSuccessSnackBar('Auto-detected: $operatorName operator');
           } else {
-            // Fallback to default operator if API returns unknown operator
             _setDefaultOperator();
           }
         } else {
-          // Fallback to default operator if no operator in API response
           _setDefaultOperator();
         }
       } else {
-        // If API fails, set default operator
         _setDefaultOperator();
       }
     } catch (e) {
@@ -144,48 +185,26 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
   }
 
   String? _getOperatorNameFromCode(String apiOperatorCode) {
-    // Extended mapping to handle more operator codes from API
     final operatorMapping = {
       'AT': 'AIRTEL',
       'CG': 'BSNL',
       'VI': 'VI',
       'RJ': 'JIO',
-      'ID': 'AIRTEL', // Common fallback
+      'ID': 'AIRTEL',
       'AI': 'AIRTEL',
       'BS': 'BSNL',
       'VO': 'VI',
       'JI': 'JIO',
-      // Add more mappings as needed based on your API responses
     };
-
     return operatorMapping[apiOperatorCode];
   }
 
   void _setDefaultOperator() {
-    // Set Airtel as default operator
     if (mounted) {
       setState(() {
         _selectedOperator = 'AIRTEL';
       });
     }
-  }
-
-  @override
-  void dispose() {
-    _mobileController.removeListener(_onMobileNumberChanged);
-    _mobileController.dispose();
-
-    if (_fadeController.isAnimating) _fadeController.stop();
-    if (_slideController.isAnimating) _slideController.stop();
-    if (_pulseController.isAnimating) _pulseController.stop();
-    if (_operatorController.isAnimating) _operatorController.stop();
-
-    _fadeController.dispose();
-    _slideController.dispose();
-    _pulseController.dispose();
-    _operatorController.dispose();
-
-    super.dispose();
   }
 
   static const List<String> operatorCircleCodes = [
@@ -245,7 +264,7 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
       'code': 'AIRTEL',
       'color': Colors.red,
       'gradient': [Color(0xFFE53E3E), Color(0xFFC53030)],
-      'description': 'India\'s fastest network',
+      'description': "India's fastest network",
     },
     {
       'name': 'BSNL',
@@ -277,12 +296,9 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
 
   Future<void> _requestContactPermission() async {
     if (_isPermissionRequesting) return;
-
     _isPermissionRequesting = true;
-
     try {
       final permission = await Permission.contacts.status;
-
       if (permission == PermissionStatus.granted) {
         await _loadContacts();
       } else if (permission == PermissionStatus.denied) {
@@ -302,6 +318,9 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
           _showPermissionDeniedMessage();
         }
       }
+    } catch (e) {
+      debugPrint('Permission error: $e');
+      _showErrorSnackBar('Failed to request permission: ${e.toString()}');
     } finally {
       _isPermissionRequesting = false;
     }
@@ -381,23 +400,44 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
 
   Future<void> _loadContacts() async {
     if (_isLoadingContacts) return;
-
     setState(() {
       _isLoadingContacts = true;
     });
-
     try {
+      final hasPermission = await FlutterContacts.requestPermission();
+      if (!hasPermission) {
+        if (mounted) {
+          setState(() {
+            _isLoadingContacts = false;
+          });
+          _showPermissionDeniedMessage();
+        }
+        return;
+      }
       final contacts = await FlutterContacts.getContacts(
         withProperties: true,
         withThumbnail: false,
       );
-
       final contactsWithPhones =
-          contacts.where((contact) => contact.phones.isNotEmpty).toList();
-      contactsWithPhones.sort(
-        (a, b) =>
-            a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()),
-      );
+          contacts.where((contact) {
+            try {
+              return contact.phones.isNotEmpty;
+            } catch (e) {
+              debugPrint('Error checking contact phones: $e');
+              return false;
+            }
+          }).toList();
+
+      contactsWithPhones.sort((a, b) {
+        try {
+          final nameA = a.displayName.toLowerCase();
+          final nameB = b.displayName.toLowerCase();
+          return nameA.compareTo(nameB);
+        } catch (e) {
+          debugPrint('Error sorting contacts: $e');
+          return 0;
+        }
+      });
 
       if (mounted) {
         setState(() {
@@ -406,9 +446,11 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
         });
       }
     } catch (e) {
+      debugPrint('Error loading contacts: $e');
       if (mounted) {
         setState(() {
           _isLoadingContacts = false;
+          _contacts = [];
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -416,7 +458,9 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
               children: [
                 Icon(Icons.error_outline, color: Colors.white, size: 20),
                 SizedBox(width: 12),
-                Expanded(child: Text('Error loading contacts: $e')),
+                Expanded(
+                  child: Text('Error loading contacts: ${e.toString()}'),
+                ),
               ],
             ),
             backgroundColor: Colors.red.shade600,
@@ -432,47 +476,152 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
   }
 
   void _showContactPicker() async {
-    if (_isPermissionRequesting) return;
+    if (_isPermissionRequesting || _isPickingContact) return;
 
-    if (_contacts.isEmpty && !_isLoadingContacts) {
-      final permission = await Permission.contacts.status;
+    try {
+      // Set flag BEFORE opening picker
+      setState(() {
+        _isPickingContact = true;
+      });
 
-      if (permission == PermissionStatus.granted) {
-        await _loadContacts();
+      debugPrint('🔵 Opening native contact picker...');
+
+    
+
+    
+
+      // Set a timeout for the contact picker
+          final result = await platform.invokeMethod('pickContact');
+
+      debugPrint('🟢 Contact picker returned with result: $result');
+
+      if (!mounted) return;
+
+      setState(() {
+        _isPickingContact = false;
+      });
+
+      if (result != null && result.toString().isNotEmpty) {
+        String contactInfo = result.toString();
+        debugPrint('📞 Contact info: $contactInfo');
+
+        // Check if user cancelled
+        if (contactInfo.toLowerCase() == 'cancelled' ||
+            contactInfo.toLowerCase().contains('no contact')) {
+          debugPrint('⚠️ User cancelled or no contact selected');
+          return;
+        }
+
+        // Extract phone number - handle multiple formats
+        String cleanNumber = '';
+
+        // Try different regex patterns
+        List<RegExp> patterns = [
+          RegExp(
+            r'Phone:\s*([+\d\s\-()]+)',
+          ), // "Phone: +91 1234567890" or "Phone: 1234567890"
+          RegExp(r'phone:\s*([+\d\s\-()]+)'),
+          RegExp(r'Number:\s*([+\d\s\-()]+)'),
+          RegExp(r'number:\s*([+\d\s\-()]+)'),
+          RegExp(r',\s*([+\d\s\-()]{10,})'), // After comma
+          RegExp(r'([+\d\s\-()]{10,})'), // Direct number with formatting
+        ];
+
+        for (var pattern in patterns) {
+          Match? match = pattern.firstMatch(contactInfo);
+          if (match != null) {
+            String phoneNumber = match.group(1) ?? '';
+            // Remove all non-digit characters
+            cleanNumber = phoneNumber.replaceAll(RegExp(r'[^\d]'), '');
+
+            // Remove country code if present
+            if (cleanNumber.startsWith('91') && cleanNumber.length == 12) {
+              cleanNumber = cleanNumber.substring(2);
+            } else if (cleanNumber.startsWith('0') &&
+                cleanNumber.length == 11) {
+              cleanNumber = cleanNumber.substring(1);
+            }
+
+            if (cleanNumber.length == 10) {
+              break; // Found valid 10-digit number
+            }
+          }
+        }
+
+        // Validate the extracted number
+        if (cleanNumber.length == 10 &&
+            RegExp(r'^[6-9]\d{9}$').hasMatch(cleanNumber)) {
+          setState(() {
+            _mobileController.text = cleanNumber;
+          });
+
+          // Extract name if available
+          String? contactName;
+          final nameMatch = RegExp(r'Name:\s*([^,]+)').firstMatch(contactInfo);
+          if (nameMatch != null) {
+            contactName = nameMatch.group(1)?.trim();
+          }
+
+          _showSuccessSnackBar(
+            contactName != null
+                ? 'Selected: $contactName ($cleanNumber)'
+                : 'Number selected: $cleanNumber',
+          );
+        } else if (cleanNumber.isNotEmpty) {
+          debugPrint(
+            '❌ Invalid number length or format: $cleanNumber (${cleanNumber.length} digits)',
+          );
+          _showErrorSnackBar(
+            'Invalid phone number format. Please enter manually.',
+          );
+        } else {
+          debugPrint('❌ Could not extract phone number from: $contactInfo');
+          _showErrorSnackBar(
+            'Could not extract phone number. Please try again.',
+          );
+        }
       } else {
-        await _requestContactPermission();
-        return;
+        debugPrint('⚠️ No contact selected or result is empty');
       }
-    }
-
-    if (_contacts.isNotEmpty) {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder:
-            (context) => ContactPickerBottomSheet(
-              contacts: _contacts,
-              isLoading: _isLoadingContacts,
-              onContactSelected: (contact, phoneNumber) {
-                setState(() {
-                  String cleanNumber = phoneNumber.replaceAll(
-                    RegExp(r'[^\d]'),
-                    '',
-                  );
-                  if (cleanNumber.startsWith('91') &&
-                      cleanNumber.length == 12) {
-                    cleanNumber = cleanNumber.substring(2);
-                  }
-                  _mobileController.text = cleanNumber;
-                });
-                Navigator.pop(context);
-                _showSuccessSnackBar(
-                  'Selected: ${contact.displayName} - $phoneNumber',
-                );
-              },
-            ),
+    } on PlatformException catch (e) {
+      debugPrint(
+        '❌ Platform exception in contact picker: ${e.code} - ${e.message}',
       );
+
+      if (mounted) {
+        setState(() {
+          _isPickingContact = false;
+        });
+
+        // Don't show error for user cancellation
+        if (e.code != 'cancelled' &&
+            e.code != 'CANCEL' &&
+            !e.message.toString().toLowerCase().contains('cancel')) {
+          _showErrorSnackBar('Failed to access contacts: ${e.message}');
+        }
+      }
+    } on TimeoutException catch (e) {
+      debugPrint('⏱️ Timeout exception: $e');
+
+      if (mounted) {
+        setState(() {
+          _isPickingContact = false;
+        });
+        _showErrorSnackBar('Contact picker timed out. Please try again.');
+      }
+    } catch (e) {
+      debugPrint('❌ Unexpected error in contact picker: $e');
+
+      if (mounted) {
+        setState(() {
+          _isPickingContact = false;
+        });
+
+        // Check if it's a cancellation (not an actual error)
+        if (!e.toString().toLowerCase().contains('cancel')) {
+          _showErrorSnackBar('Unexpected error. Please try again.');
+        }
+      }
     }
   }
 
@@ -513,7 +662,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
       _selectedOperator = code;
     });
     HapticFeedback.lightImpact();
-
     final operator = mobileOperators.firstWhere((op) => op['code'] == code);
     _showSuccessSnackBar(
       'Selected ${operator['name']} - ${operator['description']}',
@@ -527,24 +675,19 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
       _showErrorSnackBar('Please fill all required fields');
       return;
     }
-
     setState(() {
       _isLoadingPlans = true;
     });
-
     try {
       HapticFeedback.mediumImpact();
-
       final planResponse = await MobilePlansApiService.fetchMobilePlans(
         mobileNumber: _mobileController.text,
         circle: _selectedCircle!,
         operatorCode: _selectedOperator!,
       );
-
       setState(() {
         _isLoadingPlans = false;
       });
-
       if (planResponse != null && planResponse.status == 'OK') {
         Navigator.push(
           context,
@@ -589,7 +732,7 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
         _isLoadingPlans = false;
       });
       _showErrorSnackBar('Network error. Please check your connection.');
-      print('Error fetching plans: $e');
+      debugPrint('Error fetching plans: $e');
     }
   }
 
@@ -731,7 +874,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                   );
                 },
               ),
-
               // Main Content
               Expanded(
                 child: AnimatedBuilder(
@@ -766,7 +908,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                                 borderRadius: BorderRadius.circular(3),
                               ),
                             ),
-
                             Expanded(
                               child: SingleChildScrollView(
                                 padding: EdgeInsets.symmetric(horizontal: 24),
@@ -774,7 +915,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     SizedBox(height: 20),
-
                                     // Mobile Number Section
                                     _buildSectionTitle('Mobile Number'),
                                     SizedBox(height: 12),
@@ -859,7 +999,10 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                                           Container(
                                             margin: EdgeInsets.only(right: 12),
                                             child: GestureDetector(
-                                              onTap: _showContactPicker,
+                                              onTap:
+                                                  _isPickingContact
+                                                      ? null
+                                                      : _showContactPicker,
                                               child: Container(
                                                 padding: EdgeInsets.all(12),
                                                 decoration: BoxDecoration(
@@ -882,7 +1025,7 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                                                   ],
                                                 ),
                                                 child:
-                                                    _isLoadingContacts
+                                                    _isPickingContact
                                                         ? SizedBox(
                                                           width: 20,
                                                           height: 20,
@@ -905,9 +1048,7 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                                         ],
                                       ),
                                     ),
-
                                     SizedBox(height: 32),
-
                                     // Circle Selection Section
                                     _buildSectionTitle('Select Circle'),
                                     SizedBox(height: 12),
@@ -998,10 +1139,7 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                                         ),
                                       ),
                                     ),
-
                                     SizedBox(height: 32),
-
-                                    // Operator Selection Section - FIXED OVERFLOW ISSUE
                                     _buildSectionTitle('Select Operator'),
                                     SizedBox(height: 16),
                                     AnimatedBuilder(
@@ -1017,7 +1155,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                                                 .clamp(0.0, 1.0),
                                             child: LayoutBuilder(
                                               builder: (context, constraints) {
-                                                // Calculate optimal grid dimensions based on screen size
                                                 final screenWidth =
                                                     constraints.maxWidth;
                                                 final crossAxisCount =
@@ -1026,7 +1163,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                                                     screenWidth > 600
                                                         ? 1.1
                                                         : 1.0;
-
                                                 return GridView.builder(
                                                   shrinkWrap: true,
                                                   physics:
@@ -1051,7 +1187,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                                                     final isSelected =
                                                         _selectedOperator ==
                                                         operator['code'];
-
                                                     return GestureDetector(
                                                       onTap:
                                                           () =>
@@ -1138,7 +1273,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                                                                 MainAxisSize
                                                                     .min,
                                                             children: [
-                                                              // Operator Logo with flexible sizing
                                                               Flexible(
                                                                 flex: 3,
                                                                 child: Container(
@@ -1226,7 +1360,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                                                               SizedBox(
                                                                 height: 8,
                                                               ),
-                                                              // Operator Name with flexible text
                                                               Flexible(
                                                                 flex: 2,
                                                                 child: Column(
@@ -1290,7 +1423,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                                                                   ],
                                                                 ),
                                                               ),
-                                                              // Selected indicator
                                                               if (isSelected) ...[
                                                                 SizedBox(
                                                                   height: 4,
@@ -1359,10 +1491,8 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                                         );
                                       },
                                     ),
-
                                     SizedBox(height: 40),
-
-                                    // Recharge Button - FIXED PULSE ANIMATION
+                                    // Recharge Button
                                     AnimatedBuilder(
                                       animation: _pulseAnimation,
                                       builder: (context, child) {
@@ -1371,7 +1501,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                                                 10 &&
                                             _selectedCircle != null &&
                                             _selectedOperator != null;
-
                                         return Transform.scale(
                                           scale:
                                               canRecharge
@@ -1501,9 +1630,7 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                                         );
                                       },
                                     ),
-
                                     SizedBox(height: 20),
-
                                     // Info Card
                                     Container(
                                       width: double.infinity,
@@ -1577,7 +1704,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                                         ],
                                       ),
                                     ),
-
                                     SizedBox(height: 40),
                                   ],
                                 ),
@@ -1646,623 +1772,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class ContactPickerBottomSheet extends StatefulWidget {
-  final List<Contact> contacts;
-  final bool isLoading;
-  final Function(Contact, String) onContactSelected;
-
-  const ContactPickerBottomSheet({
-    Key? key,
-    required this.contacts,
-    required this.isLoading,
-    required this.onContactSelected,
-  }) : super(key: key);
-
-  @override
-  _ContactPickerBottomSheetState createState() =>
-      _ContactPickerBottomSheetState();
-}
-
-class _ContactPickerBottomSheetState extends State<ContactPickerBottomSheet>
-    with SingleTickerProviderStateMixin {
-  final TextEditingController _searchController = TextEditingController();
-  List<Contact> filteredContacts = [];
-  late AnimationController _animationController;
-  late Animation<double> _slideAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    filteredContacts = widget.contacts;
-    _animationController = AnimationController(
-      duration: Duration(milliseconds: 800),
-      vsync: this,
-    );
-    _slideAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
-    );
-    _animationController.forward();
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    _animationController.dispose();
-    super.dispose();
-  }
-
-  void _filterContacts(String query) {
-    setState(() {
-      if (query.isEmpty) {
-        filteredContacts = widget.contacts;
-      } else {
-        filteredContacts =
-            widget.contacts.where((contact) {
-              final name = contact.displayName.toLowerCase();
-              final phones = contact.phones
-                  .map((phone) => phone.number)
-                  .join(' ');
-              return name.contains(query.toLowerCase()) ||
-                  phones.contains(query);
-            }).toList();
-      }
-    });
-  }
-
-  String _getInitials(String name) {
-    if (name.isEmpty) return '?';
-    final words = name.trim().split(' ');
-    if (words.length >= 2) {
-      return '${words[0][0]}${words[1][0]}'.toUpperCase();
-    }
-    return name[0].toUpperCase();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _animationController,
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, (1 - _slideAnimation.value.clamp(0.0, 1.0)) * 400),
-          child: Container(
-            height: MediaQuery.of(context).size.height * 0.85,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.white, Color(0xFFFAFBFC)],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(24),
-                topRight: Radius.circular(24),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
-                  blurRadius: 30,
-                  offset: Offset(0, -10),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Container(
-                  width: 50,
-                  height: 4,
-                  margin: EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Select Contact',
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF1A202C),
-                            ),
-                          ),
-                          if (!widget.isLoading)
-                            Text(
-                              '${filteredContacts.length} contacts available',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Color(0xFF718096),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                        ],
-                      ),
-                      GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: Container(
-                          padding: EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Color(0xFFF7FAFC),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Color(0xFFE2E8F0)),
-                          ),
-                          child: Icon(
-                            Icons.close,
-                            color: Color(0xFF718096),
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  margin: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Color(0xFFF8F9FA), Colors.white],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Color(0xFFE2E8F0)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Search contacts or numbers...',
-                      hintStyle: TextStyle(
-                        color: Color(0xFF718096),
-                        fontWeight: FontWeight.w500,
-                      ),
-                      prefixIcon: Container(
-                        padding: EdgeInsets.all(12),
-                        child: Container(
-                          padding: EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [Color(0xFF4285F4), Color(0xFF34A853)],
-                            ),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
-                            Icons.search,
-                            color: Colors.white,
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                      suffixIcon:
-                          _searchController.text.isNotEmpty
-                              ? IconButton(
-                                icon: Icon(
-                                  Icons.clear,
-                                  color: Color(0xFF718096),
-                                ),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  _filterContacts('');
-                                },
-                              )
-                              : null,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 16,
-                      ),
-                    ),
-                    onChanged: _filterContacts,
-                  ),
-                ),
-                Expanded(
-                  child:
-                      widget.isLoading
-                          ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  padding: EdgeInsets.all(20),
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        Color(0xFF4285F4),
-                                        Color(0xFF34A853),
-                                      ],
-                                    ),
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Color(
-                                          0xFF4285F4,
-                                        ).withOpacity(0.3),
-                                        blurRadius: 20,
-                                        offset: Offset(0, 8),
-                                      ),
-                                    ],
-                                  ),
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 3,
-                                  ),
-                                ),
-                                SizedBox(height: 24),
-                                Text(
-                                  'Loading contacts...',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    color: Color(0xFF1A202C),
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                SizedBox(height: 8),
-                                Text(
-                                  'Please wait while we fetch your contacts',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Color(0xFF718096),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                          : filteredContacts.isEmpty
-                          ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  padding: EdgeInsets.all(24),
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        Color(0xFFF7FAFC),
-                                        Color(0xFFEDF2F7),
-                                      ],
-                                    ),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    Icons.person_search,
-                                    size: 48,
-                                    color: Color(0xFF718096),
-                                  ),
-                                ),
-                                SizedBox(height: 24),
-                                Text(
-                                  'No contacts found',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    color: Color(0xFF1A202C),
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                SizedBox(height: 8),
-                                Text(
-                                  'Try adjusting your search terms',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Color(0xFF718096),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                          : ListView.builder(
-                            padding: EdgeInsets.symmetric(horizontal: 24),
-                            itemCount: filteredContacts.length,
-                            itemBuilder: (context, index) {
-                              final contact = filteredContacts[index];
-                              final phones = contact.phones;
-
-                              return AnimatedContainer(
-                                duration: Duration(milliseconds: 300),
-                                curve: Curves.easeInOut,
-                                margin: EdgeInsets.only(bottom: 12),
-                                child:
-                                    phones.isEmpty
-                                        ? SizedBox.shrink()
-                                        : phones.length == 1
-                                        ? _buildGooglePayContactTile(
-                                          contact,
-                                          phones[0].number,
-                                        )
-                                        : _buildExpandableContactTile(
-                                          contact,
-                                          phones,
-                                        ),
-                              );
-                            },
-                          ),
-                ),
-                Container(
-                  width: double.infinity,
-                  margin: EdgeInsets.all(24),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.white, Color(0xFFF8F9FA)],
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Color(0xFF4285F4), width: 2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Color(0xFF4285F4).withOpacity(0.15),
-                          blurRadius: 15,
-                          offset: Offset(0, 6),
-                        ),
-                      ],
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(16),
-                        onTap: () => Navigator.pop(context),
-                        child: Container(
-                          padding: EdgeInsets.symmetric(vertical: 18),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                padding: EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Color(0xFF4285F4),
-                                      Color(0xFF1a73e8),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Icon(
-                                  Icons.keyboard,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-                              ),
-                              SizedBox(width: 12),
-                              Text(
-                                'Enter Number Manually',
-                                style: TextStyle(
-                                  color: Color(0xFF4285F4),
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildGooglePayContactTile(Contact contact, String phoneNumber) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [Colors.white, Color(0xFFFAFBFC)]),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () => widget.onContactSelected(contact, phoneNumber),
-          child: Padding(
-            padding: EdgeInsets.all(16),
-            child: Row(
-              children: [
-                _buildGooglePayAvatar(contact),
-                SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        contact.displayName,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF1A202C),
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        phoneNumber,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF718096),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Color(0xFF4285F4), Color(0xFF34A853)],
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Color(0xFF4285F4).withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    Icons.arrow_forward_ios,
-                    size: 16,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildExpandableContactTile(Contact contact, List<Phone> phones) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [Colors.white, Color(0xFFFAFBFC)]),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ExpansionTile(
-        leading: _buildGooglePayAvatar(contact),
-        title: Text(
-          contact.displayName,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF1A202C),
-          ),
-        ),
-        subtitle: Text(
-          '${phones.length} numbers available',
-          style: TextStyle(
-            fontSize: 14,
-            color: Color(0xFF718096),
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        children:
-            phones.map((phone) {
-              return Container(
-                margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap:
-                        () => widget.onContactSelected(contact, phone.number),
-                    child: Container(
-                      padding: EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          SizedBox(width: 56), // Space for avatar alignment
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  phone.number,
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF1A202C),
-                                  ),
-                                ),
-                                SizedBox(height: 2),
-                                Text(
-                                  phone.label.name,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF718096),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            padding: EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: Color(0xFF4285F4).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              Icons.phone,
-                              color: Color(0xFF4285F4),
-                              size: 16,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),  
-      ),
-    );
-  }
-
-  Widget _buildGooglePayAvatar(Contact contact) {
-    return Container(
-      width: 50,
-      height: 50,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF4285F4), Color(0xFF34A853)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: Color(0xFF4285F4).withOpacity(0.3),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Center(
-        child: Text(
-          _getInitials(contact.displayName),
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
       ),
     );
   }

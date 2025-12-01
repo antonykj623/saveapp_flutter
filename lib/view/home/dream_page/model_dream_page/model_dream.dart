@@ -1,6 +1,6 @@
-// Updated Dream model with ID field
+
 class Dream {
-  int? id; // Add ID field to track dream in database
+  int? id; 
   String name;
   String category;
   String investment;
@@ -12,7 +12,7 @@ class Dream {
   String notes;
 
   Dream({
-    this.id, // Make ID optional for new dreams
+    this.id, 
     required this.name,
     required this.category,
     required this.investment,

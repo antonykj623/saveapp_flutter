@@ -56,7 +56,6 @@ class _ListOfAssetsPageState extends State<ListOfAssetsPage> {
                     )
                     .toList();
 
-            // Sort by date (oldest first)
             accountTransactions.sort((a, b) {
               try {
                 final dateA = _parseDate(a['ACCOUNTS_date']);
@@ -67,8 +66,7 @@ class _ListOfAssetsPageState extends State<ListOfAssetsPage> {
               }
             });
 
-            // FIXED: Opening balance is LOCKED from first transaction ONLY
-            // It will NEVER change even if user updates account setup
+         
             double openingBalance = 0;
             bool hasOpeningBalance = false;
 
@@ -86,7 +84,6 @@ class _ListOfAssetsPageState extends State<ListOfAssetsPage> {
               }
             }
 
-            // If no transactions exist yet, use account setup as opening balance
             if (!hasOpeningBalance) {
               openingBalance =
                   double.tryParse(
@@ -98,8 +95,6 @@ class _ListOfAssetsPageState extends State<ListOfAssetsPage> {
                   0;
             }
 
-            // Calculate total debit and credit FROM PAYMENT/RECEIPT transactions ONLY
-            // Skip the first transaction if it's opening balance
             int transactionStartIndex = hasOpeningBalance ? 1 : 0;
 
             double totalDebit = 0;
@@ -122,7 +117,6 @@ class _ListOfAssetsPageState extends State<ListOfAssetsPage> {
               }
             }
 
-            // Get last transaction details (excluding opening balance)
             String lastTransactionType = '';
             double lastTransactionAmount = 0;
 
@@ -134,7 +128,6 @@ class _ListOfAssetsPageState extends State<ListOfAssetsPage> {
                   double.tryParse(lastTxn['ACCOUNTS_amount'].toString()) ?? 0;
             }
 
-            // Calculate pending amount (from transactions only)
             double pendingAmount = totalDebit - totalCredit;
             String pendingType = pendingAmount >= 0 ? 'Dr' : 'Cr';
             double pendingAbsolute = pendingAmount.abs();

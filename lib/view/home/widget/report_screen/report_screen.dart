@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:new_project_2025/view/home/widget/report_screen/List_of_Insurance_report/List_of_insurance.dart';
 import 'package:new_project_2025/view/home/widget/report_screen/List_of_assets/List_of_assets.dart';
+import 'package:new_project_2025/view/home/widget/report_screen/My_net_worth/my_net_worth.dart';
 import 'package:new_project_2025/view/home/widget/report_screen/Recharge_report/Recharge_report_screen.dart';
 import 'package:new_project_2025/view/home/widget/report_screen/Transaction/Transaction.dart';
 import 'package:new_project_2025/view/home/widget/report_screen/bill_Res/Bill_Register.dart';
@@ -125,6 +126,11 @@ class ReportScreen extends StatelessWidget {
                     MaterialPageRoute(
                       builder: (context) => IncomeExpenditure(),
                     ),
+                  );
+                } else if (reportItems[index] == "My Networth") {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => MyNetworthScreen()),
                   );
                 }
               },

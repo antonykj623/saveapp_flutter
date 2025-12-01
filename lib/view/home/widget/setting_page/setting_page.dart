@@ -6,6 +6,7 @@ import 'package:new_project_2025/view/home/widget/setting_page/app_lock/App_lock
 import 'package:new_project_2025/view/home/widget/setting_page/app_lock/set_pattern.dart';
 import 'package:new_project_2025/view/home/widget/setting_page/app_renewal/App_renewal.dart';
 import 'package:new_project_2025/view/home/widget/setting_page/app_update/version_check.dart';
+import 'package:new_project_2025/view/home/widget/setting_page/backup_and%20_restore/back_and%20_store.dart';
 import 'package:new_project_2025/view/home/widget/setting_page/bill_header/bill_header.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:new_project_2025/app/Modules/login/login_page.dart';
@@ -532,19 +533,30 @@ class _SettingsScreenState extends State<SettingsScreen>
                           title: 'Data Backup',
                           subtitle: 'Backup your data to cloud',
                           iconColor: Colors.green,
-                          isDisabled: true,
+                          isDisabled: false, // Changed from true to false
                           onTap: () {
-                            debugPrint('Data Backup tapped');
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => BackupRestorePage(),
+                              ),
+                            );
                           },
                         ),
+
                         _buildSettingCard(
                           icon: Icons.cloud_download_outlined,
                           title: 'Restore Your Data',
                           subtitle: 'Restore data from backup',
                           iconColor: Colors.teal,
-                          isDisabled: true,
+                          isDisabled: false, // Changed from true to false
                           onTap: () {
-                            debugPrint('Restore Your Data tapped');
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => BackupRestorePage(),
+                              ),
+                            );
                           },
                         ),
                         _buildSectionTitle('App Management'),

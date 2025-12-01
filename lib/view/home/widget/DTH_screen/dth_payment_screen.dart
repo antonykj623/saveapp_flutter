@@ -273,7 +273,6 @@ class _DthPaymentScreenState extends State<DthPaymentScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Row(
             children: [
               Container(

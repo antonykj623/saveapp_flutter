@@ -40,9 +40,9 @@ class _AddPasswordPageState extends State<AddPasswordPage> {
       case 'aurora':
         return 'rainbow';
       case 'matrix':
-        return 'neon'; // Matrix maps to neon for green digital effect
+        return 'neon'; 
       case 'galaxy':
-        return 'ocean'; // Galaxy maps to ocean for a cosmic feel
+        return 'ocean'; 
       case 'plasma':
         return 'fire';
       case 'neon':

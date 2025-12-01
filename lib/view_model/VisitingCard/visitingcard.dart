@@ -1,11 +1,9 @@
-// Updated VisitingCard form with optimized loading and better UX
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:new_project_2025/view_model/VisitingCard/addVisitingcard.dart';
-
 import '../../view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 
 class VisitingCard extends StatefulWidget {
@@ -15,7 +13,7 @@ class VisitingCard extends StatefulWidget {
   final Uint8List? cardImage;
 
   const VisitingCard({
-    super.key,
+    super.key,  
     this.cardData,
     this.cardId,
     this.logoImage,
@@ -941,7 +939,7 @@ class _VisitingCardFormState extends State<VisitingCard>
     });
 
     try {
-      // Step 1: Prepare card data
+  
       setState(() => _saveProgress = 0.2);
 
       final cardData = {
@@ -961,7 +959,6 @@ class _VisitingCardFormState extends State<VisitingCard>
         'couponcode': couponcode.text.trim(),
       };
 
-      // Step 2: Prepare selected card image
       setState(() => _saveProgress = 0.4);
 
       Uint8List? selectedCardImage;

@@ -91,7 +91,7 @@ class _AddMoneyToWalletPageState extends State<AddMoneyToWalletPage> {
       amount: amount,
       description: 'Money Added To Wallet',
       type: 'debit',
-    );
+    ); 
 
     try {
       if (isEditMode) {
@@ -172,7 +172,7 @@ class _AddMoneyToWalletPageState extends State<AddMoneyToWalletPage> {
             ],
           ),
     );
-
+ 
     if (confirmed == true) {
       try {
         await DatabaseHelper().deleteData(

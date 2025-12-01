@@ -239,53 +239,54 @@ class _BankVoucherListScreenState extends State<BankVoucherListScreen> {
             ),
           ),
 
-          // Table Header
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: Colors.teal[50],
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.2),
-                  spreadRadius: 2,
-                  blurRadius: 5,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Table(
-              border: TableBorder.all(
-                color: Colors.teal[100]!,
-                width: 1,
+          // Table Header - Only show when there is data
+          if (!_isLoading && _filteredVouchers.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.teal[50],
                 borderRadius: BorderRadius.circular(12),
-              ),
-              columnWidths: const {
-                0: FlexColumnWidth(1.5),
-                1: FlexColumnWidth(1.5),
-                2: FlexColumnWidth(1.2),
-                3: FlexColumnWidth(1.5),
-                4: FlexColumnWidth(1.0),
-              },
-              children: [
-                TableRow(
-                  decoration: BoxDecoration(
-                    color: Colors.teal[100],
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(12),
-                    ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.2),
+                    spreadRadius: 2,
+                    blurRadius: 5,
+                    offset: const Offset(0, 2),
                   ),
-                  children: [
-                    _buildTableHeaderCell('Date'),
-                    _buildTableHeaderCell('Debit'),
-                    _buildTableHeaderCell('Amount'),
-                    _buildTableHeaderCell('Credit'),
-                    _buildTableHeaderCell('Action'),
-                  ],
+                ],
+              ),
+              child: Table(
+                border: TableBorder.all(
+                  color: Colors.teal[100]!,
+                  width: 1,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ],
+                columnWidths: const {
+                  0: FlexColumnWidth(1.5),
+                  1: FlexColumnWidth(1.5),
+                  2: FlexColumnWidth(1.2),
+                  3: FlexColumnWidth(1.5),
+                  4: FlexColumnWidth(1.0),
+                },
+                children: [
+                  TableRow(
+                    decoration: BoxDecoration(
+                      color: Colors.teal[100],
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(12),
+                      ),
+                    ),
+                    children: [
+                      _buildTableHeaderCell('Date'),
+                      _buildTableHeaderCell('Debit'),
+                      _buildTableHeaderCell('Amount'),
+                      _buildTableHeaderCell('Credit'),
+                      _buildTableHeaderCell('Action'),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
 
           // Table Data
           Expanded(

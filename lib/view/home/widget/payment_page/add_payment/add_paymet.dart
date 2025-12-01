@@ -1,21 +1,25 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:new_project_2025/view/home/widget/payment_page/Month_date/Moth_datepage.dart';
 import 'package:new_project_2025/view/home/widget/payment_page/payment_class/payment_class.dart';
-import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
+import 'package:new_project_2025/view/home/widget/save_DB/Main_budget_screen.dart';
 import 'package:new_project_2025/view_model/AccountSet_up/Add_Acount.dart';
+import 'package:new_project_2025/view_model/Accountfiles/CashAccount.dart';
+import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
+import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/budget_class/budget_class.dart';
+import 'package:new_project_2025/view/home/widget/save_DB/Edit_budget_screen/Edit_budget_screen.dart';
 
 class AddPaymentVoucherPage extends StatefulWidget {
   final Payment? payment;
-
   const AddPaymentVoucherPage({super.key, this.payment});
 
   @override
   State<AddPaymentVoucherPage> createState() => _AddPaymentVoucherPageState();
 }
 
-class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
+class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage>
+    with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   late DateTime selectedDate;
   String? selectedAccount;
@@ -24,236 +28,463 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
   String? selectedCashOption;
   final TextEditingController _remarksController = TextEditingController();
 
-  List<String> cashOptions = ['Cash'];
+  List<String> cashOptions = [];
   List<String> bankOptions = [];
   List<String> allBankCashOptions = [];
+
+  late AnimationController _pageAnimationController;
+  late AnimationController _modeAnimationController;
+  late AnimationController _dropdownAnimationController;
+  late AnimationController _saveButtonController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _buttonScaleAnimation;
+  bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
+    _setupAnimations();
     _loadBankCashOptions();
+    fixDefaultAccounts();
 
     if (widget.payment != null) {
-      try {
-        selectedDate = DateFormat('dd/MM/yyyy').parse(widget.payment!.date);
-      } catch (e) {
-        try {
-          selectedDate = DateFormat('yyyy-MM-dd').parse(widget.payment!.date);
-        } catch (e2) {
-          try {
-            selectedDate = DateFormat('dd-MM-yyyy').parse(widget.payment!.date);
-          } catch (e3) {
-            print(
-              'Error parsing date: ${widget.payment!.date}, using current date',
-            );
-            selectedDate = DateTime.now();
-          }
-        }
-      }
+      selectedDate = _parseDate(widget.payment!.date);
       selectedAccount = widget.payment!.accountName;
-      _amountController.text = widget.payment!.amount.toString();
+      _amountController.text =
+          widget.payment!.amount.toString(); // From payment only
       paymentMode = widget.payment!.paymentMode;
       selectedCashOption = widget.payment!.paymentMode;
-      _remarksController.text = widget.payment!.remarks!;
+      _remarksController.text = widget.payment!.remarks ?? '';
     } else {
       selectedDate = DateTime.now();
+      // DO NOT auto-fill amount from budget
     }
+  }
+
+  DateTime _parseDate(String date) {
+    try {
+      return DateFormat('dd/MM/yyyy').parse(date);
+    } catch (_) {
+      try {
+        return DateFormat('yyyy-MM-dd').parse(date);
+      } catch (_) {
+        try {
+          return DateFormat('dd-MM-yyyy').parse(date);
+        } catch (_) {
+          return DateTime.now();
+        }
+      }
+    }
+  }
+
+  Future<void> fixDefaultAccounts() async {
+    await CashAccountHelper.ensureDefaultAccountsExist();
+  }
+
+  void _setupAnimations() {
+    _pageAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _modeAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _dropdownAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _saveButtonController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _pageAnimationController, curve: Curves.easeOut),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _pageAnimationController,
+        curve: Curves.easeOutCubic,
+      ),
+    );
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _modeAnimationController,
+        curve: Curves.elasticOut,
+      ),
+    );
+    _buttonScaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _saveButtonController, curve: Curves.easeInOut),
+    );
+
+    _pageAnimationController.forward();
   }
 
   @override
   void dispose() {
     _amountController.dispose();
     _remarksController.dispose();
+    _pageAnimationController.dispose();
+    _modeAnimationController.dispose();
+    _dropdownAnimationController.dispose();
+    _saveButtonController.dispose();
     super.dispose();
   }
 
+  // ========================================
+  // 1. LOAD BANK & CASH OPTIONS
+  // ========================================
   Future<void> _loadBankCashOptions() async {
     try {
-      List<Map<String, dynamic>> accounts = await DatabaseHelper().getAllData(
+      final accounts = await DatabaseHelper().getAllData(
         "TABLE_ACCOUNTSETTINGS",
       );
+      final List<String> banks = [];
+      final List<String> cash = [];
 
-      List<String> banks = [];
-      List<String> cashAccounts = [];
+      for (final acc in accounts) {
+        if (acc["data"] == null || acc["data"].toString().isEmpty) continue;
+        final data = jsonDecode(acc["data"]);
+        final type =
+            (data['Accounttype'] ?? '').toString().toLowerCase().trim();
+        final name = (data['Accountname'] ?? '').toString().trim();
 
-      for (var account in accounts) {
-        try {
-          Map<String, dynamic> accountData = jsonDecode(account["data"]);
-          String accountType =
-              accountData['Accounttype'].toString().toLowerCase();
-          String accountName = accountData['Accountname'].toString();
+        if (type.isEmpty || name.isEmpty) continue;
+        if (type == 'customers' || type == 'customer') continue;
 
-          if (accountType == 'customers') {
-            continue;
-          }
-
-          if (accountType == 'bank') {
-            banks.add(accountName);
-          } else if (accountType == 'cash' &&
-              accountName.toLowerCase() != 'cash') {
-            cashAccounts.add(accountName);
-          }
-        } catch (e) {
-          print('Error parsing account data: $e');
-        }
+        if (type == 'bank' && !banks.contains(name))
+          banks.add(name);
+        else if (type == 'cash' && !cash.contains(name))
+          cash.add(name);
       }
 
+      if (cash.isEmpty) cash.add('Cash');
+      if (banks.isEmpty) banks.add('Bank');
+
       setState(() {
-        cashOptions = ['Cash', ...cashAccounts];
+        cashOptions = cash;
         bankOptions = banks;
         allBankCashOptions = [...cashOptions, ...bankOptions];
 
-        if (paymentMode == 'Cash') {
-          if (selectedCashOption == null ||
-              !cashOptions.contains(selectedCashOption)) {
-            selectedCashOption = null;
-          }
+        if (widget.payment == null) {
+          selectedCashOption =
+              paymentMode == 'Cash'
+                  ? (cashOptions.isNotEmpty ? cashOptions.first : null)
+                  : (bankOptions.isNotEmpty ? bankOptions.first : null);
         } else {
-          if (selectedCashOption == null ||
-              !bankOptions.contains(selectedCashOption)) {
-            selectedCashOption =
-                bankOptions.isNotEmpty ? bankOptions.first : null;
-          }
+          selectedCashOption =
+              (paymentMode == 'Cash' &&
+                      cashOptions.contains(selectedCashOption))
+                  ? selectedCashOption
+                  : (paymentMode == 'Bank' &&
+                      bankOptions.contains(selectedCashOption))
+                  ? selectedCashOption
+                  : (paymentMode == 'Cash'
+                      ? cashOptions.first
+                      : bankOptions.first);
         }
       });
     } catch (e) {
-      print('Error loading bank/cash options: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading bank/cash options: $e')),
-        );
-      }
+      setState(() {
+        cashOptions = ['Cash'];
+        bankOptions = ['Bank'];
+        allBankCashOptions = ['Cash', 'Bank'];
+        selectedCashOption = paymentMode == 'Cash' ? 'Cash' : 'Bank';
+      });
     }
   }
 
+  // ========================================
+  // 2. DATE PICKER
+  // ========================================
   Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
+    final picked = await showDatePicker(
       context: context,
       initialDate: selectedDate,
       firstDate: DateTime(2000),
       lastDate: DateTime(2101),
+      builder:
+          (c, child) => Theme(
+            data: Theme.of(c).copyWith(
+              colorScheme: const ColorScheme.light(
+                primary: Colors.blue,
+                onPrimary: Colors.white,
+                surface: Colors.white,
+                onSurface: Colors.black,
+              ),
+            ),
+            child: child!,
+          ),
     );
-    if (picked != null && picked != selectedDate) {
-      setState(() {
-        selectedDate = picked;
-      });
-    }
+    if (picked != null && picked != selectedDate)
+      setState(() => selectedDate = picked);
   }
 
+  // ========================================
+  // 3. ACCOUNT SEARCH DIALOG
+  // ========================================
   void _showSearchableAccountDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-        return SearchableAccountDialog(
-          onAccountSelected: (String accountName) {
-            setState(() {
-              selectedAccount = accountName;
-            });
-          },
-        );
-      },
+      builder:
+          (_) => SearchableAccountDialog(
+            onAccountSelected: (name) {
+              setState(() => selectedAccount = name);
+              _dropdownAnimationController.forward().then(
+                (_) => _dropdownAnimationController.reverse(),
+              );
+            },
+          ),
     );
   }
 
+  // ========================================
+  // 4. SETUP ID LOOKUP
+  // ========================================
   Future<String> getNextSetupId(String name) async {
     try {
       final db = await DatabaseHelper().database;
-      final List<Map<String, dynamic>> allRows = await db.query(
-        'TABLE_ACCOUNTSETTINGS',
-      );
-
-      for (var row in allRows) {
-        Map<String, dynamic> dat = jsonDecode(row["data"]);
-        if (dat['Accountname'].toString().toLowerCase() == name.toLowerCase()) {
-          print('Found account: $name, keyid: ${row['keyid']}');
+      final rows = await db.query('TABLE_ACCOUNTSETTINGS');
+      for (final row in rows) {
+        if (row["data"] == null) continue;
+        final data = jsonDecode(row["data"].toString());
+        final accName = (data['Accountname'] ?? '').toString().trim();
+        if (accName.toLowerCase() == name.toLowerCase().trim()) {
           return row['keyid'].toString();
         }
       }
-      print('Account not found: $name');
       return '0';
     } catch (e) {
-      print('Error getting setup ID for $name: $e');
       return '0';
     }
   }
 
   String _getMonthName(int month) {
     const months = [
-      'jan',
-      'feb',
-      'mar',
-      'apr',
-      'may',
-      'jun',
-      'jul',
-      'aug',
-      'sep',
-      'oct',
-      'nov',
-      'dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return months[month - 1];
   }
 
+  // ========================================
+  // 5. BUDGET CHECK – ONLY VALIDATION (NO MODIFICATION)
+  // ========================================
+  Future<bool> _checkBudgetExceeded() async {
+    if (selectedAccount == null) return false;
+
+    try {
+      final db = await DatabaseHelper().database;
+      final monthStr = _getMonthName(selectedDate.month);
+      final yearStr = selectedDate.year.toString();
+
+      // Get budget (only for comparison)
+      final budgetRows = await db.query(
+        'TABLE_BUDGET',
+        where: 'account_name = ? AND month = ? AND year = ?',
+        whereArgs: [selectedAccount, monthStr, yearStr],
+      );
+
+      if (budgetRows.isEmpty) return false;
+
+      final budgetAmount = (budgetRows.first['amount'] as num).toDouble();
+      final setupId = await getNextSetupId(selectedAccount!);
+      if (setupId == '0') return false;
+
+      // Total spent so far (only actual payments)
+      final paymentRows = await db.rawQuery(
+        '''
+        SELECT SUM(CAST(ACCOUNTS_amount AS REAL)) as total
+        FROM TABLE_ACCOUNTS
+        WHERE ACCOUNTS_setupid = ?
+          AND ACCOUNTS_month = ?
+          AND ACCOUNTS_year = ?
+          AND ACCOUNTS_type = 'debit'
+          AND ACCOUNTS_VoucherType = 1
+      ''',
+        [setupId, monthStr, yearStr],
+      );
+
+      double totalSpent = 0.0;
+      if (paymentRows.isNotEmpty && paymentRows.first['total'] != null) {
+        totalSpent = (paymentRows.first['total'] as num).toDouble();
+      }
+
+      // Subtract current payment if editing
+      if (widget.payment != null) {
+        totalSpent -= widget.payment!.amount;
+      }
+
+      // USER-ENTERED AMOUNT ONLY
+      final userInput = _amountController.text.replaceAll(',', '').trim();
+      final userAmount = double.tryParse(userInput) ?? 0.0;
+
+      final willExceed = (totalSpent + userAmount) > budgetAmount;
+
+      print(
+        'Budget Check: Budget=$budgetAmount, Spent=$totalSpent, UserAmount=$userAmount, Exceeds=$willExceed',
+      );
+
+      return willExceed;
+    } catch (e) {
+      print('Budget check error: $e');
+      return false;
+    }
+  }
+
+  // ========================================
+  // 6. SAVE – ONLY USER AMOUNT IS SAVED
+  // ========================================
   Future<void> _saveDoubleEntryAccounts() async {
     if (!_formKey.currentState!.validate()) return;
-    if (selectedAccount == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Please select an account')));
-      return;
-    }
-    if (selectedCashOption == null) {
+
+    if (selectedAccount == null || selectedAccount!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a cash/bank option')),
+        const SnackBar(
+          content: Text('Please select an account'),
+          backgroundColor: Colors.orange,
+        ),
       );
       return;
     }
 
-    print(
-      'Saving payment: selectedAccount=$selectedAccount, selectedCashOption=$selectedCashOption, paymentMode=$paymentMode',
-    );
+    if (selectedCashOption == null || selectedCashOption!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Please select a ${paymentMode == 'Bank' ? 'bank' : 'cash'} account',
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Budget warning only
+    final budgetExceeded = await _checkBudgetExceeded();
+    if (budgetExceeded) {
+      final proceed = await showDialog<bool>(
+        context: context,
+        builder:
+            (context) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: const Row(
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.orange,
+                    size: 32,
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(child: Text('Budget Exceeded')),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Total Amount Exceeds Budget',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.red,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'The payment for "$selectedAccount" will exceed your budget for ${_getMonthName(selectedDate.month).toUpperCase()} ${selectedDate.year}.',
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Do you want to proceed anyway?',
+                    style: TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                  ),
+                  child: const Text(
+                    'Proceed Anyway',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+      );
+      if (proceed != true) return;
+    }
+
+    setState(() => _isSaving = true);
+    _saveButtonController.forward();
 
     try {
       final db = await DatabaseHelper().database;
-      final currentDate = selectedDate;
-      final dateString =
-          "${currentDate.day}/${currentDate.month}/${currentDate.year}";
-      final monthString = _getMonthName(currentDate.month);
-      final yearString = currentDate.year.toString();
+      final dateStr =
+          "${selectedDate.day}/${selectedDate.month}/${selectedDate.year}";
+      final monthStr = _getMonthName(selectedDate.month);
+      final yearStr = selectedDate.year.toString();
 
-      final firstSetupId = await getNextSetupId(selectedAccount!);
-      final contraSetupId = await getNextSetupId(selectedCashOption!);
+      final firstId = await getNextSetupId(selectedAccount!);
+      final contraId = await getNextSetupId(selectedCashOption!);
 
-      if (firstSetupId == '0' || contraSetupId == '0') {
-        throw Exception(
-          'Invalid account selected: $selectedAccount or $selectedCashOption',
-        );
-      }
+      if (firstId == '0')
+        throw Exception('Account not found: $selectedAccount');
+      if (contraId == '0')
+        throw Exception('$paymentMode account not found: $selectedCashOption');
 
-      final double amount = double.parse(_amountController.text);
-      final double walletAmount = -amount;
-      Map<String, dynamic> walletTransactionData = {
-        "date": DateFormat('yyyy-MM-dd').format(currentDate),
-        "month_selected": currentDate.month,
-        "yearselected": currentDate.year,
-        "edtAmount": walletAmount.toString(),
+      // ONLY USER AMOUNT
+      final cleanAmt = _amountController.text.replaceAll(',', '').trim();
+      final amount = double.parse(cleanAmt);
+      if (amount <= 0) throw Exception('Amount must be > 0');
+
+      final walletData = {
+        "date": DateFormat('yyyy-MM-dd').format(selectedDate),
+        "month_selected": selectedDate.month,
+        "yearselected": selectedDate.year,
+        "edtAmount": (-amount).toString(),
         "description": "Payment to $selectedAccount via $selectedCashOption",
         "paymentMethod": selectedCashOption,
         "paymentEntryId": widget.payment?.id?.toString() ?? '',
       };
 
       if (widget.payment != null) {
-        String entryId = widget.payment!.id.toString();
+        final entryId = widget.payment!.id.toString();
+
         await db.update(
           "TABLE_ACCOUNTS",
           {
-            "ACCOUNTS_date": dateString,
-            "ACCOUNTS_setupid": firstSetupId,
-            "ACCOUNTS_amount": _amountController.text,
+            "ACCOUNTS_date": dateStr,
+            "ACCOUNTS_setupid": firstId,
+            "ACCOUNTS_amount": cleanAmt,
             "ACCOUNTS_remarks": _remarksController.text,
-            "ACCOUNTS_year": yearString,
-            "ACCOUNTS_month": monthString,
+            "ACCOUNTS_year": yearStr,
+            "ACCOUNTS_month": monthStr,
             "ACCOUNTS_cashbanktype": paymentMode == 'Cash' ? '1' : '2',
           },
           where:
@@ -264,12 +495,12 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
         await db.update(
           "TABLE_ACCOUNTS",
           {
-            "ACCOUNTS_date": dateString,
-            "ACCOUNTS_setupid": contraSetupId,
-            "ACCOUNTS_amount": _amountController.text,
+            "ACCOUNTS_date": dateStr,
+            "ACCOUNTS_setupid": contraId,
+            "ACCOUNTS_amount": cleanAmt,
             "ACCOUNTS_remarks": _remarksController.text,
-            "ACCOUNTS_year": yearString,
-            "ACCOUNTS_month": monthString,
+            "ACCOUNTS_year": yearStr,
+            "ACCOUNTS_month": monthStr,
             "ACCOUNTS_cashbanktype": paymentMode == 'Cash' ? '1' : '2',
           },
           where:
@@ -277,59 +508,56 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
           whereArgs: [1, entryId, 'credit'],
         );
 
-        final existingWalletEntries = await db.query(
+        final walletRows = await db.query(
           'TABLE_WALLET',
           where: "data LIKE ?",
-          whereArgs: ['%\"paymentEntryId\":\"$entryId\"%'],
+          whereArgs: ['%"paymentEntryId":"$entryId"%'],
         );
-
-        if (existingWalletEntries.isNotEmpty) {
+        if (walletRows.isNotEmpty) {
           await db.update(
             'TABLE_WALLET',
-            {"data": jsonEncode(walletTransactionData)},
+            {"data": jsonEncode(walletData)},
             where: "keyid = ?",
-            whereArgs: [existingWalletEntries.first['keyid']],
+            whereArgs: [walletRows.first['keyid']],
           );
         } else {
           await DatabaseHelper().addData(
             'TABLE_WALLET',
-            jsonEncode(walletTransactionData),
+            jsonEncode(walletData),
           );
         }
       } else {
-        Map<String, dynamic> mainAccountEntry = {
+        final debitEntry = {
           'ACCOUNTS_VoucherType': 1,
           'ACCOUNTS_entryid': 0,
-          'ACCOUNTS_date': dateString,
-          'ACCOUNTS_setupid': firstSetupId,
-          'ACCOUNTS_amount': _amountController.text,
+          'ACCOUNTS_date': dateStr,
+          'ACCOUNTS_setupid': firstId,
+          'ACCOUNTS_amount': cleanAmt,
           'ACCOUNTS_type': 'debit',
           'ACCOUNTS_remarks': _remarksController.text,
-          'ACCOUNTS_year': yearString,
-          'ACCOUNTS_month': monthString,
+          'ACCOUNTS_year': yearStr,
+          'ACCOUNTS_month': monthStr,
           'ACCOUNTS_cashbanktype': paymentMode == 'Cash' ? '1' : '2',
           'ACCOUNTS_billId': '',
           'ACCOUNTS_billVoucherNumber': '',
         };
+        final debitId = await db.insert("TABLE_ACCOUNTS", debitEntry);
 
-        final debitId = await db.insert("TABLE_ACCOUNTS", mainAccountEntry);
-
-        Map<String, dynamic> contraEntry = {
+        final creditEntry = {
           'ACCOUNTS_VoucherType': 1,
           'ACCOUNTS_entryid': debitId.toString(),
-          'ACCOUNTS_date': dateString,
-          'ACCOUNTS_setupid': contraSetupId,
-          'ACCOUNTS_amount': _amountController.text,
+          'ACCOUNTS_date': dateStr,
+          'ACCOUNTS_setupid': contraId,
+          'ACCOUNTS_amount': cleanAmt,
           'ACCOUNTS_type': 'credit',
           'ACCOUNTS_remarks': _remarksController.text,
-          'ACCOUNTS_year': yearString,
-          'ACCOUNTS_month': monthString,
+          'ACCOUNTS_year': yearStr,
+          'ACCOUNTS_month': monthStr,
           'ACCOUNTS_cashbanktype': paymentMode == 'Cash' ? '1' : '2',
           'ACCOUNTS_billId': '',
           'ACCOUNTS_billVoucherNumber': '',
         };
-
-        await db.insert("TABLE_ACCOUNTS", contraEntry);
+        await db.insert("TABLE_ACCOUNTS", creditEntry);
 
         await db.update(
           "TABLE_ACCOUNTS",
@@ -338,328 +566,454 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
           whereArgs: [debitId],
         );
 
-        walletTransactionData['paymentEntryId'] = debitId.toString();
-        await DatabaseHelper().addData(
-          'TABLE_WALLET',
-          jsonEncode(walletTransactionData),
-        );
+        walletData['paymentEntryId'] = debitId.toString();
+        await DatabaseHelper().addData('TABLE_WALLET', jsonEncode(walletData));
       }
 
-      final isBalanced = await DatabaseHelper().validateDoubleEntry();
-      if (!isBalanced) {
-        throw Exception('Double-entry accounting is unbalanced');
-      }
+      final balanced = await DatabaseHelper().validateDoubleEntry();
+      if (!balanced) throw Exception('Accounting validation failed');
 
       if (mounted) {
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Payment saved successfully')),
+          SnackBar(
+            content: Text(
+              widget.payment != null ? 'Payment updated' : 'Payment saved',
+            ),
+            backgroundColor: Colors.green,
+          ),
         );
       }
     } catch (e) {
-      print('Error saving payment: $e');
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error saving payment: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        _saveButtonController.reverse();
       }
     }
   }
 
+  // ========================================
+  // UI BUILD
+  // ========================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.blue,
         title: Text(
           widget.payment != null
               ? 'Edit Payment Voucher'
               : 'Add Payment Voucher',
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              InkWell(
-                onTap: () => _selectDate(context),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        DateFormat('dd-MM-yyyy').format(selectedDate),
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                      const Icon(Icons.calendar_today),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: SlideTransition(
+          position: _slideAnimation,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
+                  _buildAnimatedCard(child: _buildDateField()),
+                  const SizedBox(height: 16),
+
+                  _buildAnimatedCard(
+                    child: Row(
+                      children: [
+                        Expanded(child: _buildAccountField()),
+                        const SizedBox(width: 12),
+                        _buildAddButton(() async {
+                          final res = await Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => Addaccountsdet()),
+                          );
+                          if (res == true) await _loadBankCashOptions();
+                        }),
+                      ],
+                    ),
+                  ),
+
+                  // SET BUDGET BUTTON
+                  if (selectedAccount != null) ...[
+                    const SizedBox(height: 12),
+                    _buildAnimatedCard(
                       child: InkWell(
-                        onTap: () => _showSearchableAccountDialog(context),
+                        onTap:
+                            () => Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => BudgetScreen()),
+                            ),
+                        borderRadius: BorderRadius.circular(12),
                         child: Container(
-                          height: 50,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.purple.shade50,
+                                Colors.purple.shade100,
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.purple.shade300),
+                          ),
                           child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
+                              Icon(
+                                Icons.account_balance_wallet,
+                                color: Colors.purple.shade700,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
                               Text(
-                                selectedAccount ?? 'Select an Account',
+                                'Set Budget',
                                 style: TextStyle(
-                                  fontSize: 16,
-                                  color:
-                                      selectedAccount != null
-                                          ? Colors.black
-                                          : Colors.grey[600],
+                                  color: Colors.purple.shade700,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              const Icon(Icons.arrow_drop_down),
                             ],
                           ),
                         ),
                       ),
                     ),
+                  ],
+                  const SizedBox(height: 16),
+
+                  _buildAnimatedCard(child: _buildAmountField()),
+                  const SizedBox(height: 24),
+                  _buildAnimatedCard(child: _buildPaymentModeField()),
+                  const SizedBox(height: 16),
+                  ScaleTransition(
+                    scale: _scaleAnimation,
+                    child: _buildAnimatedCard(child: _buildCashBankField()),
                   ),
-                  const SizedBox(width: 16),
-                  FloatingActionButton(
-                    mini: true,
-                    backgroundColor: Colors.blue,
-                    child: const Icon(Icons.add, color: Colors.white),
-                    onPressed: () async {
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => Addaccountsdet(),
-                        ),
-                      );
-                      if (result == true) {
-                        await _loadBankCashOptions();
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Account added successfully'),
-                            ),
-                          );
-                        }
-                      }
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: TextFormField(
-                        controller: _amountController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          hintText: 'Amount',
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter an amount';
-                          }
-                          if (double.tryParse(value) == null) {
-                            return 'Please enter a valid number';
-                          }
-                          return null;
-                        },
-                      ),
+                  const SizedBox(height: 24),
+                  _buildAnimatedCard(child: _buildRemarksField()),
+                  const SizedBox(height: 32),
+
+                  Center(
+                    child: ScaleTransition(
+                      scale: _buttonScaleAnimation,
+                      child: _buildSaveButton(),
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 16,
-                      ),
-                    ),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Budget setting feature')),
-                      );
-                    },
-                    child: const Text('Set Budget'),
-                  ),
+                  const SizedBox(height: 16),
                 ],
               ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Radio<String>(
-                    value: 'Bank',
-                    groupValue: paymentMode,
-                    activeColor: Colors.blue,
-                    onChanged: (String? value) {
-                      setState(() {
-                        paymentMode = value!;
-                        if (bankOptions.isNotEmpty) {
-                          selectedCashOption = bankOptions.first;
-                        }
-                      });
-                    },
-                  ),
-                  const Text('Bank'),
-                  const SizedBox(width: 30),
-                  Radio<String>(
-                    value: 'Cash',
-                    groupValue: paymentMode,
-                    activeColor: Colors.blue,
-                    onChanged: (String? value) {
-                      setState(() {
-                        paymentMode = value!;
-                        selectedCashOption = null;
-                      });
-                    },
-                  ),
-                  const Text('Cash'),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButtonFormField<String>(
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                          ),
-                          value:
-                              paymentMode == 'Cash'
-                                  ? (cashOptions.contains(selectedCashOption)
-                                      ? selectedCashOption
-                                      : null)
-                                  : (bankOptions.contains(selectedCashOption)
-                                      ? selectedCashOption
-                                      : (bankOptions.isNotEmpty
-                                          ? bankOptions.first
-                                          : null)),
-                          isExpanded: true,
-                          onChanged: (String? newValue) {
-                            setState(() {
-                              selectedCashOption = newValue!;
-                              paymentMode =
-                                  bankOptions.contains(newValue)
-                                      ? 'Bank'
-                                      : 'Cash';
-                            });
-                          },
-                          items:
-                              paymentMode == 'Cash'
-                                  ? cashOptions.map<DropdownMenuItem<String>>((
-                                    String value,
-                                  ) {
-                                    return DropdownMenuItem<String>(
-                                      value: value,
-                                      child: Text(value),
-                                    );
-                                  }).toList()
-                                  : bankOptions.map<DropdownMenuItem<String>>((
-                                    String value,
-                                  ) {
-                                    return DropdownMenuItem<String>(
-                                      value: value,
-                                      child: Text(value),
-                                    );
-                                  }).toList(),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  FloatingActionButton(
-                    mini: true,
-                    backgroundColor: Colors.blue,
-                    child: const Icon(Icons.add, color: Colors.white),
-                    onPressed: () async {
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => Addaccountsdet(),
-                        ),
-                      );
-                      if (result == true) {
-                        await _loadBankCashOptions();
-                      }
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ========================================
+  // HELPER WIDGETS
+  // ========================================
+  Widget _buildDateField() => InkWell(
+    onTap: () => _selectDate(context),
+    child: Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [Colors.blue.shade50, Colors.white]),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue.shade200),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(4),
+                  color: Colors.blue,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: TextFormField(
-                  controller: _remarksController,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    hintText: 'Enter Remarks',
-                  ),
+                child: const Icon(
+                  Icons.calendar_today,
+                  color: Colors.white,
+                  size: 20,
                 ),
               ),
-              const SizedBox(height: 32),
-              Center(
-                child: Container(
-                  width: 200,
+              const SizedBox(width: 12),
+              Text(
+                DateFormat('dd-MM-yyyy').format(selectedDate),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const Icon(Icons.arrow_drop_down, color: Colors.blue),
+        ],
+      ),
+    ),
+  );
+
+  Widget _buildAccountField() => InkWell(
+    onTap: () => _showSearchableAccountDialog(context),
+    child: Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withOpacity(.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(25),
-                    gradient: const LinearGradient(
-                      colors: [Colors.blue, Color.fromRGBO(33, 150, 243, 0.8)],
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.account_balance_wallet,
+                    color: Colors.blue,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    selectedAccount ?? 'Select an Account',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color:
+                          selectedAccount != null
+                              ? Colors.black87
+                              : Colors.grey[600],
                     ),
                   ),
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.arrow_drop_down, color: Colors.blue),
+        ],
+      ),
+    ),
+  );
+
+  Widget _buildAmountField() => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: Colors.blue.shade200),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.blue.withOpacity(.1),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    ),
+    child: Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.green.shade50,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(
+            Icons.currency_rupee,
+            color: Colors.green,
+            size: 20,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: TextFormField(
+            controller: _amountController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+            ],
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              hintText: 'Enter Amount',
+              hintStyle: TextStyle(fontWeight: FontWeight.normal),
+            ),
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) return 'Enter amount';
+              final clean = v.replaceAll(',', '').trim();
+              final n = double.tryParse(clean);
+              if (n == null) return 'Invalid number';
+              if (n <= 0) return 'Amount must be > 0';
+              if (n > 999999999999) return 'Amount too large';
+              return null;
+            },
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _buildPaymentModeField() => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: Colors.blue.shade200),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.blue.withOpacity(.1),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Payment Mode',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildPaymentModeOption(
+                'Bank',
+                Icons.account_balance,
+                paymentMode == 'Bank',
+                () {
+                  setState(() => paymentMode = 'Bank');
+                  if (!bankOptions.contains(selectedCashOption))
+                    selectedCashOption =
+                        bankOptions.isNotEmpty ? bankOptions.first : null;
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildPaymentModeOption(
+                'Cash',
+                Icons.money,
+                paymentMode == 'Cash',
+                () {
+                  setState(() => paymentMode = 'Cash');
+                  if (!cashOptions.contains(selectedCashOption))
+                    selectedCashOption =
+                        cashOptions.isNotEmpty ? cashOptions.first : null;
+                },
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+
+  Widget _buildCashBankField() => Row(
+    children: [
+      Expanded(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.blue.shade200),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.blue.withOpacity(.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color:
+                      paymentMode == 'Bank'
+                          ? Colors.blue.shade50
+                          : Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  paymentMode == 'Bank' ? Icons.account_balance : Icons.money,
+                  color: paymentMode == 'Bank' ? Colors.blue : Colors.green,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(border: InputBorder.none),
+                    value:
+                        paymentMode == 'Cash'
+                            ? (cashOptions.contains(selectedCashOption)
+                                ? selectedCashOption
+                                : null)
+                            : (bankOptions.contains(selectedCashOption)
+                                ? selectedCashOption
+                                : null),
+                    isExpanded: true,
+                    hint: Text(
+                      'Select ${paymentMode == 'Bank' ? 'Bank' : 'Cash'} Account',
+                      style: TextStyle(color: Colors.grey[600]),
                     ),
-                    onPressed: _saveDoubleEntryAccounts,
-                    child: const Text(
-                      'Save',
-                      style: TextStyle(color: Colors.white, fontSize: 16),
-                    ),
+                    onChanged: (v) => setState(() => selectedCashOption = v!),
+                    items:
+                        (paymentMode == 'Cash' ? cashOptions : bankOptions)
+                            .map(
+                              (s) => DropdownMenuItem(
+                                value: s,
+                                child: Text(
+                                  s,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList(),
                   ),
                 ),
               ),
@@ -667,13 +1021,235 @@ class _AddPaymentVoucherPageState extends State<AddPaymentVoucherPage> {
           ),
         ),
       ),
-    );
-  }
+      const SizedBox(width: 12),
+      _buildAddButton(() async {
+        final res = await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => Addaccountsdet()),
+        );
+        if (res == true) await _loadBankCashOptions();
+      }),
+    ],
+  );
+
+  Widget _buildRemarksField() => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: Colors.blue.shade200),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.blue.withOpacity(.1),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.notes, color: Colors.orange, size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Remarks',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _remarksController,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            border: InputBorder.none,
+            hintText: 'Enter remarks...',
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _buildSaveButton() => Container(
+    width: double.infinity,
+    height: 56,
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(16),
+      gradient: LinearGradient(
+        colors: [Colors.blue.shade400, Colors.blue.shade600],
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.blue.withOpacity(.4),
+          blurRadius: 12,
+          offset: const Offset(0, 6),
+        ),
+      ],
+    ),
+    child: ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      onPressed: _isSaving ? null : _saveDoubleEntryAccounts,
+      child:
+          _isSaving
+              ? const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  Text(
+                    'Saving...',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              )
+              : const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.check_circle_outline, color: Colors.white),
+                  SizedBox(width: 12),
+                  Text(
+                    'Save Payment',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+    ),
+  );
+
+  Widget _buildPaymentModeOption(
+    String label,
+    IconData icon,
+    bool selected,
+    VoidCallback onTap,
+  ) => GestureDetector(
+    onTap: onTap,
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      decoration: BoxDecoration(
+        gradient:
+            selected
+                ? LinearGradient(
+                  colors: [Colors.blue.shade400, Colors.blue.shade600],
+                )
+                : null,
+        color: selected ? null : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: selected ? Colors.blue.shade600 : Colors.grey.shade300,
+          width: 2,
+        ),
+        boxShadow:
+            selected
+                ? [
+                  BoxShadow(
+                    color: Colors.blue.withOpacity(.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+                : null,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            color: selected ? Colors.white : Colors.grey.shade700,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.white : Colors.grey.shade700,
+              fontWeight: FontWeight.w600,
+              fontSize: 15,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _buildAddButton(VoidCallback onPressed) => Container(
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        colors: [Colors.blue.shade400, Colors.blue.shade600],
+      ),
+      borderRadius: BorderRadius.circular(12),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.blue.withOpacity(.3),
+          blurRadius: 8,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    ),
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: const SizedBox(
+          width: 48,
+          height: 48,
+          child: Icon(Icons.add, color: Colors.white, size: 24),
+        ),
+      ),
+    ),
+  );
+
+  Widget _buildAnimatedCard({required Widget child}) =>
+      TweenAnimationBuilder<double>(
+        duration: const Duration(milliseconds: 300),
+        tween: Tween(begin: 0.0, end: 1.0),
+        builder:
+            (_, v, c) => Transform.scale(
+              scale: 0.95 + 0.05 * v,
+              child: Opacity(opacity: v, child: c),
+            ),
+        child: child,
+      );
 }
 
+// ========================================
+// SEARCHABLE ACCOUNT DIALOG (UNCHANGED)
+// ========================================
 class SearchableAccountDialog extends StatefulWidget {
   final Function(String) onAccountSelected;
-
   const SearchableAccountDialog({super.key, required this.onAccountSelected});
 
   @override
@@ -681,100 +1257,234 @@ class SearchableAccountDialog extends StatefulWidget {
       _SearchableAccountDialogState();
 }
 
-class _SearchableAccountDialogState extends State<SearchableAccountDialog> {
-  final TextEditingController _searchController = TextEditingController();
-  String searchQuery = '';
+class _SearchableAccountDialogState extends State<SearchableAccountDialog>
+    with SingleTickerProviderStateMixin {
+  final TextEditingController _search = TextEditingController();
+  String query = '';
+  late AnimationController _anim;
+  late Animation<double> _scale;
+  late Animation<double> _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    _anim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _scale = Tween<double>(
+      begin: 0.8,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _anim, curve: Curves.easeOutBack));
+    _fade = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _anim, curve: Curves.easeOut));
+    _anim.forward();
+  }
 
   @override
   void dispose() {
-    _searchController.dispose();
+    _search.dispose();
+    _anim.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      child: Container(
-        height: 400,
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            const Text(
-              'Select Account',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search),
-                hintText: 'Search by Account Name',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                ),
+    return FadeTransition(
+      opacity: _fade,
+      child: ScaleTransition(
+        scale: _scale,
+        child: Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          elevation: 10,
+          child: Container(
+            height: 500,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.white, Colors.blue.shade50],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
               ),
-              onChanged: (value) {
-                setState(() {
-                  searchQuery = value;
-                });
-              },
+              borderRadius: BorderRadius.circular(20),
             ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: FutureBuilder<List<Map<String, dynamic>>>(
-                future: DatabaseHelper().getAllData("TABLE_ACCOUNTSETTINGS"),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  } else if (snapshot.hasError) {
-                    return Center(child: Text('Error: ${snapshot.error}'));
-                  }
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.blue,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.account_balance_wallet,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Select Account',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.blue.withOpacity(.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: TextField(
+                    controller: _search,
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.search, color: Colors.blue),
+                      hintText: 'Search by Account Name',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                    ),
+                    onChanged: (v) => setState(() => query = v),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: FutureBuilder<List<Map<String, dynamic>>>(
+                    future: DatabaseHelper().getAllData(
+                      "TABLE_ACCOUNTSETTINGS",
+                    ),
+                    builder: (c, snap) {
+                      if (snap.connectionState == ConnectionState.waiting)
+                        return const Center(
+                          child: CircularProgressIndicator(color: Colors.blue),
+                        );
+                      if (snap.hasError)
+                        return Center(
+                          child: Text(
+                            'Error: ${snap.error}',
+                            style: const TextStyle(color: Colors.red),
+                          ),
+                        );
 
-                  List<Map<String, dynamic>> items = [];
-                  List<Map<String, dynamic>> allItems = snapshot.data ?? [];
+                      final all = snap.data ?? [];
+                      final filtered =
+                          all.where((row) {
+                            if (row["data"] == null) return false;
+                            final data = jsonDecode(row["data"]);
+                            final type =
+                                (data['Accounttype'] ?? '')
+                                    .toString()
+                                    .toLowerCase();
+                            final name = (data['Accountname'] ?? '').toString();
+                            if (type == 'customers') return false;
+                            return query.isEmpty ||
+                                name.toLowerCase().contains(
+                                  query.toLowerCase(),
+                                );
+                          }).toList();
 
-                  for (var item in allItems) {
-                    try {
-                      Map<String, dynamic> dat = jsonDecode(item["data"]);
-                      String accountType =
-                          dat['Accounttype'].toString().toLowerCase();
-                      String accountName = dat['Accountname'].toString();
+                      if (filtered.isEmpty)
+                        return const Center(child: Text('No accounts found'));
 
-                      if (accountType == 'customers') {
-                        continue;
-                      }
+                      return ListView.builder(
+                        itemCount: filtered.length,
+                        itemBuilder: (_, i) {
+                          final row = filtered[i];
+                          final data = jsonDecode(row["data"]);
+                          final name = data['Accountname'].toString();
+                          final type =
+                              data['Accounttype'].toString().toUpperCase();
 
-                      if (searchQuery.isEmpty ||
-                          accountName.toLowerCase().contains(
-                            searchQuery.toLowerCase(),
-                          )) {
-                        items.add(item);
-                      }
-                    } catch (e) {
-                      print('Error parsing account: $e');
-                    }
-                  }
-
-                  return ListView.builder(
-                    itemCount: items.length,
-                    itemBuilder: (context, index) {
-                      final item = items[index];
-                      Map<String, dynamic> dat = jsonDecode(item["data"]);
-                      String accountName = dat['Accountname'].toString();
-
-                      return ListTile(
-                        title: Text(accountName),
-                        onTap: () {
-                          widget.onAccountSelected(accountName);
-                          Navigator.pop(context);
+                          return TweenAnimationBuilder<double>(
+                            duration: Duration(milliseconds: 300 + i * 50),
+                            tween: Tween(begin: 0.0, end: 1.0),
+                            builder:
+                                (_, v, child) => Transform.translate(
+                                  offset: Offset(0, 20 * (1 - v)),
+                                  child: Opacity(opacity: v, child: child),
+                                ),
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.blue.withOpacity(.08),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: ListTile(
+                                leading: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    type.toLowerCase() == 'bank'
+                                        ? Icons.account_balance
+                                        : Icons.account_balance_wallet,
+                                    color: Colors.blue,
+                                    size: 24,
+                                  ),
+                                ),
+                                title: Text(
+                                  name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  type,
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                trailing: const Icon(
+                                  Icons.arrow_forward_ios,
+                                  size: 16,
+                                  color: Colors.blue,
+                                ),
+                                onTap: () {
+                                  widget.onAccountSelected(name);
+                                  Navigator.pop(context);
+                                },
+                              ),
+                            ),
+                          );
                         },
                       );
                     },
-                  );
-                },
-              ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

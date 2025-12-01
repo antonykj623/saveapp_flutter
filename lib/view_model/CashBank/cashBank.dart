@@ -21,7 +21,7 @@ class _CashbankState extends State<Cashbank> {
 
   @override
   void initState() {
-    super.initState();
+    super.initState(); 
     _loadReceipts();
   }
 

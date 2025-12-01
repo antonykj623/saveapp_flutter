@@ -123,7 +123,8 @@ class Payment {
     }
   }
 
-  // Check if payment is cash or bank
+  
   bool get isCashPayment => paymentMode.toLowerCase() == 'cash';
   bool get isBankPayment => paymentMode.toLowerCase() != 'cash';
 }
+

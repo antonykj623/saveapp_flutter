@@ -53,6 +53,41 @@ class ApiHelper {
   String getTimeStamp() {
     return DateTime.now().millisecondsSinceEpoch.toString();
   }
+  // In your ApiHelper class
+Future<Map<String, dynamic>> updateInitialDate({
+  required String initialDate,
+}) async {
+  final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+  final prefs = await SharedPreferences.getInstance();
+  String? token = prefs.getString('token');
+
+  Map<String, String> headers = {
+    "Authorization": (token != null && token.isNotEmpty) ? token : "",
+    "Content-Type": "application/x-www-form-urlencoded",
+  };
+
+  final postData = {
+    'initial_date': initialDate,
+    'timestamp': timestamp,
+  };
+
+  try {
+    final response = await http.post(
+      Uri.parse("$baseUrl/updateInitialDate.php"),
+      headers: headers,
+      body: postData,
+    );
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed: ${response.statusCode}');
+    }
+  } catch (e) {
+    print("API Error: $e");
+    rethrow;
+  }
+}
 
   // General GET request method
   Future<String> getApiResponse(String method) async {
@@ -187,7 +222,7 @@ class ApiHelper {
     if (limit != null && limit > 0) {
       url += '&limit=$limit';
     }
-
+      
     try {
       String response = await getApiResponse(url);
       final decodedResponse = json.decode(response);
@@ -302,13 +337,44 @@ class ApiHelper {
     }
   }
 
-  // ===== EXISTING METHODS =====
-  Future<AppVersionModel1> checkAppVersion1() async {
-    throw UnimplementedError(
-      'Use your existing ApiHelper checkAppVersion1 method',
+  // ===== LOGIN METHODS =====
+
+  // Premium Login Method (NEW)
+  Future<Map<String, dynamic>> verifyUserPremiumLogin(
+    String mobile,
+    String password,
+  ) async {
+    final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+    final prefs = await SharedPreferences.getInstance();
+    String? token = await prefs.getString('token');
+
+    Map<String, String> headers = {
+      "Authorization": (token != null && token.isNotEmpty) ? token : "",
+      "Content-Type": "application/x-www-form-urlencoded",
+    };
+
+    final postData = {
+      "mobile": mobile,
+      "password": password,
+      "timestamp": timestamp,
+    };
+
+    final response = await http.post(
+      Uri.parse(baseUrl + "userLoginPremium.php"),
+      headers: headers,
+      body: postData,
     );
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception(
+        'Failed to verify credentials: ${response.statusCode} - ${response.body}',
+      );
+    }
   }
 
+  // Regular Login Method (Existing - kept for backward compatibility)
   Future<Map<String, dynamic>> verifyUserCredentials(
     String mobile,
     String password,
@@ -343,6 +409,8 @@ class ApiHelper {
     }
   }
 
+  // ===== ACCOUNT METHODS =====
+
   Future<Map<String, dynamic>> deleteAccount() async {
     final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
     final prefs = await SharedPreferences.getInstance();
@@ -366,6 +434,8 @@ class ApiHelper {
       );
     }
   }
+
+  // ===== SALES & VERSION METHODS =====
 
   Future<SalesData> getDSTSales(String regId) async {
     final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
@@ -397,6 +467,14 @@ class ApiHelper {
       throw Exception('Failed to check app version: $e');
     }
   }
+
+  Future<AppVersionModel1> checkAppVersion1() async {
+    throw UnimplementedError(
+      'Use your existing ApiHelper checkAppVersion1 method',
+    );
+  }
+
+  // ===== FEEDBACK METHODS =====
 
   Future<String> getFeedback() async {
     final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
@@ -445,5 +523,44 @@ class ApiHelper {
     final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
     final postData = {'message': message, 'timestamp': timestamp};
     return await postApiResponse('addFeedback.php', postData);
+  }
+
+  // ===== FORGOT PASSWORD METHOD =====
+
+  Future<Map<String, dynamic>> getUserByMobile(String mobile) async {
+    final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+
+    try {
+      String response = await getApiResponse(
+        'getUserByMobile.php?mobile=$mobile&timestamp=$timestamp',
+      );
+      return json.decode(response);
+    } catch (e) {
+      throw Exception('Failed to verify mobile number: $e');
+    }
+  }
+
+  // ===== RESET PASSWORD METHOD =====
+
+  Future<Map<String, dynamic>> resetPassword(
+    String mobile,
+    String newPassword,
+    String otp,
+  ) async {
+    final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+
+    final postData = {
+      'mobile': mobile,
+      'password': newPassword,
+      'otp': otp,
+      'timestamp': timestamp,
+    };
+
+    try {
+      String response = await postApiResponse('resetPassword.php', postData);
+      return json.decode(response);
+    } catch (e) {
+      throw Exception('Failed to reset password: $e');
+    }
   }
 }

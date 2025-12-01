@@ -3,16 +3,7 @@ import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'package:new_project_2025/model/receipt.dart';
 import 'package:new_project_2025/view_model/AccountSet_up/Add_Acount.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:path_provider/path_provider.dart';
-import 'package:open_file/open_file.dart';
-import 'dart:io';
-import 'package:permission_handler/permission_handler.dart';
-import '../../save_DB/Budegt_database_helper/Save_DB.dart';
-import 'package:flutter/services.dart' show rootBundle;
-import 'package:new_project_2025/view/home/widget/Receipt/add_receipt_voucher_screen/add_receipt_vocher_screen.dart';
-import 'package:new_project_2025/view/home/widget/payment_page/Month_date/Moth_datepage.dart';
+import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 
 class AddReceiptVoucherPage extends StatefulWidget {
   final Receipt? receipt;
@@ -23,7 +14,8 @@ class AddReceiptVoucherPage extends StatefulWidget {
   State<AddReceiptVoucherPage> createState() => _AddReceiptVoucherPageState();
 }
 
-class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
+class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage>
+    with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   late DateTime selectedDate;
   String? selectedAccount;
@@ -31,25 +23,40 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
   String paymentMode = 'Cash';
   String? selectedCashOption;
   final TextEditingController _remarksController = TextEditingController();
-  bool _isSaved = false;
 
   List<String> cashOptions = ['Cash'];
   List<String> bankOptions = [];
-  List<String> accountOptions = []; // For all accounts except customers
+  List<String> accountOptions = [];
+
+  late AnimationController _pageAnimationController;
+  late AnimationController _modeAnimationController;
+  late AnimationController _dropdownAnimationController;
+  late AnimationController _saveButtonController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _buttonScaleAnimation;
+  bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
+    _setupAnimations();
     _loadAccountsFromDB();
 
     if (widget.receipt != null) {
       try {
         selectedDate = DateFormat('dd/MM/yyyy').parse(widget.receipt!.date);
       } catch (e) {
-        print(
-          'Error parsing date: ${widget.receipt!.date}, using current date',
-        );
-        selectedDate = DateTime.now();
+        try {
+          selectedDate = DateFormat('yyyy-MM-dd').parse(widget.receipt!.date);
+        } catch (e2) {
+          try {
+            selectedDate = DateFormat('dd-MM-yyyy').parse(widget.receipt!.date);
+          } catch (e3) {
+            selectedDate = DateTime.now();
+          }
+        }
       }
       selectedAccount = widget.receipt!.accountName;
       _amountController.text = widget.receipt!.amount.toString();
@@ -61,10 +68,55 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
     }
   }
 
+  void _setupAnimations() {
+    _pageAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _modeAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _dropdownAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _saveButtonController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _pageAnimationController, curve: Curves.easeOut),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _pageAnimationController,
+        curve: Curves.easeOutCubic,
+      ),
+    );
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _modeAnimationController,
+        curve: Curves.elasticOut,
+      ),
+    );
+    _buttonScaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _saveButtonController, curve: Curves.easeInOut),
+    );
+    _pageAnimationController.forward();
+  }
+
   @override
   void dispose() {
     _amountController.dispose();
     _remarksController.dispose();
+    _pageAnimationController.dispose();
+    _modeAnimationController.dispose();
+    _dropdownAnimationController.dispose();
+    _saveButtonController.dispose();
     super.dispose();
   }
 
@@ -73,7 +125,7 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
       List<Map<String, dynamic>> accounts = await DatabaseHelper().getAllData(
         "TABLE_ACCOUNTSETTINGS",
       );
-      List<String> banks = [];
+      List<String> banks = ['Bank'];
       List<String> cashAccounts = [];
       List<String> allAccounts = [];
 
@@ -84,53 +136,36 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
               accountData['Accounttype'].toString().toLowerCase();
           String accountName = accountData['Accountname'].toString();
 
-          if (accountType == 'customers') continue; // Skip customer accounts
+          if (accountType == 'customers') continue;
 
-          allAccounts.add(accountName); // Add all accounts to accountOptions
+          allAccounts.add(accountName);
           if (accountType == 'bank') {
-            banks.add(accountName);
+            if (accountName.toLowerCase() != 'bank') {
+              banks.add(accountName);
+            }
           } else if (accountType == 'cash' &&
               accountName.toLowerCase() != 'cash') {
             cashAccounts.add(accountName);
           }
-        } catch (e) {
-          print('Error parsing account data: $e');
-        }
+        } catch (e) {}
       }
 
       setState(() {
         cashOptions = ['Cash', ...cashAccounts];
         bankOptions = banks;
-        accountOptions = allAccounts; // All accounts for selection
+        accountOptions = allAccounts;
         if (paymentMode == 'Cash') {
-          selectedCashOption =
-              cashOptions.contains(selectedCashOption)
-                  ? selectedCashOption
-                  : cashOptions.isNotEmpty
-                  ? cashOptions.first
-                  : 'Cash';
+          if (selectedCashOption == null ||
+              !cashOptions.contains(selectedCashOption))
+            selectedCashOption = null;
         } else {
-          selectedCashOption =
-              bankOptions.contains(selectedCashOption)
-                  ? selectedCashOption
-                  : bankOptions.isNotEmpty
-                  ? bankOptions.first
-                  : null;
-        }
-        if (selectedAccount != null &&
-            !accountOptions.contains(selectedAccount)) {
-          selectedAccount =
-              accountOptions.isNotEmpty ? accountOptions.first : null;
+          if (selectedCashOption == null ||
+              !bankOptions.contains(selectedCashOption))
+            selectedCashOption =
+                bankOptions.isNotEmpty ? bankOptions.first : null;
         }
       });
-    } catch (e) {
-      print('Error loading accounts: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error loading accounts: $e')));
-      }
-    }
+    } catch (e) {}
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -139,11 +174,22 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
       initialDate: selectedDate,
       firstDate: DateTime(2000),
       lastDate: DateTime(2101),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Colors.green,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null && picked != selectedDate) {
-      setState(() {
-        selectedDate = picked;
-      });
+      setState(() => selectedDate = picked);
     }
   }
 
@@ -153,9 +199,10 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
       builder: (BuildContext context) {
         return SearchableAccountDialog(
           onAccountSelected: (String accountName) {
-            setState(() {
-              selectedAccount = accountName;
-            });
+            setState(() => selectedAccount = accountName);
+            _dropdownAnimationController.forward().then(
+              (_) => _dropdownAnimationController.reverse(),
+            );
           },
           accountOptions: accountOptions,
         );
@@ -171,13 +218,11 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
       );
       for (var row in allRows) {
         Map<String, dynamic> dat = jsonDecode(row["data"]);
-        if (dat['Accountname'].toString().toLowerCase() == name.toLowerCase()) {
+        if (dat['Accountname'].toString().toLowerCase() == name.toLowerCase())
           return row['keyid'].toString();
-        }
       }
-      return name.toLowerCase() == 'cash' ? '1' : '0';
+      return '0';
     } catch (e) {
-      print('Error getting setup ID: $e');
       return '0';
     }
   }
@@ -200,68 +245,54 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
     return months[month - 1];
   }
 
-  Future<void> _updateAccountBalance(
-    String accountName,
-    double amount,
-    bool isReceipt,
-  ) async {
-    try {
-      final db = await DatabaseHelper().database;
-      final List<Map<String, dynamic>> accounts = await db.query(
-        'TABLE_ACCOUNTSETTINGS',
-        where: "data LIKE ?",
-        whereArgs: ['%\"Accountname\":\"$accountName\"%'],
-      );
-
-      if (accounts.isNotEmpty) {
-        Map<String, dynamic> accountData = jsonDecode(accounts.first['data']);
-        double currentBalance =
-            double.tryParse(accountData['balance']?.toString() ?? '0') ?? 0;
-        double newBalance =
-            isReceipt ? currentBalance - amount : currentBalance + amount;
-
-        accountData['balance'] = newBalance;
-        await db.update(
-          'TABLE_ACCOUNTSETTINGS',
-          {'data': jsonEncode(accountData)},
-          where: "data LIKE ?",
-          whereArgs: ['%\"Accountname\":\"$accountName\"%'],
-        );
-      } else {
-        throw Exception('Account $accountName not found');
-      }
-    } catch (e) {
-      print('Error updating account balance: $e');
-      throw e;
+  Future<void> _saveDoubleEntryAccounts() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (selectedAccount == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please select an account')));
+      return;
     }
-  }
+    if (selectedCashOption == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a cash/bank option')),
+      );
+      return;
+    }
 
-  Future<void> _saveDoubleEntryAccounts(Receipt receipt, int? receiptId) async {
+    setState(() => _isSaving = true);
+    _saveButtonController.forward();
+
     try {
       final db = await DatabaseHelper().database;
-      final dateString = receipt.date;
-      final monthString = _getMonthName(selectedDate.month);
-      final yearString = selectedDate.year.toString();
+      final currentDate = selectedDate;
+      final dateString =
+          "${currentDate.day}/${currentDate.month}/${currentDate.year}";
+      final monthString = _getMonthName(currentDate.month);
+      final yearString = currentDate.year.toString();
 
       final accountSetupId = await getNextSetupId(selectedAccount!);
       final cashBankSetupId = await getNextSetupId(selectedCashOption!);
 
-      if (receiptId != null) {
+      if (accountSetupId == '0' || cashBankSetupId == '0')
+        throw Exception('Invalid account selected');
+
+      if (widget.receipt != null) {
+        String entryId = widget.receipt!.id.toString();
         await db.update(
           "TABLE_ACCOUNTS",
           {
             "ACCOUNTS_date": dateString,
             "ACCOUNTS_setupid": cashBankSetupId,
-            "ACCOUNTS_amount": receipt.amount.toString(),
-            "ACCOUNTS_remarks":
-                'Receipt to $selectedCashOption from $selectedAccount',
+            "ACCOUNTS_amount": _amountController.text,
+            "ACCOUNTS_remarks": _remarksController.text,
             "ACCOUNTS_year": yearString,
             "ACCOUNTS_month": monthString,
             "ACCOUNTS_cashbanktype": paymentMode == 'Cash' ? '1' : '2',
           },
           where:
               "ACCOUNTS_VoucherType = ? AND ACCOUNTS_entryid = ? AND ACCOUNTS_type = ?",
-          whereArgs: [2, receiptId.toString(), 'debit'],
+          whereArgs: [2, entryId, 'debit'],
         );
 
         await db.update(
@@ -269,16 +300,15 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
           {
             "ACCOUNTS_date": dateString,
             "ACCOUNTS_setupid": accountSetupId,
-            "ACCOUNTS_amount": receipt.amount.toString(),
-            "ACCOUNTS_remarks":
-                'Receipt from $selectedAccount to $selectedCashOption',
+            "ACCOUNTS_amount": _amountController.text,
+            "ACCOUNTS_remarks": _remarksController.text,
             "ACCOUNTS_year": yearString,
             "ACCOUNTS_month": monthString,
             "ACCOUNTS_cashbanktype": paymentMode == 'Cash' ? '1' : '2',
           },
           where:
               "ACCOUNTS_VoucherType = ? AND ACCOUNTS_entryid = ? AND ACCOUNTS_type = ?",
-          whereArgs: [2, receiptId.toString(), 'credit'],
+          whereArgs: [2, entryId, 'credit'],
         );
       } else {
         Map<String, dynamic> debitEntry = {
@@ -286,10 +316,9 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
           'ACCOUNTS_entryid': 0,
           'ACCOUNTS_date': dateString,
           'ACCOUNTS_setupid': cashBankSetupId,
-          'ACCOUNTS_amount': receipt.amount.toString(),
+          'ACCOUNTS_amount': _amountController.text,
           'ACCOUNTS_type': 'debit',
-          'ACCOUNTS_remarks':
-              'Receipt to $selectedCashOption from $selectedAccount',
+          'ACCOUNTS_remarks': _remarksController.text,
           'ACCOUNTS_year': yearString,
           'ACCOUNTS_month': monthString,
           'ACCOUNTS_cashbanktype': paymentMode == 'Cash' ? '1' : '2',
@@ -304,10 +333,9 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
           'ACCOUNTS_entryid': debitId.toString(),
           'ACCOUNTS_date': dateString,
           'ACCOUNTS_setupid': accountSetupId,
-          'ACCOUNTS_amount': receipt.amount.toString(),
+          'ACCOUNTS_amount': _amountController.text,
           'ACCOUNTS_type': 'credit',
-          'ACCOUNTS_remarks':
-              'Receipt from $selectedAccount to $selectedCashOption',
+          'ACCOUNTS_remarks': _remarksController.text,
           'ACCOUNTS_year': yearString,
           'ACCOUNTS_month': monthString,
           'ACCOUNTS_cashbanktype': paymentMode == 'Cash' ? '1' : '2',
@@ -326,369 +354,50 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
       }
 
       final isBalanced = await DatabaseHelper().validateDoubleEntry();
-      if (!isBalanced) {
-        throw Exception('Double-entry accounting is unbalanced');
-      }
-    } catch (e) {
-      print('Error saving double-entry accounts: $e');
-      throw e;
-    }
-  }
+      if (!isBalanced) throw Exception('Double-entry accounting is unbalanced');
 
-  void _saveReceipt() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (selectedAccount == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Please select an account')));
-      return;
-    }
-    if (selectedCashOption == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a cash/bank option')),
-      );
-      return;
-    }
-
-    try {
-      final receipt = Receipt(
-        id: widget.receipt?.id,
-        date: DateFormat('dd/MM/yyyy').format(selectedDate),
-        accountName: selectedAccount!,
-        amount: double.parse(_amountController.text),
-        paymentMode: selectedCashOption!,
-        remarks: _remarksController.text,
-      );
-
-      await _saveDoubleEntryAccounts(receipt, widget.receipt?.id);
-      await _updateAccountBalance(selectedAccount!, receipt.amount, true);
-
-      setState(() {
-        _isSaved = true;
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Receipt saved successfully')),
-        );
-        _showDownloadPDFDialog(receipt);
-      }
-    } catch (e) {
-      print('Error saving receipt: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error saving receipt: $e')));
-      }
-    }
-  }
-
-  void _showDownloadPDFDialog(Receipt receipt) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Download PDF'),
-          content: const Text(
-            'Do you want to download a PDF copy of this receipt?',
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            TextButton(
-              child: const Text('Download'),
-              onPressed: () {
-                Navigator.of(context).pop();
-                _generateAndDownloadPDF(receipt);
-              },
-            ),
-          ],
-        );
-      },
-    ).then((_) {
+      await Future.delayed(const Duration(milliseconds: 500));
       if (mounted) {
         Navigator.pop(context, true);
-      }
-    });
-  }
-
-  Future<void> _generateAndDownloadPDF(Receipt receipt) async {
-    try {
-      if (Platform.isAndroid) {
-        var status = await Permission.storage.request();
-        if (!status.isGranted) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Storage permission required')),
-            );
-          }
-          return;
-        }
-      }
-
-      final fontData = await rootBundle.load('assets/fonts/Roboto-Regular.ttf');
-      final ttf = pw.Font.ttf(fontData);
-
-      final pdf = pw.Document();
-      pdf.addPage(
-        pw.Page(
-          pageFormat: PdfPageFormat.a4,
-          build: (pw.Context context) {
-            return pw.Container(
-              padding: const pw.EdgeInsets.all(20),
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Center(
-                    child: pw.Column(
-                      children: [
-                        pw.Text(
-                          'RECEIPT VOUCHER',
-                          style: pw.TextStyle(
-                            fontSize: 20,
-                            fontWeight: pw.FontWeight.bold,
-                            font: ttf,
-                          ),
-                        ),
-                        pw.SizedBox(height: 5),
-                        pw.Text(
-                          'Date: ${receipt.date}',
-                          style: pw.TextStyle(fontSize: 14, font: ttf),
-                        ),
-                        pw.SizedBox(height: 10),
-                        pw.Divider(thickness: 1),
-                      ],
-                    ),
-                  ),
-                  pw.SizedBox(height: 20),
-                  pw.Table(
-                    border: pw.TableBorder.all(),
-                    columnWidths: {
-                      0: const pw.FlexColumnWidth(2),
-                      1: const pw.FlexColumnWidth(3),
-                    },
-                    children: [
-                      pw.TableRow(
-                        decoration: pw.BoxDecoration(color: PdfColors.grey300),
-                        children: [
-                          pw.Padding(
-                            padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text(
-                              'Field',
-                              style: pw.TextStyle(
-                                fontWeight: pw.FontWeight.bold,
-                                font: ttf,
-                              ),
-                            ),
-                          ),
-                          pw.Padding(
-                            padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text(
-                              'Details',
-                              style: pw.TextStyle(
-                                fontWeight: pw.FontWeight.bold,
-                                font: ttf,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      pw.TableRow(
-                        children: [
-                          pw.Padding(
-                            padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text(
-                              'Receipt ID',
-                              style: pw.TextStyle(font: ttf),
-                            ),
-                          ),
-                          pw.Padding(
-                            padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text(
-                              receipt.id?.toString() ?? 'New Receipt',
-                              style: pw.TextStyle(font: ttf),
-                            ),
-                          ),
-                        ],
-                      ),
-                      pw.TableRow(
-                        children: [
-                          pw.Padding(
-                            padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text(
-                              'Account Name',
-                              style: pw.TextStyle(font: ttf),
-                            ),
-                          ),
-                          pw.Padding(
-                            padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text(
-                              receipt.accountName,
-                              style: pw.TextStyle(font: ttf),
-                            ),
-                          ),
-                        ],
-                      ),
-                      pw.TableRow(
-                        children: [
-                          pw.Padding(
-                            padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text(
-                              'Amount',
-                              style: pw.TextStyle(font: ttf),
-                            ),
-                          ),
-                          pw.Padding(
-                            padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text(
-                              '₹ ${receipt.amount.toStringAsFixed(2)}',
-                              style: pw.TextStyle(font: ttf),
-                            ),
-                          ),
-                        ],
-                      ),
-                      pw.TableRow(
-                        children: [
-                          pw.Padding(
-                            padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text(
-                              'Payment Mode',
-                              style: pw.TextStyle(font: ttf),
-                            ),
-                          ),
-                          pw.Padding(
-                            padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text(
-                              receipt.paymentMode,
-                              style: pw.TextStyle(font: ttf),
-                            ),
-                          ),
-                        ],
-                      ),
-                      pw.TableRow(
-                        children: [
-                          pw.Padding(
-                            padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text(
-                              'Account Details',
-                              style: pw.TextStyle(font: ttf),
-                            ),
-                          ),
-                          pw.Padding(
-                            padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text(
-                              selectedCashOption ?? receipt.paymentMode,
-                              style: pw.TextStyle(font: ttf),
-                            ),
-                          ),
-                        ],
-                      ),
-                      pw.TableRow(
-                        children: [
-                          pw.Padding(
-                            padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text(
-                              'Remarks',
-                              style: pw.TextStyle(font: ttf),
-                            ),
-                          ),
-                          pw.Padding(
-                            padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text(
-                              receipt.remarks?.isEmpty ?? true
-                                  ? 'N/A'
-                                  : receipt.remarks!,
-                              style: pw.TextStyle(font: ttf),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  pw.SizedBox(height: 40),
-                  pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
-                        children: [
-                          pw.Text(
-                            'Receiver Signature',
-                            style: pw.TextStyle(font: ttf),
-                          ),
-                          pw.SizedBox(height: 20),
-                          pw.Container(
-                            width: 100,
-                            decoration: pw.BoxDecoration(
-                              border: pw.Border(top: pw.BorderSide(width: 1)),
-                            ),
-                          ),
-                        ],
-                      ),
-                      pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
-                        children: [
-                          pw.Text(
-                            'Authorizer Signature',
-                            style: pw.TextStyle(font: ttf),
-                          ),
-                          pw.SizedBox(height: 20),
-                          pw.Container(
-                            width: 100,
-                            decoration: pw.BoxDecoration(
-                              border: pw.Border(top: pw.BorderSide(width: 1)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  pw.Spacer(),
-                  pw.Center(
-                    child: pw.Column(
-                      children: [
-                        pw.Divider(thickness: 1),
-                        pw.SizedBox(height: 5),
-                        pw.Text(
-                          'Generated on: ${DateFormat('dd-MM-yyyy HH:mm').format(DateTime.now())}',
-                          style: pw.TextStyle(fontSize: 10, font: ttf),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      );
-
-      final output = await getApplicationDocumentsDirectory();
-      final fileName =
-          'Receipt_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.pdf';
-      final file = File('${output.path}/$fileName');
-      await file.writeAsBytes(await pdf.save());
-
-      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('PDF saved at: ${file.path}'),
-            duration: const Duration(seconds: 5),
-            action: SnackBarAction(
-              label: 'Open',
-              onPressed: () => OpenFile.open(file.path),
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Text('Receipt saved successfully'),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
             ),
           ),
         );
       }
     } catch (e) {
-      print('Error generating PDF: $e');
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(child: Text('Error: $e')),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+    } finally {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to generate PDF: $e')));
+        setState(() => _isSaving = false);
+        _saveButtonController.reverse();
       }
     }
   }
@@ -696,314 +405,760 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.green,
         title: Text(
           widget.receipt != null
               ? 'Edit Receipt Voucher'
               : 'Add Receipt Voucher',
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        actions: [
-          if (_isSaved)
-            IconButton(
-              icon: const Icon(Icons.download),
-              onPressed: () {
-                final receipt = Receipt(
-                  id: widget.receipt?.id,
-                  date: DateFormat('dd/MM/yyyy').format(selectedDate),
-                  accountName: selectedAccount!,
-                  amount: double.parse(_amountController.text),
-                  paymentMode: selectedCashOption!,
-                  remarks: _remarksController.text,
-                );
-                _generateAndDownloadPDF(receipt);
-              },
-              tooltip: 'Download PDF',
-            ),
-        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              InkWell(
-                onTap: () => _selectDate(context),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        DateFormat('dd-MM-yyyy').format(selectedDate),
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                      const Icon(Icons.calendar_today),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: SlideTransition(
+          position: _slideAnimation,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: InkWell(
-                        onTap: () => _showSearchableAccountDialog(context),
-                        child: Container(
-                          height: 50,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                selectedAccount ?? 'Select an Account',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color:
-                                      selectedAccount != null
-                                          ? Colors.black
-                                          : Colors.grey[600],
-                                ),
-                              ),
-                              const Icon(Icons.arrow_drop_down),
-                            ],
+                  // ---------- DATE ----------
+                  _buildAnimatedCard(
+                    child: InkWell(
+                      onTap: () => _selectDate(context),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Colors.green.shade50, Colors.white],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.green.shade200,
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.calendar_today,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  DateFormat('dd-MM-yyyy').format(selectedDate),
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Icon(Icons.arrow_drop_down, color: Colors.green),
+                          ],
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  FloatingActionButton(
-                    mini: true,
-                    backgroundColor: Theme.of(context).colorScheme.secondary,
-                    child: const Icon(Icons.add, color: Colors.white),
-                    onPressed: () async {
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => Addaccountsdet(),
+                  const SizedBox(height: 16),
+
+                  // ---------- ACCOUNT ----------
+                  _buildAnimatedCard(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => _showSearchableAccountDialog(context),
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.green.shade200,
+                                  width: 1,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.green.withOpacity(0.1),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: Colors.green.shade50,
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          child: Icon(
+                                            Icons.account_balance_wallet,
+                                            color: Colors.green,
+                                            size: 20,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            selectedAccount ??
+                                                'Select an Account',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w500,
+                                              color:
+                                                  selectedAccount != null
+                                                      ? Colors.black87
+                                                      : Colors.grey[600],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const Icon(
+                                    Icons.arrow_drop_down,
+                                    color: Colors.green,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ),
-                      );
-                      if (result == true) {
-                        await _loadAccountsFromDB();
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Account added successfully'),
+                        const SizedBox(width: 12),
+                        _buildAddButton(() async {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => Addaccountsdet(),
                             ),
                           );
-                        }
-                      }
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: TextFormField(
-                  controller: _amountController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    hintText: 'Amount',
-                    labelText: 'Amount',
-                    prefixText: '₹ ',
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter an amount';
-                    }
-                    if (double.tryParse(value) == null) {
-                      return 'Please enter a valid number';
-                    }
-                    return null;
-                  },
-                  onEditingComplete: () {
-                    FocusScope.of(context).unfocus();
-                  },
-                ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Radio<String>(
-                    value: 'Bank',
-                    groupValue: paymentMode,
-                    activeColor: Theme.of(context).colorScheme.secondary,
-                    onChanged: (String? value) {
-                      setState(() {
-                        paymentMode = value!;
-                        if (bankOptions.isNotEmpty) {
-                          selectedCashOption = bankOptions.first;
-                        }
-                      });
-                    },
-                  ),
-                  const Text('Bank'),
-                  const SizedBox(width: 30),
-                  Radio<String>(
-                    value: 'Cash',
-                    groupValue: paymentMode,
-                    activeColor: Theme.of(context).colorScheme.secondary,
-                    onChanged: (String? value) {
-                      setState(() {
-                        paymentMode = value!;
-                        selectedCashOption = 'Cash';
-                      });
-                    },
-                  ),
-                  const Text('Cash'),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButtonFormField<String>(
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                          ),
-                          value:
-                              paymentMode == 'Cash'
-                                  ? (cashOptions.contains(selectedCashOption)
-                                      ? selectedCashOption
-                                      : cashOptions.first)
-                                  : (bankOptions.contains(selectedCashOption)
-                                      ? selectedCashOption
-                                      : (bankOptions.isNotEmpty
-                                          ? bankOptions.first
-                                          : null)),
-                          isExpanded: true,
-                          onChanged: (String? newValue) {
-                            setState(() {
-                              selectedCashOption = newValue!;
-                              paymentMode =
-                                  bankOptions.contains(newValue)
-                                      ? 'Bank'
-                                      : 'Cash';
-                            });
-                          },
-                          items:
-                              paymentMode == 'Cash'
-                                  ? cashOptions.map<DropdownMenuItem<String>>((
-                                    String value,
-                                  ) {
-                                    return DropdownMenuItem<String>(
-                                      value: value,
-                                      child: Text(value),
-                                    );
-                                  }).toList()
-                                  : bankOptions.map<DropdownMenuItem<String>>((
-                                    String value,
-                                  ) {
-                                    return DropdownMenuItem<String>(
-                                      value: value,
-                                      child: Text(value),
-                                    );
-                                  }).toList(),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  FloatingActionButton(
-                    mini: true,
-                    backgroundColor: Theme.of(context).colorScheme.secondary,
-                    child: const Icon(Icons.add, color: Colors.white),
-                    onPressed: () async {
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => Addaccountsdet(),
-                        ),
-                      );
-                      if (result == true) {
-                        await _loadAccountsFromDB();
-                      }
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: TextFormField(
-                  controller: _remarksController,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    hintText: 'Enter Remarks',
-                  ),
-                  onEditingComplete: () {
-                    FocusScope.of(context).unfocus();
-                  },
-                ),
-              ),
-              const SizedBox(height: 32),
-              Center(
-                child: Container(
-                  width: 200,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(25),
-                    gradient: LinearGradient(
-                      colors: [
-                        Theme.of(context).colorScheme.primary,
-                        Theme.of(context).colorScheme.primary.withOpacity(0.8),
+                          if (result == true) {
+                            await _loadAccountsFromDB();
+                            if (mounted)
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Row(
+                                    children: [
+                                      Icon(
+                                        Icons.check_circle,
+                                        color: Colors.white,
+                                      ),
+                                      SizedBox(width: 12),
+                                      Text('Account added successfully'),
+                                    ],
+                                  ),
+                                  backgroundColor: Colors.green,
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                              );
+                          }
+                        }),
                       ],
                     ),
                   ),
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    onPressed: _saveReceipt,
-                    child: const Text(
-                      'Save',
-                      style: TextStyle(color: Colors.white, fontSize: 16),
+                  const SizedBox(height: 16),
+
+                  // ---------- AMOUNT ----------
+                  _buildAnimatedCard(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.green.shade200,
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.green.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.teal.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.attach_money,
+                              color: Colors.teal,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _amountController,
+                              keyboardType: TextInputType.number,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                hintText: 'Enter Amount',
+                                hintStyle: TextStyle(
+                                  fontWeight: FontWeight.normal,
+                                ),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty)
+                                  return 'Please enter an amount';
+                                if (double.tryParse(value) == null)
+                                  return 'Please enter a valid number';
+                                return null;
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
+                  const SizedBox(height: 24),
+
+                  // ---------- PAYMENT MODE ----------
+                  _buildAnimatedCard(
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.green.shade200,
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.green.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Payment Mode',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildPaymentModeOption(
+                                  'Bank',
+                                  Icons.account_balance,
+                                  paymentMode == 'Bank',
+                                  () {
+                                    setState(() {
+                                      paymentMode = 'Bank';
+                                      if (bankOptions.isNotEmpty)
+                                        selectedCashOption = bankOptions.first;
+                                    });
+                                    _modeAnimationController.forward().then(
+                                      (_) => _modeAnimationController.reverse(),
+                                    );
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildPaymentModeOption(
+                                  'Cash',
+                                  Icons.money,
+                                  paymentMode == 'Cash',
+                                  () {
+                                    setState(() {
+                                      paymentMode = 'Cash';
+                                      selectedCashOption = null;
+                                    });
+                                    _modeAnimationController.forward().then(
+                                      (_) => _modeAnimationController.reverse(),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // ---------- CASH / BANK DROPDOWN ----------
+                  ScaleTransition(
+                    scale: _scaleAnimation,
+                    child: _buildAnimatedCard(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.green.shade200,
+                                  width: 1,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.green.withOpacity(0.1),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          paymentMode == 'Bank'
+                                              ? Colors.green.shade50
+                                              : Colors.teal.shade50,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Icon(
+                                      paymentMode == 'Bank'
+                                          ? Icons.account_balance
+                                          : Icons.money,
+                                      color:
+                                          paymentMode == 'Bank'
+                                              ? Colors.green
+                                              : Colors.teal,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: DropdownButtonHideUnderline(
+                                      child: DropdownButtonFormField<String>(
+                                        decoration: const InputDecoration(
+                                          border: InputBorder.none,
+                                        ),
+                                        value:
+                                            paymentMode == 'Cash'
+                                                ? (cashOptions.contains(
+                                                      selectedCashOption,
+                                                    )
+                                                    ? selectedCashOption
+                                                    : null)
+                                                : (bankOptions.contains(
+                                                      selectedCashOption,
+                                                    )
+                                                    ? selectedCashOption
+                                                    : (bankOptions.isNotEmpty
+                                                        ? bankOptions.first
+                                                        : null)),
+                                        isExpanded: true,
+                                        hint: Text(
+                                          'Select ${paymentMode == 'Bank' ? 'Bank' : 'Cash'} Account',
+                                          style: TextStyle(
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                        onChanged: (String? newValue) {
+                                          setState(() {
+                                            selectedCashOption = newValue!;
+                                            paymentMode =
+                                                bankOptions.contains(newValue)
+                                                    ? 'Bank'
+                                                    : 'Cash';
+                                          });
+                                          _dropdownAnimationController
+                                              .forward()
+                                              .then(
+                                                (_) =>
+                                                    _dropdownAnimationController
+                                                        .reverse(),
+                                              );
+                                        },
+                                        items:
+                                            paymentMode == 'Cash'
+                                                ? cashOptions
+                                                    .map<
+                                                      DropdownMenuItem<String>
+                                                    >(
+                                                      (
+                                                        String v,
+                                                      ) => DropdownMenuItem<
+                                                        String
+                                                      >(
+                                                        value: v,
+                                                        child: Text(
+                                                          v,
+                                                          style:
+                                                              const TextStyle(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w500,
+                                                              ),
+                                                        ),
+                                                      ),
+                                                    )
+                                                    .toList()
+                                                : bankOptions
+                                                    .map<
+                                                      DropdownMenuItem<String>
+                                                    >(
+                                                      (
+                                                        String v,
+                                                      ) => DropdownMenuItem<
+                                                        String
+                                                      >(
+                                                        value: v,
+                                                        child: Text(
+                                                          v,
+                                                          style:
+                                                              const TextStyle(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w500,
+                                                              ),
+                                                        ),
+                                                      ),
+                                                    )
+                                                    .toList(),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          _buildAddButton(() async {
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => Addaccountsdet(),
+                              ),
+                            );
+                            if (result == true) await _loadAccountsFromDB();
+                          }),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // ---------- REMARKS ----------
+                  _buildAnimatedCard(
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.green.shade200,
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.green.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  Icons.notes,
+                                  color: Colors.amber[700],
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              const Text(
+                                'Remarks',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _remarksController,
+                            maxLines: 3,
+                            decoration: const InputDecoration(
+                              border: InputBorder.none,
+                              hintText: 'Enter remarks or notes...',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+
+                  // ---------- SAVE BUTTON ----------
+                  Center(
+                    child: ScaleTransition(
+                      scale: _buttonScaleAnimation,
+                      child: Container(
+                        width: double.infinity,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.green.shade400,
+                              Colors.green.shade600,
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.green.withOpacity(0.4),
+                              blurRadius: 12,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          onPressed:
+                              _isSaving ? null : _saveDoubleEntryAccounts,
+                          child:
+                              _isSaving
+                                  ? const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2,
+                                        ),
+                                      ),
+                                      SizedBox(width: 12),
+                                      Text(
+                                        'Saving...',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                  : const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.check_circle_outline,
+                                        color: Colors.white,
+                                      ),
+                                      SizedBox(width: 12),
+                                      Text(
+                                        'Save Receipt',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
+
+  // -----------------------------------------------------------------
+  // Helper widgets
+  // -----------------------------------------------------------------
+  Widget _buildAnimatedCard({required Widget child}) =>
+      TweenAnimationBuilder<double>(
+        duration: const Duration(milliseconds: 300),
+        tween: Tween(begin: 0.0, end: 1.0),
+        builder:
+            (context, value, child) => Transform.scale(
+              scale: 0.95 + (0.05 * value),
+              child: Opacity(opacity: value, child: child),
+            ),
+        child: child,
+      );
+
+  Widget _buildPaymentModeOption(
+    String label,
+    IconData icon,
+    bool isSelected,
+    VoidCallback onTap,
+  ) => GestureDetector(
+    onTap: onTap,
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      decoration: BoxDecoration(
+        gradient:
+            isSelected
+                ? LinearGradient(
+                  colors: [Colors.green.shade400, Colors.green.shade600],
+                )
+                : null,
+        color: isSelected ? null : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isSelected ? Colors.green.shade600 : Colors.grey.shade300,
+          width: 2,
+        ),
+        boxShadow:
+            isSelected
+                ? [
+                  BoxShadow(
+                    color: Colors.green.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+                : null,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            color: isSelected ? Colors.white : Colors.grey.shade700,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? Colors.white : Colors.grey.shade700,
+              fontWeight: FontWeight.w600,
+              fontSize: 15,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _buildAddButton(VoidCallback onPressed) => Container(
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        colors: [Colors.green.shade400, Colors.green.shade600],
+      ),
+      borderRadius: BorderRadius.circular(12),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.green.withOpacity(0.3),
+          blurRadius: 8,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    ),
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 48,
+          height: 48,
+          alignment: Alignment.center,
+          child: const Icon(Icons.add, color: Colors.white, size: 24),
+        ),
+      ),
+    ),
+  );
 }
 
+// ================================================================
+// Searchable Account Dialog (green theme)
+// ================================================================
 class SearchableAccountDialog extends StatefulWidget {
   final Function(String) onAccountSelected;
   final List<String> accountOptions;
@@ -1019,67 +1174,227 @@ class SearchableAccountDialog extends StatefulWidget {
       _SearchableAccountDialogState();
 }
 
-class _SearchableAccountDialogState extends State<SearchableAccountDialog> {
+class _SearchableAccountDialogState extends State<SearchableAccountDialog>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   String searchQuery = '';
+  late AnimationController _dialogAnimationController;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _dialogAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _dialogAnimationController,
+        curve: Curves.easeOutBack,
+      ),
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _dialogAnimationController,
+        curve: Curves.easeOut,
+      ),
+    );
+    _dialogAnimationController.forward();
+  }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _dialogAnimationController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      child: Container(
-        height: 400,
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            const Text(
-              'Select Account',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          elevation: 10,
+          child: Container(
+            height: 500,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.white, Colors.green.shade50],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+              borderRadius: BorderRadius.circular(20),
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search),
-                hintText: 'Search by Account Name',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.account_balance_wallet,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Select Account',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              onChanged: (value) {
-                setState(() {
-                  searchQuery = value;
-                });
-              },
+                const SizedBox(height: 20),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.green.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.search, color: Colors.green),
+                      hintText: 'Search by Account Name',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                    ),
+                    onChanged: (value) => setState(() => searchQuery = value),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: Builder(
+                    builder: (context) {
+                      final filteredAccounts =
+                          widget.accountOptions
+                              .where(
+                                (account) =>
+                                    searchQuery.isEmpty ||
+                                    account.toLowerCase().contains(
+                                      searchQuery.toLowerCase(),
+                                    ),
+                              )
+                              .toList();
+
+                      if (filteredAccounts.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.inbox_outlined,
+                                color: Colors.grey[400],
+                                size: 64,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                searchQuery.isEmpty
+                                    ? 'No accounts found'
+                                    : 'No matching accounts',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      return ListView.builder(
+                        itemCount: filteredAccounts.length,
+                        itemBuilder: (context, index) {
+                          final accountName = filteredAccounts[index];
+                          return TweenAnimationBuilder<double>(
+                            duration: Duration(
+                              milliseconds: 300 + (index * 50),
+                            ),
+                            tween: Tween(begin: 0.0, end: 1.0),
+                            builder:
+                                (context, value, child) => Transform.translate(
+                                  offset: Offset(0, 20 * (1 - value)),
+                                  child: Opacity(opacity: value, child: child),
+                                ),
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.green.withOpacity(0.08),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: ListTile(
+                                leading: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    Icons.account_balance_wallet,
+                                    color: Colors.green,
+                                    size: 24,
+                                  ),
+                                ),
+                                title: Text(
+                                  accountName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                trailing: const Icon(
+                                  Icons.arrow_forward_ios,
+                                  size: 16,
+                                  color: Colors.green,
+                                ),
+                                onTap: () {
+                                  widget.onAccountSelected(accountName);
+                                  Navigator.pop(context);
+                                },
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: ListView.builder(
-                itemCount: widget.accountOptions.length,
-                itemBuilder: (context, index) {
-                  final accountName = widget.accountOptions[index];
-                  if (searchQuery.isEmpty ||
-                      accountName.toLowerCase().contains(
-                        searchQuery.toLowerCase(),
-                      )) {
-                    return ListTile(
-                      title: Text(accountName),
-                      onTap: () {
-                        widget.onAccountSelected(accountName);
-                        Navigator.pop(context);
-                      },
-                    );
-                  }
-                  return Container();
-                },
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

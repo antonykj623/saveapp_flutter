@@ -23,6 +23,7 @@ class _WalletPageState extends State<WalletPage> {
   double total = 0;
   List<Payment> payments = [];
   bool hasWalletMoney = false;
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -115,15 +116,13 @@ class _WalletPageState extends State<WalletPage> {
           context,
         ).showSnackBar(SnackBar(content: Text('Error loading payments: $e')));
       }
-      setState(() {
-        payments = [];
-        total = 0;
-      });
     }
   }
 
   Future<void> _loadWalletData() async {
     try {
+      setState(() => _isLoading = true);
+
       var walletData = await DatabaseHelper().getWalletData();
       List<WalletTransaction> tempTransactions = [];
 
@@ -166,7 +165,6 @@ class _WalletPageState extends State<WalletPage> {
         }
       }
 
-      // Calculate opening balance - includes all transactions up to (and including) the start of selected month
       double calculatedOpeningBalance = 0.0;
 
       if (hasMoneyAddedTransactions && firstWalletTransactionDate != null) {
@@ -178,26 +176,20 @@ class _WalletPageState extends State<WalletPage> {
           double amount = double.tryParse(data['edtAmount'] ?? '0') ?? 0.0;
           String description = data['description'] ?? '';
 
-          // Include all transactions before the selected month (including the first wallet transaction)
           if (transactionDate.isBefore(startOfMonth)) {
             if (description == 'Money Added To Wallet') {
               calculatedOpeningBalance += amount;
             } else if (amount < 0) {
-              // Include payment deductions that happened before selected month
               calculatedOpeningBalance += amount;
             }
           }
         }
-
-        // Special case: If the selected month contains the first wallet transaction,
-        // the opening balance should include that first transaction
         if (firstWalletTransactionDate.isAfter(
               startOfMonth.subtract(Duration(days: 1)),
             ) &&
             firstWalletTransactionDate.isBefore(
               endOfMonth.add(Duration(days: 1)),
             )) {
-          // Find the first wallet transaction amount
           for (var row in sortedData) {
             Map<String, dynamic> data = jsonDecode(row['data']);
             DateTime transactionDate = DateTime.parse(
@@ -208,8 +200,7 @@ class _WalletPageState extends State<WalletPage> {
 
             if (transactionDate.isAtSameMomentAs(firstWalletTransactionDate) &&
                 description == 'Money Added To Wallet') {
-              calculatedOpeningBalance =
-                  amount; // Set opening balance to first wallet amount
+              calculatedOpeningBalance = amount;
               break;
             }
           }
@@ -221,14 +212,12 @@ class _WalletPageState extends State<WalletPage> {
         openingBalance = calculatedOpeningBalance;
       });
 
-      // Filter transactions for selected month
       var selectedMonthData =
           sortedData.where((row) {
             Map<String, dynamic> data = jsonDecode(row['data']);
             return data['date']?.startsWith(selectedYearMonth) ?? false;
           }).toList();
 
-      // Add transactions to display
       for (var row in selectedMonthData) {
         Map<String, dynamic> data = jsonDecode(row['data']);
         String date = data['date'] ?? '';
@@ -255,7 +244,6 @@ class _WalletPageState extends State<WalletPage> {
         );
       }
 
-      // Calculate closing balance - all transactions from first wallet transaction to end of selected month
       double calculatedClosingBalance = 0.0;
 
       if (hasMoneyAddedTransactions && firstWalletTransactionDate != null) {
@@ -267,7 +255,6 @@ class _WalletPageState extends State<WalletPage> {
           double amount = double.tryParse(data['edtAmount'] ?? '0') ?? 0.0;
           String description = data['description'] ?? '';
 
-          // Include all transactions from first wallet transaction to end of selected month
           if (!transactionDate.isAfter(endOfMonth) &&
               !transactionDate.isBefore(firstWalletTransactionDate)) {
             if (description == 'Money Added To Wallet') {
@@ -282,11 +269,13 @@ class _WalletPageState extends State<WalletPage> {
       setState(() {
         transactions = tempTransactions;
         closingBalance = calculatedClosingBalance;
+        _isLoading = false;
       });
 
       await _loadPayments();
     } catch (e) {
       print('Error loading wallet data: $e');
+      setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading wallet data: $e')),
@@ -416,7 +405,6 @@ class _WalletPageState extends State<WalletPage> {
                       '$year-${month.toString().padLeft(2, '0')}';
                   _loadWalletData();
                 });
-                // Navigator.pop(context);
               },
             ),
           ),
@@ -428,7 +416,7 @@ class _WalletPageState extends State<WalletPage> {
     final year = parts[0];
     final month = int.parse(parts[1]);
     final monthName = DateFormat('MMMM').format(DateTime(2022, month));
-    return '$monthName/$year';
+    return '$monthName $year';
   }
 
   void _deletePayment(int id) async {
@@ -654,235 +642,475 @@ class _WalletPageState extends State<WalletPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        backgroundColor: Colors.teal,
+        backgroundColor: const Color(0xFF0D7377),
         title: const Text(
-          'Wallet',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          'My Wallet',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
+          ),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
         elevation: 0,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.only(
+            bottomLeft: Radius.circular(20),
+            bottomRight: Radius.circular(20),
+          ),
+        ),
       ),
-      body: Column(
-        children: [
-          InkWell(
-            onTap: _showMonthYearPicker,
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              margin: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: Colors.grey[300]!),
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
-                    spreadRadius: 1,
-                    blurRadius: 3,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _getDisplayMonth(),
-                    style: const TextStyle(fontSize: 16, color: Colors.grey),
-                  ),
-                  Icon(Icons.calendar_today, color: Colors.grey[600]),
-                ],
-              ),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Opening Balance',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-                ),
-                Text(
-                  ': ${openingBalance.toStringAsFixed(1)}',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (!hasWalletMoney)
-            Container(
-              padding: const EdgeInsets.all(16),
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.amber[100],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.amber[300]!),
-              ),
-
-              child: Row(
-                children: [
-                  Icon(Icons.info, color: Colors.amber[700]),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      'No wallet money found. Add money to wallet to see payment transactions.',
-                      style: TextStyle(color: Colors.black87),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          Expanded(
-            child: Container(
-              margin: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: Colors.black!),
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
-                    spreadRadius: 1,
-                    blurRadius: 3,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(8),
-                        topRight: Radius.circular(8),
+      body:
+          _isLoading
+              ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Colors.teal.shade400,
                       ),
-                      border: Border(bottom: BorderSide(color: Colors.black!)),
                     ),
-                    child: Row(
-                      children: [
-                        _buildHeaderCell('Date', flex: 2),
-                        _buildHeaderCell('Account\nName', flex: 3),
-                        _buildHeaderCell('Amount', flex: 2),
-                        _buildHeaderCell('Action', flex: 2),
-                      ],
+                    const SizedBox(height: 16),
+                    Text(
+                      'Loading wallet data...',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 16),
                     ),
-                  ),
-                  Expanded(
-                    child:
-                        transactions.isEmpty
-                            ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.account_balance_wallet,
-                                    size: 64,
-                                    color: Colors.grey[400],
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    hasWalletMoney
-                                        ? 'No transactions for this month'
-                                        : 'Add money to wallet first to see transactions',
-                                    style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontSize: 16,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
+                  ],
+                ),
+              )
+              : RefreshIndicator(
+                onRefresh: _loadWalletData,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 16),
+                      // Month Picker Card
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                        child: InkWell(
+                          onTap: _showMonthYearPicker,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.teal.shade400,
+                                  Colors.teal.shade600,
                                 ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
                               ),
-                            )
-                            : ListView.builder(
-                              itemCount: transactions.length,
-                              itemBuilder: (context, index) {
-                                final transaction = transactions[index];
-                                return Container(
-                                  decoration: BoxDecoration(
-                                    border: Border(
-                                      bottom: BorderSide(color: Colors.black),
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.teal.withOpacity(0.3),
+                                  spreadRadius: 2,
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Select Period',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.white.withOpacity(0.8),
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _getDisplayMonth(),
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Icon(
+                                  Icons.calendar_today,
+                                  color: Colors.white.withOpacity(0.9),
+                                  size: 28,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Balance Cards
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _buildBalanceCard(
+                                'Opening Balance',
+                                openingBalance,
+                                Colors.blue,
+                                Icons.arrow_downward,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildBalanceCard(
+                                'Closing Balance',
+                                closingBalance,
+                                Colors.green,
+                                Icons.arrow_upward,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Warning Banner
+                      if (!hasWalletMoney)
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 16),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.amber[50],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.amber[300]!),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                color: Colors.amber[700],
+                                size: 20,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Add money to wallet to see payment transactions',
+                                  style: TextStyle(
+                                    color: Colors.amber[900],
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
                                   ),
-                                  child: Row(
-                                    children: [
-                                      _buildDataCell(
-                                        DateFormat('dd/M/yyyy').format(
-                                          DateFormat(
-                                            'yyyy-MM-dd',
-                                          ).parse(transaction.date),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      const SizedBox(height: 20),
+
+                      // Transactions Section Header
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Transactions',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey[800],
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${transactions.length} transaction${transactions.length != 1 ? 's' : ''}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[500],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Transactions Table
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.grey.shade300,
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.1),
+                              spreadRadius: 1,
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child:
+                              transactions.isEmpty
+                                  ? Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 40,
+                                      horizontal: 20,
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.account_balance_wallet_outlined,
+                                          size: 56,
+                                          color: Colors.grey[300],
                                         ),
-                                        flex: 2,
-                                      ),
-                                      _buildDataCell(
-                                        transaction.description,
-                                        flex: 3,
-                                      ),
-                                      _buildDataCell(
-                                        transaction.amount >= 0
-                                            ? '+ ${transaction.amount.toStringAsFixed(0)}'
-                                            : '- ${(-transaction.amount).toStringAsFixed(0)}',
-                                        flex: 2,
-                                        textColor:
-                                            transaction.amount >= 0
-                                                ? Colors.green
-                                                : Colors.red,
-                                      ),
-                                      Expanded(
-                                        flex: 2,
-                                        child: Container(
-                                          alignment: Alignment.center,
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 8,
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          hasWalletMoney
+                                              ? 'No transactions for this month'
+                                              : 'No wallet data available',
+                                          style: TextStyle(
+                                            color: Colors.grey[600],
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w500,
                                           ),
-                                          child: TextButton(
-                                            onPressed: () {
-                                              _showEditDeleteDialog(
-                                                transaction,
-                                              );
-                                            },
-                                            child: const Text(
-                                              'Edit/\nDelete',
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(
-                                                color: Colors.red,
-                                                fontSize: 12,
-                                              ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          hasWalletMoney
+                                              ? 'Try selecting a different month'
+                                              : 'Add money to get started',
+                                          style: TextStyle(
+                                            color: Colors.grey[400],
+                                            fontSize: 13,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                  : Column(
+                                    children: [
+                                      // TABLE HEADER
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF0D7377),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            _buildTableHeaderCell('Date', 0.20),
+                                            _buildTableHeaderCell(
+                                              'Account Name',
+                                              0.35,
                                             ),
-                                          ),
+                                            _buildTableHeaderCell(
+                                              'Amount',
+                                              0.22,
+                                            ),
+                                            _buildTableHeaderCell(
+                                              'Action',
+                                              0.23,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      // TABLE ROWS
+                                      SizedBox(
+                                        height: transactions.length * 70.0,
+                                        child: ListView.builder(
+                                          shrinkWrap: true,
+                                          physics:
+                                              const NeverScrollableScrollPhysics(),
+                                          itemCount: transactions.length,
+                                          itemBuilder: (context, index) {
+                                            final transaction =
+                                                transactions[index];
+                                            final isCredit =
+                                                transaction.amount >= 0;
+                                            return Container(
+                                              decoration: BoxDecoration(
+                                                border: Border(
+                                                  bottom: BorderSide(
+                                                    color: Colors.grey.shade300,
+                                                    width: 1,
+                                                  ),
+                                                ),
+                                                color:
+                                                    index.isEven
+                                                        ? Colors.grey.shade50
+                                                        : Colors.white,
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  Expanded(
+                                                    flex: 20,
+                                                    child: _buildTableDataCell(
+                                                      DateFormat(
+                                                        'dd/MM/yyyy',
+                                                      ).format(
+                                                        DateFormat(
+                                                          'yyyy-MM-dd',
+                                                        ).parse(
+                                                          transaction.date,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Expanded(
+                                                    flex: 35,
+                                                    child: _buildTableDataCell(
+                                                      transaction.description,
+                                                    ),
+                                                  ),
+                                                  Expanded(
+                                                    flex: 22,
+                                                    child: _buildTableDataCell(
+                                                      '${isCredit ? '+' : '-'} ₹${(isCredit ? transaction.amount : -transaction.amount).toStringAsFixed(0)}',
+                                                      textColor:
+                                                          isCredit
+                                                              ? Colors.green
+                                                              : Colors.red,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                  Expanded(
+                                                    flex: 23,
+                                                    child: Container(
+                                                      alignment:
+                                                          Alignment.center,
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            vertical: 12,
+                                                            horizontal: 4,
+                                                          ),
+                                                      child: InkWell(
+                                                        onTap: () {
+                                                          _showEditDeleteDialog(
+                                                            transaction,
+                                                          );
+                                                        },
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              6,
+                                                            ),
+                                                        child: Container(
+                                                          padding:
+                                                              const EdgeInsets.symmetric(
+                                                                horizontal: 6,
+                                                                vertical: 6,
+                                                              ),
+                                                          decoration: BoxDecoration(
+                                                            color: Colors.red
+                                                                .withOpacity(
+                                                                  0.1,
+                                                                ),
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  6,
+                                                                ),
+                                                          ),
+                                                          child: Text(
+                                                            'Edit/Delete',
+                                                            textAlign:
+                                                                TextAlign
+                                                                    .center,
+                                                            maxLines: 1,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                            style: TextStyle(
+                                                              color:
+                                                                  Colors
+                                                                      .red
+                                                                      .shade600,
+                                                              fontSize: 10,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          },
                                         ),
                                       ),
                                     ],
                                   ),
-                                );
-                              },
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Closing Balance Summary
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Colors.green[400]!, Colors.green[600]!],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.green.withOpacity(0.3),
+                              spreadRadius: 2,
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
                             ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              'Final Balance',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.white.withOpacity(0.9),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '₹ ${closingBalance.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 30),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              'Closing balance : ${closingBalance.toStringAsFixed(1)}',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.pink,
-        child: const Icon(Icons.add, color: Colors.white),
+        backgroundColor: const Color(0xFF0D7377),
         onPressed: () {
           Navigator.push(
             context,
@@ -891,44 +1119,201 @@ class _WalletPageState extends State<WalletPage> {
             ),
           ).then((_) => _loadWalletData());
         },
+        child: const Icon(Icons.add, color: Colors.white, size: 28),
       ),
     );
   }
 
-  Widget _buildHeaderCell(String text, {required int flex}) {
-    return Expanded(
-      flex: flex,
-      child: Container(
-        height: 50,
-        alignment: Alignment.center,
-        padding: const EdgeInsets.all(8.0),
-        decoration: BoxDecoration(
-          border: Border(right: BorderSide(color: Colors.grey[300]!)),
-        ),
-        child: Text(
-          text,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-          textAlign: TextAlign.center,
-        ),
+  Widget _buildBalanceCard(
+    String label,
+    double amount,
+    Color color,
+    IconData icon,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(icon, size: 14, color: color),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '₹ ${amount.toStringAsFixed(2)}',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[800],
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildDataCell(String text, {required int flex, Color? textColor}) {
+  Widget _buildTransactionTile(WalletTransaction transaction, bool isCredit) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color:
+                  isCredit
+                      ? Colors.green.withOpacity(0.1)
+                      : Colors.red.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              isCredit ? Icons.arrow_downward : Icons.arrow_upward,
+              color: isCredit ? Colors.green : Colors.red,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  transaction.description,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[800],
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  DateFormat(
+                    'dd MMM yyyy',
+                  ).format(DateFormat('yyyy-MM-dd').parse(transaction.date)),
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${isCredit ? '+' : '-'} ₹ ${(isCredit ? transaction.amount : -transaction.amount).toStringAsFixed(2)}',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: isCredit ? Colors.green : Colors.red,
+                ),
+              ),
+              const SizedBox(height: 4),
+              InkWell(
+                onTap: () => _showEditDeleteDialog(transaction),
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  child: Text(
+                    'Edit',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.teal[600],
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTableHeaderCell(String text, double flex) {
     return Expanded(
-      flex: flex,
+      flex: flex.toInt(),
       child: Container(
-        height: 70,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         alignment: Alignment.center,
-        padding: const EdgeInsets.all(8.0),
         decoration: BoxDecoration(
-          border: Border(right: BorderSide(color: Colors.black)),
+          border: Border(
+            right: BorderSide(color: Colors.white.withOpacity(0.2), width: 1),
+          ),
         ),
         child: Text(
           text,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 11,
+            color: Colors.white,
+          ),
           textAlign: TextAlign.center,
+          maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(color: textColor ?? Colors.black, fontSize: 12),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTableDataCell(
+    String text, {
+    Color? textColor,
+    FontWeight fontWeight = FontWeight.normal,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        border: Border(
+          right: BorderSide(color: Colors.grey.shade300, width: 1),
+        ),
+      ),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        overflow: TextOverflow.ellipsis,
+        maxLines: 2,
+        style: TextStyle(
+          color: textColor ?? Colors.black87,
+          fontSize: 11,
+          fontWeight: fontWeight,
         ),
       ),
     );

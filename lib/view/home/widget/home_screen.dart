@@ -1,9 +1,12 @@
 import 'dart:math' as math;
 import 'dart:ui';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
+import 'package:new_project_2025/services/API_services/API_services.dart';
 import 'package:new_project_2025/view/home/dream_page/dream_class/db_class.dart';
 import 'package:new_project_2025/view/home/widget/DTH_screen/DTHScreen.dart';
 import 'package:new_project_2025/view/home/widget/DTH_screen/d_t_h_recharge_dashboard.dart';
@@ -13,6 +16,8 @@ import 'package:new_project_2025/view/home/widget/insurance/insurance_database/a
 import 'package:new_project_2025/view/home/widget/insurance/insurance_database/insurancelistpage.dart';
 import 'package:new_project_2025/view/home/widget/password_manger/password_manger/password_list_screen/Edit_password/Edit_password_screen.dart';
 import 'package:new_project_2025/view/home/widget/payment_recharge/Recharge_screen.dart';
+import 'package:new_project_2025/view/home/widget/report_screen/My_net_worth/my_net_worth.dart';
+import 'package:new_project_2025/view/home/widget/setting_page/backup_and%20_restore/ex_re.dart';
 import 'package:new_project_2025/view_model/Accountfiles/CashAccount.dart';
 import 'package:new_project_2025/view_model/Task/createtask.dart';
 import 'package:new_project_2025/view_model/Task/tasklist.dart';
@@ -48,12 +53,15 @@ import 'package:new_project_2025/view/home/widget/website_link_page/Website_link
 import 'package:new_project_2025/view/home/widget/Emergency_numbers_screen/Emergency_screen.dart';
 import 'package:new_project_2025/view/home/dream_page/dream_main_page/dream_page_main.dart';
 import 'package:new_project_2025/view_model/VisitingCard/your businessCard.dart';
+import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 
 void main() {
   runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -76,6 +84,8 @@ class SaveApp extends StatefulWidget {
 }
 
 class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
+  late AnimationController _networthPulseController;
+  late Animation<double> _networthPulseAnimation;
   late NotchBottomBarController _notchController;
   late AnimationController _animationController;
   late AnimationController _cardAnimationController;
@@ -87,8 +97,225 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
   PageController _pageController = PageController(initialPage: 0);
   String selectedYear = '2025';
   final List<String> years = ['2023', '2024', '2025', '2026'];
-  bool isDarkTheme = true; // Default theme
-  bool _isLoadingTheme = true; // Add loading state for theme
+  bool isDarkTheme = true;
+  bool _isLoadingTheme = true;
+
+  Map<String, double> assetBalances = {};
+  Map<String, double> liabilityBalances = {};
+  bool isLoadingNetworth = true;
+
+  double get totalAssets {
+    try {
+      if (assetBalances.isEmpty) return 0.0;
+
+      double sum = 0.0;
+      assetBalances.forEach((key, value) {
+        if (value != null && !value.isNaN && !value.isInfinite) {
+          sum += value;
+        }
+      });
+
+      return (sum.isNaN || sum.isInfinite) ? 0.0 : sum;
+    } catch (e) {
+      print('Error calculating total assets: $e');
+      return 0.0;
+    }
+  }
+
+  double get totalLiabilities {
+    try {
+      if (liabilityBalances.isEmpty) return 0.0;
+
+      double sum = 0.0;
+      liabilityBalances.forEach((key, value) {
+        if (value != null && !value.isNaN && !value.isInfinite) {
+          sum += value;
+        }
+      });
+
+      return (sum.isNaN || sum.isInfinite) ? 0.0 : sum;
+    } catch (e) {
+      print('Error calculating total liabilities: $e');
+      return 0.0;
+    }
+  }
+
+  double get networth {
+    try {
+      final assets = totalAssets;
+      final liabilities = totalLiabilities;
+
+      if (assets.isNaN || assets.isInfinite) return 0.0;
+      if (liabilities.isNaN || liabilities.isInfinite) return 0.0;
+
+      final net = assets - liabilities;
+      return (net.isNaN || net.isInfinite) ? 0.0 : net;
+    } catch (e) {
+      print('Error calculating networth: $e');
+      return 0.0;
+    }
+  }
+
+  Future<void> _initializeUserInitialDate() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Optional: Only call once per user or if not set
+    bool hasSyncedInitialDate =
+        prefs.getBool('has_synced_initial_date') ?? false;
+    if (hasSyncedInitialDate) {
+      print("Initial date already synced. Skipping API call.");
+      return;
+    }
+
+    try {
+      // Example: Set initial date to 1st April of current financial year (India)
+      DateTime now = DateTime.now();
+      int year = now.month >= 4 ? now.year : now.year - 1;
+      String initialDate = "01-04-$year"; // Format: DD-MM-YYYY
+
+      final result = await ApiHelper().updateInitialDate(
+        initialDate: initialDate,
+      );
+
+      if (result['status'] == 1 || result['success'] == true) {
+        await prefs.setBool('has_synced_initial_date', true);
+        print("Initial date synced successfully: $initialDate");
+
+        // Optional: Show a subtle toast
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Financial year setup completed!"),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        print("API Warning: ${result['message']}");
+      }
+    } catch (e) {
+      print("Failed to sync initial date: $e");
+      // Don't block app if API fails — it's not critical
+    }
+  }
+
+  Future<void> _loadNetworthBalances() async {
+    try {
+      final List<String> assetTypes = [
+        'Cash',
+        'Bank',
+        'Asset Account',
+        'Investment',
+        'Customers',
+      ];
+      final List<String> liabilityTypes = [
+        'Liability Account',
+        'Credit Card',
+        'Suppliers',
+      ];
+
+      final accounts = await DatabaseHelper().getAllData(
+        'TABLE_ACCOUNTSETTINGS',
+      );
+      Map<String, double> assets = {};
+      Map<String, double> liabilities = {};
+
+      for (String liabilityType in liabilityTypes) {
+        liabilities[liabilityType] = 0.0;
+      }
+
+      for (var account in accounts) {
+        try {
+          String dataString = account['data']?.toString() ?? '{}';
+          Map<String, dynamic> data = jsonDecode(dataString);
+          String accountType = data['Accounttype']?.toString() ?? '';
+          double openingBalance =
+              double.tryParse(data['balance']?.toString() ?? '0') ?? 0.0;
+
+          if (assetTypes.contains(accountType)) {
+            assets[accountType] = (assets[accountType] ?? 0.0) + openingBalance;
+          } else if (liabilityTypes.contains(accountType)) {
+            liabilities[accountType] =
+                (liabilities[accountType] ?? 0.0) + openingBalance;
+          }
+        } catch (e) {
+          print('Error parsing account: $e');
+        }
+      }
+
+      final transactions = await DatabaseHelper().getAllData('TABLE_ACCOUNTS');
+
+      for (var transaction in transactions) {
+        try {
+          String setupId = transaction['ACCOUNTS_setupid']?.toString() ?? '';
+          double amount =
+              double.tryParse(
+                transaction['ACCOUNTS_amount']?.toString() ?? '0',
+              ) ??
+              0.0;
+          String type =
+              transaction['ACCOUNTS_type']?.toString().toLowerCase() ?? '';
+          String accountType = await _getAccountTypeFromSetupId(setupId);
+
+          if (accountType.isEmpty) continue;
+
+          if (assetTypes.contains(accountType)) {
+            if (type == 'debit') {
+              assets[accountType] = (assets[accountType] ?? 0.0) + amount;
+            } else if (type == 'credit') {
+              assets[accountType] = (assets[accountType] ?? 0.0) - amount;
+            }
+          } else if (liabilityTypes.contains(accountType)) {
+            if (type == 'debit') {
+              liabilities[accountType] =
+                  (liabilities[accountType] ?? 0.0) - amount;
+            } else if (type == 'credit') {
+              liabilities[accountType] =
+                  (liabilities[accountType] ?? 0.0) + amount;
+            }
+          }
+        } catch (e) {
+          print('Error parsing transaction: $e');
+        }
+      }
+
+      setState(() {
+        assetBalances = assets;
+        liabilityBalances = liabilities;
+        isLoadingNetworth = false;
+        _debugNetworthValues();
+      });
+    } catch (e) {
+      print('Error loading net worth: $e');
+      setState(() {
+        isLoadingNetworth = false;
+      });
+    }
+  }
+
+  // Real Income & Expenditure Data
+  List<FinancialData> _monthlyData = [];
+  bool _isLoadingChartData = false;
+  Future<String> _getAccountTypeFromSetupId(String setupId) async {
+    try {
+      final db = await DatabaseHelper().database;
+      final result = await db.query(
+        'TABLE_ACCOUNTSETTINGS',
+        where: 'keyid = ?',
+        whereArgs: [setupId],
+      );
+
+      if (result.isNotEmpty) {
+        String dataString = result.first['data']?.toString() ?? '{}';
+        Map<String, dynamic> data = jsonDecode(dataString);
+        return data['Accounttype']?.toString() ?? '';
+      }
+      return '';
+    } catch (e) {
+      print('Error getting account type: $e');
+      return '';
+    }
+  }
 
   final List<String> _carouselImages = [
     'assets/caro1.jpg',
@@ -100,6 +327,25 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+
+    _loadThemePreference().then((_) {
+      _animationController.forward();
+      _cardAnimationController.forward();
+      _loadMonthlyIncomeExpenditure();
+      _loadNetworthBalances(); // Add this line
+    });
+    _initializeUserInitialDate();
+    _networthPulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat(reverse: true);
+
+    _networthPulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
+      CurvedAnimation(
+        parent: _networthPulseController,
+        curve: Curves.easeInOut,
+      ),
+    );
     _pageController = PageController(initialPage: 0);
     _notchController = NotchBottomBarController(index: 0);
 
@@ -128,22 +374,142 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       ),
     );
 
-    // Load theme preference FIRST before starting animations
     _loadThemePreference().then((_) {
       _animationController.forward();
       _cardAnimationController.forward();
+      _loadMonthlyIncomeExpenditure(); // Load real data
     });
 
-    // Initialize services
     ExpenseAccountHelper.insertExpenseAccounts();
     IncomeAccount.addIncomeAccount();
-    CashAccountHelper.insertCashAccount();
+    CashAccountHelper.insertDefaultAccounts();
     InvestmentAccount.insertInvestmentAccount();
     TargetCategoryService.addDefaultTargetCategories();
   }
 
+  // Load real Income & Expenditure data month-wise for the selected year
+  Future<void> _loadMonthlyIncomeExpenditure() async {
+    setState(() {
+      _isLoadingChartData = true;
+    });
+
+    try {
+      final db = await DatabaseHelper().database;
+      final accounts = await db.query('TABLE_ACCOUNTSETTINGS');
+
+      // Initialize monthly data for 12 months
+      Map<int, double> monthlyIncome = {};
+      Map<int, double> monthlyExpenditure = {};
+
+      for (int i = 1; i <= 12; i++) {
+        monthlyIncome[i] = 0;
+        monthlyExpenditure[i] = 0;
+      }
+
+      int year = int.parse(selectedYear);
+
+      for (var account in accounts) {
+        final data = account['data'];
+        if (data is String) {
+          Map<String, dynamic> accountData = jsonDecode(data);
+          String accountType =
+              accountData['Accounttype'].toString().toLowerCase();
+
+          if (accountType != 'income account' &&
+              accountType != 'expense account') {
+            continue;
+          }
+
+          final transactions = await db.rawQuery(
+            '''
+            SELECT * FROM TABLE_ACCOUNTS 
+            WHERE ACCOUNTS_setupid = ? 
+            AND ACCOUNTS_VoucherType IN (1, 2)
+            ''',
+            [account['keyid'].toString()],
+          );
+
+          for (var tx in transactions) {
+            try {
+              String dateStr = tx['ACCOUNTS_date'].toString();
+              DateTime txDate = DateFormat('dd/MM/yyyy').parse(dateStr);
+
+              // Only process transactions from selected year
+              if (txDate.year != year) continue;
+
+              int month = txDate.month;
+              double amount = double.parse(tx['ACCOUNTS_amount'].toString());
+              String transactionType =
+                  tx['ACCOUNTS_type'].toString().toLowerCase();
+
+              if (accountType == 'income account') {
+                // Income = Credits - Debits
+                if (transactionType == 'credit') {
+                  monthlyIncome[month] = (monthlyIncome[month] ?? 0) + amount;
+                } else if (transactionType == 'debit') {
+                  monthlyIncome[month] = (monthlyIncome[month] ?? 0) - amount;
+                }
+              } else {
+                // Expense = Debits - Credits
+                if (transactionType == 'debit') {
+                  monthlyExpenditure[month] =
+                      (monthlyExpenditure[month] ?? 0) + amount;
+                } else if (transactionType == 'credit') {
+                  monthlyExpenditure[month] =
+                      (monthlyExpenditure[month] ?? 0) - amount;
+                }
+              }
+            } catch (e) {
+              print('Error parsing transaction: $e');
+            }
+          }
+        }
+      }
+
+      // Create chart data
+      List<FinancialData> chartData = [];
+      List<String> monthNames = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+
+      for (int i = 1; i <= 12; i++) {
+        chartData.add(
+          FinancialData(
+            monthNames[i - 1],
+            monthlyIncome[i] ?? 0,
+            monthlyExpenditure[i] ?? 0,
+          ),
+        );
+      }
+
+      setState(() {
+        _monthlyData = chartData;
+        _isLoadingChartData = false;
+      });
+
+      print('Chart data loaded for year $selectedYear');
+    } catch (e) {
+      print('Error loading monthly income/expenditure: $e');
+      setState(() {
+        _isLoadingChartData = false;
+      });
+    }
+  }
+
   @override
   void dispose() {
+    _networthPulseController.dispose();
     _pageController.dispose();
     _animationController.dispose();
     _cardAnimationController.dispose();
@@ -159,7 +525,6 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
     });
   }
 
-  /// Save theme preference to SharedPreferences with unique key to persist across sessions
   Future<void> _saveThemePreference(bool isDark) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -170,7 +535,6 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
     }
   }
 
-  /// Load theme preference from SharedPreferences
   Future<void> _loadThemePreference() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -185,13 +549,12 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
     } catch (e) {
       debugPrint('Error loading theme preference: $e');
       setState(() {
-        isDarkTheme = true; // Fallback to dark theme
+        isDarkTheme = true;
         _isLoadingTheme = false;
       });
     }
   }
 
-  /// Toggle theme and save preference
   void _toggleTheme() {
     setState(() {
       isDarkTheme = !isDarkTheme;
@@ -240,7 +603,727 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
     );
   }
 
+  Widget _buildNetworthCard() {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_scaleAnimation, _networthPulseAnimation]),
+      builder: (context, child) {
+        // Clamp scale value to prevent issues
+        final safeScale = _scaleAnimation.value.clamp(0.0, 2.0);
+
+        return Transform.scale(
+          scale: safeScale,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+                BoxShadow(
+                  color: (isDarkTheme
+                          ? const Color(0xFF2C5F8D)
+                          : const Color(0xFF1976D2))
+                      .withOpacity(
+                        0.3 * _networthPulseAnimation.value.clamp(0.0, 1.0),
+                      ),
+                  blurRadius:
+                      25 * _networthPulseAnimation.value.clamp(0.0, 1.0),
+                  offset: const Offset(0, 0),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: Stack(
+                children: [
+                  // Enhanced gradient background
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 500),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors:
+                            isDarkTheme
+                                ? [
+                                  const Color(0xFF1A237E),
+                                  const Color(0xFF283593),
+                                  const Color(0xFF3949AB),
+                                ]
+                                : [
+                                  const Color(0xFFE3F2FD),
+                                  const Color(0xFFBBDEFB),
+                                  const Color(0xFF90CAF9),
+                                ],
+                      ),
+                    ),
+                  ),
+
+                  // Animated pattern overlay
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: NetworthPatternPainter(
+                        isDarkTheme: isDarkTheme,
+                        animation: _networthPulseAnimation.value.clamp(
+                          0.0,
+                          1.0,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Shimmer effect - FIXED
+                  Positioned.fill(
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: -2.0, end: 2.0),
+                      duration: const Duration(milliseconds: 3000),
+                      builder: (context, value, child) {
+                        return ClipRRect(
+                          borderRadius: BorderRadius.circular(24),
+                          child: Transform.translate(
+                            offset: Offset(value * 250, 0),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                  colors: [
+                                    Colors.transparent,
+                                    Colors.white.withOpacity(0.15),
+                                    Colors.transparent,
+                                  ],
+                                  stops: const [0.0, 0.5, 1.0],
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                      onEnd: () {
+                        if (mounted) {
+                          Future.delayed(const Duration(milliseconds: 200), () {
+                            if (mounted) setState(() {});
+                          });
+                        }
+                      },
+                    ),
+                  ),
+
+                  // Main content
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        HapticFeedback.mediumImpact();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => MyNetworthScreen(),
+                          ),
+                        ).then((_) {
+                          if (mounted) {
+                            _loadNetworthBalances();
+                          }
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(24),
+                      splashColor: Colors.white.withOpacity(0.1),
+                      highlightColor: Colors.white.withOpacity(0.05),
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Header Row
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                // Animated icon - FIXED
+                                TweenAnimationBuilder<double>(
+                                  tween: Tween(begin: 0.0, end: 1.0),
+                                  duration: const Duration(milliseconds: 1800),
+                                  curve: Curves.elasticOut,
+                                  builder: (context, value, child) {
+                                    // Clamp all animation values
+                                    final safeValue = value.clamp(0.0, 1.0);
+
+                                    return Transform.rotate(
+                                      angle: safeValue * 6.28,
+                                      child: Transform.scale(
+                                        scale: 0.85 + (0.15 * safeValue),
+                                        child: Container(
+                                          padding: const EdgeInsets.all(14),
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              colors:
+                                                  isDarkTheme
+                                                      ? [
+                                                        Colors.white
+                                                            .withOpacity(0.25),
+                                                        Colors.white
+                                                            .withOpacity(0.15),
+                                                      ]
+                                                      : [
+                                                        const Color(
+                                                          0xFF1976D2,
+                                                        ).withOpacity(0.2),
+                                                        const Color(
+                                                          0xFF1976D2,
+                                                        ).withOpacity(0.1),
+                                                      ],
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: (isDarkTheme
+                                                        ? Colors.white
+                                                        : const Color(
+                                                          0xFF1976D2,
+                                                        ))
+                                                    .withOpacity(0.3),
+                                                blurRadius:
+                                                    12 *
+                                                    _networthPulseAnimation
+                                                        .value
+                                                        .clamp(0.0, 1.0),
+                                                spreadRadius:
+                                                    3 *
+                                                    (_networthPulseAnimation
+                                                                .value
+                                                                .clamp(
+                                                                  0.0,
+                                                                  1.0,
+                                                                ) -
+                                                            1)
+                                                        .abs(),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Icon(
+                                            Icons
+                                                .account_balance_wallet_rounded,
+                                            color:
+                                                isDarkTheme
+                                                    ? Colors.white
+                                                    : const Color(0xFF1976D2),
+                                            size: 30,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+
+                                // View Details button - FIXED
+                                Flexible(
+                                  child: TweenAnimationBuilder<double>(
+                                    tween: Tween(begin: 0.0, end: 1.0),
+                                    duration: const Duration(
+                                      milliseconds: 1000,
+                                    ),
+                                    curve: Curves.easeOutBack,
+                                    builder: (context, value, child) {
+                                      final safeValue = value.clamp(0.0, 1.0);
+
+                                      return Transform.translate(
+                                        offset: Offset(30 * (1 - safeValue), 0),
+                                        child: Opacity(
+                                          opacity: safeValue,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 14,
+                                              vertical: 8,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                colors:
+                                                    isDarkTheme
+                                                        ? [
+                                                          Colors.white
+                                                              .withOpacity(
+                                                                0.25,
+                                                              ),
+                                                          Colors.white
+                                                              .withOpacity(
+                                                                0.15,
+                                                              ),
+                                                        ]
+                                                        : [
+                                                          const Color(
+                                                            0xFF1976D2,
+                                                          ).withOpacity(0.2),
+                                                          const Color(
+                                                            0xFF1976D2,
+                                                          ).withOpacity(0.1),
+                                                        ],
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(25),
+                                              border: Border.all(
+                                                color: (isDarkTheme
+                                                        ? Colors.white
+                                                        : const Color(
+                                                          0xFF1976D2,
+                                                        ))
+                                                    .withOpacity(0.3),
+                                                width: 1.5,
+                                              ),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Flexible(
+                                                  child: Text(
+                                                    'View Details',
+                                                    style: TextStyle(
+                                                      color:
+                                                          isDarkTheme
+                                                              ? Colors.white
+                                                              : const Color(
+                                                                0xFF1976D2,
+                                                              ),
+                                                      fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      letterSpacing: 0.3,
+                                                    ),
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    maxLines: 1,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Icon(
+                                                  Icons.arrow_forward_rounded,
+                                                  color:
+                                                      isDarkTheme
+                                                          ? Colors.white
+                                                          : const Color(
+                                                            0xFF1976D2,
+                                                          ),
+                                                  size: 14,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 24),
+
+                            // Title - FIXED
+                            TweenAnimationBuilder<double>(
+                              tween: Tween(begin: 0.0, end: 1.0),
+                              duration: const Duration(milliseconds: 800),
+                              builder: (context, value, child) {
+                                final safeValue = value.clamp(0.0, 1.0);
+
+                                return Opacity(
+                                  opacity: safeValue,
+                                  child: Transform.translate(
+                                    offset: Offset(0, 15 * (1 - safeValue)),
+                                    child: Text(
+                                      'My NetWorth',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        color:
+                                            isDarkTheme
+                                                ? Colors.white.withOpacity(0.9)
+                                                : const Color(0xFF1565C0),
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Net Worth Value - FIXED
+                            isLoadingNetworth
+                                ? Container(
+                                  height: 50,
+                                  alignment: Alignment.centerLeft,
+                                  child: SizedBox(
+                                    width: 28,
+                                    height: 28,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 3,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        isDarkTheme
+                                            ? Colors.white
+                                            : const Color(0xFF1976D2),
+                                      ),
+                                    ),
+                                  ),
+                                )
+                                : LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    final safeNetworth =
+                                        (networth.isNaN || networth.isInfinite)
+                                            ? 0.0
+                                            : networth;
+
+                                    return TweenAnimationBuilder<double>(
+                                      tween: Tween(
+                                        begin: 0.0,
+                                        end: safeNetworth,
+                                      ),
+                                      duration: const Duration(
+                                        milliseconds: 2000,
+                                      ),
+                                      curve: Curves.easeOutCubic,
+                                      builder: (context, value, child) {
+                                        final displayValue =
+                                            (value.isNaN || value.isInfinite)
+                                                ? 0.0
+                                                : value;
+
+                                        String formattedValue =
+                                            '₹${displayValue.toStringAsFixed(2)}';
+
+                                        double fontSize = 38;
+                                        if (formattedValue.length > 15) {
+                                          fontSize = 28;
+                                        } else if (formattedValue.length > 12) {
+                                          fontSize = 32;
+                                        }
+
+                                        return SizedBox(
+                                          width: constraints.maxWidth,
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            alignment: Alignment.centerLeft,
+                                            child: ShaderMask(
+                                              shaderCallback:
+                                                  (bounds) => LinearGradient(
+                                                    colors:
+                                                        isDarkTheme
+                                                            ? [
+                                                              Colors.white,
+                                                              Colors.white
+                                                                  .withOpacity(
+                                                                    0.9,
+                                                                  ),
+                                                            ]
+                                                            : [
+                                                              const Color(
+                                                                0xFF0D47A1,
+                                                              ),
+                                                              const Color(
+                                                                0xFF1976D2,
+                                                              ),
+                                                            ],
+                                                  ).createShader(bounds),
+                                              child: Text(
+                                                formattedValue,
+                                                style: TextStyle(
+                                                  fontSize: fontSize,
+                                                  fontWeight: FontWeight.w900,
+                                                  color: Colors.white,
+                                                  letterSpacing: 1.2,
+                                                  height: 1.2,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    );
+                                  },
+                                ),
+
+                            const SizedBox(height: 20),
+
+                            // Assets and Liabilities Row
+                            SizedBox(
+                              width: double.infinity,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceEvenly,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.max,
+                                  children: [
+                                    SizedBox(
+                                      width: 110,
+                                      child: _buildNetworthItem(
+                                        'Assets',
+                                        totalAssets,
+                                        Colors.green,
+                                        Icons.trending_up_rounded,
+                                        true,
+                                      ),
+                                    ),
+                                    Container(
+                                      width: 2,
+                                      height: 60,
+                                      margin: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topCenter,
+                                          end: Alignment.bottomCenter,
+                                          colors: [
+                                            (isDarkTheme
+                                                    ? Colors.white
+                                                    : const Color(0xFF1976D2))
+                                                .withOpacity(0.1),
+                                            (isDarkTheme
+                                                    ? Colors.white
+                                                    : const Color(0xFF1976D2))
+                                                .withOpacity(0.3),
+                                            (isDarkTheme
+                                                    ? Colors.white
+                                                    : const Color(0xFF1976D2))
+                                                .withOpacity(0.1),
+                                          ],
+                                        ),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: 110,
+                                      child: _buildNetworthItem(
+                                        'Liabilities',
+                                        totalLiabilities,
+                                        Colors.red,
+                                        Icons.trending_down_rounded,
+                                        false,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildNetworthItem(
+    String label,
+    double amount,
+    Color color,
+    IconData icon,
+    bool isLeft,
+  ) {
+    final safeAmount =
+        (amount == null || amount.isNaN || amount.isInfinite) ? 0.0 : amount;
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 1200),
+      curve: Curves.easeOutBack,
+      builder: (context, value, child) {
+        // Clamp animation value
+        final safeValue = value.clamp(0.0, 1.0);
+
+        return Transform.translate(
+          offset: Offset(
+            isLeft ? -40 * (1 - safeValue) : 40 * (1 - safeValue),
+            0,
+          ),
+          child: Opacity(
+            opacity: safeValue,
+            child: IntrinsicWidth(
+              child: Column(
+                crossAxisAlignment:
+                    isLeft ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Icon and Label Row
+                  SizedBox(
+                    width: 110,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment:
+                          isLeft
+                              ? MainAxisAlignment.start
+                              : MainAxisAlignment.end,
+                      children: [
+                        AnimatedBuilder(
+                          animation: _networthPulseAnimation,
+                          builder: (context, child) {
+                            final pulseValue = _networthPulseAnimation.value
+                                .clamp(0.0, 1.0);
+
+                            return Container(
+                              padding: const EdgeInsets.all(5),
+                              decoration: BoxDecoration(
+                                color: color.withOpacity(0.2),
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: color.withOpacity(0.5),
+                                    blurRadius: 8 * pulseValue,
+                                    spreadRadius: 1 * (pulseValue - 1).abs(),
+                                  ),
+                                ],
+                              ),
+                              child: Icon(icon, color: color, size: 12),
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color:
+                                  isDarkTheme
+                                      ? Colors.white.withOpacity(0.85)
+                                      : const Color(0xFF424242),
+                              letterSpacing: 0.2,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+
+                  // Amount Container
+                  SizedBox(
+                    width: 110,
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.0, end: safeAmount),
+                      duration: const Duration(milliseconds: 2000),
+                      curve: Curves.easeOutCubic,
+                      builder: (context, animValue, child) {
+                        final displayValue =
+                            (animValue == null ||
+                                    animValue.isNaN ||
+                                    animValue.isInfinite)
+                                ? 0.0
+                                : animValue;
+
+                        String formattedAmount;
+                        try {
+                          formattedAmount =
+                              '₹${displayValue.toStringAsFixed(2)}';
+                        } catch (e) {
+                          formattedAmount = '₹0.00';
+                        }
+
+                        double fontSize = 11;
+                        int length = formattedAmount.length;
+                        if (length <= 8) {
+                          fontSize = 14;
+                        } else if (length <= 10) {
+                          fontSize = 13;
+                        } else if (length <= 12) {
+                          fontSize = 12;
+                        }
+
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors:
+                                  isDarkTheme
+                                      ? [
+                                        Colors.white.withOpacity(0.15),
+                                        Colors.white.withOpacity(0.08),
+                                      ]
+                                      : [
+                                        Colors.white.withOpacity(0.9),
+                                        Colors.white.withOpacity(0.7),
+                                      ],
+                            ),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color:
+                                  isDarkTheme
+                                      ? Colors.white.withOpacity(0.2)
+                                      : color.withOpacity(0.3),
+                              width: 1,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: color.withOpacity(0.2),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                formattedAmount,
+                                style: TextStyle(
+                                  fontSize: fontSize,
+                                  fontWeight: FontWeight.w800,
+                                  color:
+                                      isDarkTheme
+                                          ? Colors.white
+                                          : const Color(0xFF1565C0),
+                                  letterSpacing: 0.3,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildChartDialogContent(BuildContext context) {
+    // Calculate totals from real data
+    double totalIncome = 0;
+    double totalExpenditure = 0;
+
+    for (var data in _monthlyData) {
+      totalIncome += data.income;
+      totalExpenditure += data.expense;
+    }
+
+    double netProfitLoss = totalIncome - totalExpenditure;
+
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,
       width: MediaQuery.of(context).size.width * 0.9,
@@ -281,188 +1364,368 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                 topRight: Radius.circular(24),
               ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Financial Analytics',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Income vs Expenditure',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.white.withOpacity(0.8),
-                      ),
-                    ),
-                  ],
-                ),
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.3),
-                        ),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: selectedYear,
-                          icon: const Icon(
-                            Icons.keyboard_arrow_down,
-                            color: Colors.white,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Financial Analytics',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
                           ),
-                          dropdownColor: const Color(0xFF008080),
-                          style: const TextStyle(color: Colors.white),
-                          onChanged: (String? newValue) {
-                            if (newValue != null) {
-                              setState(() {
-                                selectedYear = newValue;
-                              });
-                            }
-                          },
-                          items:
-                              years.map<DropdownMenuItem<String>>((
-                                String value,
-                              ) {
-                                return DropdownMenuItem<String>(
-                                  value: value,
-                                  child: Text(
-                                    value,
-                                    style: const TextStyle(color: Colors.white),
-                                  ),
-                                );
-                              }).toList(),
-                        ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Income vs Expenditure',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white.withOpacity(0.8),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white),
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
+                    const SizedBox(width: 8),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.3),
+                            ),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: selectedYear,
+                              icon: const Icon(
+                                Icons.keyboard_arrow_down,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                              dropdownColor: const Color(0xFF008080),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                              ),
+                              onChanged: (String? newValue) {
+                                if (newValue != null) {
+                                  setState(() {
+                                    selectedYear = newValue;
+                                  });
+                                  Navigator.of(context).pop();
+                                  _loadMonthlyIncomeExpenditure();
+                                  Future.delayed(
+                                    Duration(milliseconds: 300),
+                                    () {
+                                      _showChartDialog();
+                                    },
+                                  );
+                                }
+                              },
+                              items:
+                                  years.map<DropdownMenuItem<String>>((
+                                    String value,
+                                  ) {
+                                    return DropdownMenuItem<String>(
+                                      value: value,
+                                      child: Text(
+                                        value,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: IconButton(
+                            padding: EdgeInsets.all(6),
+                            constraints: BoxConstraints(),
+                            icon: const Icon(
+                              Icons.close,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ],
             ),
           ),
+
+          // Summary Cards
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.green.shade400, Colors.green.shade600],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.green.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Total Income',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withOpacity(0.9),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '₹${totalIncome.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.purple.shade400,
+                          Colors.purple.shade600,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.purple.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Total Expense',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withOpacity(0.9),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '₹${totalExpenditure.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Net Profit/Loss
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color:
+                    netProfitLoss >= 0
+                        ? Colors.green.shade50
+                        : Colors.red.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color:
+                      netProfitLoss >= 0
+                          ? Colors.green.shade200
+                          : Colors.red.shade200,
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    netProfitLoss >= 0
+                        ? Icons.trending_up
+                        : Icons.trending_down,
+                    color: netProfitLoss >= 0 ? Colors.green : Colors.red,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${netProfitLoss >= 0 ? "Profit" : "Loss"}: ₹${netProfitLoss.abs().toStringAsFixed(2)}',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: netProfitLoss >= 0 ? Colors.green : Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(20.0),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isDarkTheme ? Colors.grey.shade800 : Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: SfCartesianChart(
-                    plotAreaBorderWidth: 0,
-                    primaryXAxis: CategoryAxis(
-                      majorGridLines: const MajorGridLines(width: 0),
-                      axisLine: const AxisLine(width: 0),
-                      labelStyle: TextStyle(
-                        color:
-                            isDarkTheme
-                                ? Colors.grey.shade400
-                                : Colors.grey.shade600,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    primaryYAxis: NumericAxis(
-                      minimum: 0,
-                      maximum: 4000,
-                      interval: 500,
-                      majorGridLines: MajorGridLines(
-                        width: 0.5,
-                        color:
-                            isDarkTheme
-                                ? Colors.grey.shade700
-                                : Colors.grey.shade200,
-                      ),
-                      axisLine: const AxisLine(width: 0),
-                      labelStyle: TextStyle(
-                        color:
-                            isDarkTheme
-                                ? Colors.grey.shade400
-                                : Colors.grey.shade600,
-                        fontSize: 12,
-                      ),
-                    ),
-                    legend: Legend(
-                      isVisible: true,
-                      position: LegendPosition.bottom,
-                      textStyle: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    tooltipBehavior: TooltipBehavior(enable: true),
-                    series: <CartesianSeries<FinancialData, String>>[
-                      ColumnSeries<FinancialData, String>(
-                        name: 'Income',
-                        dataSource: getChartData(),
-                        xValueMapper: (FinancialData data, _) => data.month,
-                        yValueMapper: (FinancialData data, _) => data.income,
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF4CAF50), Color(0xFF81C784)],
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
+              child:
+                  _isLoadingChartData
+                      ? Center(
+                        child: CircularProgressIndicator(
+                          color: const Color(0xFF008080),
                         ),
-                        width: 0.4,
-                        spacing: 0.1,
-                        borderRadius: BorderRadius.circular(8),
-                        animationDuration: 2000,
-                        enableTooltip: true,
-                      ),
-                      ColumnSeries<FinancialData, String>(
-                        name: 'Expense',
-                        dataSource: getChartData(),
-                        xValueMapper: (FinancialData data, _) => data.month,
-                        yValueMapper: (FinancialData data, _) => data.expense,
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF9C27B0), Color(0xFFBA68C8)],
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
+                      )
+                      : Container(
+                        decoration: BoxDecoration(
+                          color:
+                              isDarkTheme ? Colors.grey.shade800 : Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.1),
+                              blurRadius: 10,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
                         ),
-                        width: 0.4,
-                        spacing: 0.1,
-                        borderRadius: BorderRadius.circular(8),
-                        animationDuration: 2000,
-                        enableTooltip: true,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: SfCartesianChart(
+                            plotAreaBorderWidth: 0,
+                            primaryXAxis: CategoryAxis(
+                              majorGridLines: const MajorGridLines(width: 0),
+                              axisLine: const AxisLine(width: 0),
+                              labelStyle: TextStyle(
+                                color:
+                                    isDarkTheme
+                                        ? Colors.grey.shade400
+                                        : Colors.grey.shade600,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            primaryYAxis: NumericAxis(
+                              numberFormat: NumberFormat.compact(),
+                              majorGridLines: MajorGridLines(
+                                width: 0.5,
+                                color:
+                                    isDarkTheme
+                                        ? Colors.grey.shade700
+                                        : Colors.grey.shade200,
+                              ),
+                              axisLine: const AxisLine(width: 0),
+                              labelStyle: TextStyle(
+                                color:
+                                    isDarkTheme
+                                        ? Colors.grey.shade400
+                                        : Colors.grey.shade600,
+                                fontSize: 12,
+                              ),
+                            ),
+                            legend: Legend(
+                              isVisible: true,
+                              position: LegendPosition.bottom,
+                              textStyle: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            tooltipBehavior: TooltipBehavior(enable: true),
+                            series: <CartesianSeries<FinancialData, String>>[
+                              ColumnSeries<FinancialData, String>(
+                                name: 'Income',
+                                dataSource: _monthlyData,
+                                xValueMapper:
+                                    (FinancialData data, _) => data.month,
+                                yValueMapper:
+                                    (FinancialData data, _) => data.income,
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFF4CAF50),
+                                    Color(0xFF81C784),
+                                  ],
+                                  begin: Alignment.bottomCenter,
+                                  end: Alignment.topCenter,
+                                ),
+                                width: 0.4,
+                                spacing: 0.1,
+                                borderRadius: BorderRadius.circular(8),
+                                animationDuration: 2000,
+                                enableTooltip: true,
+                              ),
+                              ColumnSeries<FinancialData, String>(
+                                name: 'Expense',
+                                dataSource: _monthlyData,
+                                xValueMapper:
+                                    (FinancialData data, _) => data.month,
+                                yValueMapper:
+                                    (FinancialData data, _) => data.expense,
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFF9C27B0),
+                                    Color(0xFFBA68C8),
+                                  ],
+                                  begin: Alignment.bottomCenter,
+                                  end: Alignment.topCenter,
+                                ),
+                                width: 0.4,
+                                spacing: 0.1,
+                                borderRadius: BorderRadius.circular(8),
+                                animationDuration: 2000,
+                                enableTooltip: true,
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
             ),
           ),
           Container(
@@ -481,7 +1744,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Currency: USD',
+                      'Year: $selectedYear',
                       style: TextStyle(
                         color:
                             isDarkTheme
@@ -493,7 +1756,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Last updated: May 2025',
+                      'Real-time data from your accounts',
                       style: TextStyle(
                         color:
                             isDarkTheme
@@ -546,7 +1809,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: const Text(
-                                'Chart exported successfully!',
+                                'Chart data refreshed successfully!',
                               ),
                               backgroundColor: const Color(0xFF008080),
                               shape: RoundedRectangleBorder(
@@ -556,6 +1819,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                             ),
                           );
                           Navigator.of(context).pop();
+                          _loadMonthlyIncomeExpenditure();
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.transparent,
@@ -566,7 +1830,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                           ),
                         ),
                         child: const Text(
-                          'Export',
+                          'Refresh',
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w600,
@@ -627,7 +1891,7 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                         const Color(0xFFF5F5F5),
                       ],
             ),
-          ), 
+          ),
           child: Column(
             children: [
               _buildAppBar(),
@@ -1048,8 +2312,14 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                 children: [
                   _buildCarouselSlider(),
                   const SizedBox(height: 20),
+                  _buildNetworthCard(),
+                  const SizedBox(height: 10),
                   _buildSectionHeader('💰 My Money'),
                   _buildCategoryGrid(_moneyCategories),
+
+                  // Add Net Worth Card here (after My Money section)
+                  // const SizedBox(height: 10),
+                  // _buildNetworthCard(),
                   _buildSectionHeader('🏠 My Belongings'),
                   _buildCategoryGrid(_belongingsCategories),
                   _buildSectionHeader('✨ My Life'),
@@ -1134,26 +2404,32 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
                           ),
                         ),
                         const SizedBox(width: 15),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Financial Analytics',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Financial Analytics',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
                               ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'View detailed charts and insights',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.white.withOpacity(0.8),
+                              const SizedBox(height: 2),
+                              Text(
+                                'View real-time income & expense data',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.white.withOpacity(0.8),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                         const Spacer(),
                         const Icon(
@@ -1173,21 +2449,20 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
     );
   }
 
-  List<FinancialData> getChartData() {
-    return [
-      FinancialData('Jan', 2800, 2200),
-      FinancialData('Feb', 3200, 2800),
-      FinancialData('Mar', 2600, 2400),
-      FinancialData('Apr', 3400, 3000),
-      FinancialData('May', 2500, 3600),
-      FinancialData('Jun', 3600, 2900),
-      FinancialData('Jul', 3800, 3200),
-      FinancialData('Aug', 3200, 2800),
-      FinancialData('Sep', 2900, 2600),
-      FinancialData('Oct', 3500, 3100),
-      FinancialData('Nov', 3300, 2900),
-      FinancialData('Dec', 3700, 3300),
-    ];
+  void _debugNetworthValues() {
+    print('=== NetWorth Debug ===');
+    print('Asset Balances: $assetBalances');
+    print('Liability Balances: $liabilityBalances');
+    print(
+      'Total Assets: $totalAssets (isNaN: ${totalAssets.isNaN}, isInfinite: ${totalAssets.isInfinite})',
+    );
+    print(
+      'Total Liabilities: $totalLiabilities (isNaN: ${totalLiabilities.isNaN}, isInfinite: ${totalLiabilities.isInfinite})',
+    );
+    print(
+      'NetWorth: $networth (isNaN: ${networth.isNaN}, isInfinite: ${networth.isInfinite})',
+    );
+    print('==================');
   }
 
   Widget _buildSectionHeader(String title) {
