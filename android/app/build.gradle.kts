@@ -32,12 +32,12 @@ android {
 
     defaultConfig {
         applicationId = "com.mysave"
-        minSdk = 21  // Ensure minimum SDK is at least 21
+        minSdk = flutter.minSdkVersion  // Ensure minimum SDK is at least 21
         targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
+        versionCode = 2
         versionName = flutter.versionName
         multiDexEnabled = true  // Enable multidex
-    }
+    } 
 
     // ADD THIS SECTION - Disable lint to prevent file locking issues on Windows
     lint {

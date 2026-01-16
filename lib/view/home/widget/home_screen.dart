@@ -8,6 +8,8 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:new_project_2025/services/API_services/API_services.dart';
 import 'package:new_project_2025/view/home/dream_page/dream_class/db_class.dart';
+import 'package:new_project_2025/view/home/widget/BBBS/BBBS_Second_screen.dart';
+import 'package:new_project_2025/view/home/widget/BBBS/main_screen_BBS/main_screen_BBS.dart';
 import 'package:new_project_2025/view/home/widget/DTH_screen/DTHScreen.dart';
 import 'package:new_project_2025/view/home/widget/DTH_screen/d_t_h_recharge_dashboard.dart';
 import 'package:new_project_2025/view/home/widget/More_page/More_page.dart';
@@ -2920,14 +2922,17 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
     ),
   ];
 
+  // Replace your existing _utilitiesCategories list with this updated version:
+  // Replace your existing _utilitiesCategories list with this updated version:
+
   final List<CategoryItem> _utilitiesCategories = [
     CategoryItem(
       icon: Icons.smartphone,
       label: 'Mobile Recharge',
       iconColor: Colors.teal,
       onPressed:
-          (BuildContext context) => Navigator.push(
-            context,
+          (BuildContext ctx) => Navigator.push(
+            ctx,
             MaterialPageRoute(builder: (context) => MobileRechargeScreen()),
           ),
     ),
@@ -2936,18 +2941,31 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       label: 'DTH Recharge',
       iconColor: Colors.teal,
       onPressed:
-          (BuildContext context) => Navigator.push(
-            context,
+          (BuildContext ctx) => Navigator.push(
+            ctx,
             MaterialPageRoute(builder: (context) => DTHRechargeDashboard()),
           ),
+    ),
+    CategoryItem(
+      icon: Icons.receipt_long,
+      label: 'Bill Payment',
+      iconColor: Colors.teal,
+      onPressed: (BuildContext ctx) {
+        // Add your Bill Payment screen navigation here
+        Navigator.push(
+          ctx,
+          MaterialPageRoute(builder: (context) => BBSServicePage()),
+        );
+        // Or show a dialog/bottom sheet for bill payment options
+      },
     ),
     CategoryItem(
       icon: Icons.contact_mail,
       label: 'Visiting Card',
       iconColor: Colors.teal,
-      onPressed: (BuildContext context) {
+      onPressed: (BuildContext ctx) {
         Navigator.push(
-          context,
+          ctx,
           MaterialPageRoute(builder: (context) => AddVisitingCard()),
         );
       },
@@ -2956,9 +2974,9 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       icon: Icons.link,
       label: 'Website Links',
       iconColor: Colors.teal,
-      onPressed: (BuildContext context) {
+      onPressed: (BuildContext ctx) {
         Navigator.push(
-          context,
+          ctx,
           MaterialPageRoute(builder: (context) => WebLinksListPage()),
         );
       },
@@ -2967,9 +2985,9 @@ class _SaveAppState extends State<SaveApp> with TickerProviderStateMixin {
       icon: Icons.warning,
       label: 'Emergency Numbers',
       iconColor: Colors.teal,
-      onPressed: (BuildContext context) {
+      onPressed: (BuildContext ctx) {
         Navigator.push(
-          context,
+          ctx,
           MaterialPageRoute(builder: (context) => EmergencyNumbersScreen()),
         );
       },

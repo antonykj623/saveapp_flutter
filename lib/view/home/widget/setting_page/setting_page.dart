@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:new_project_2025/services/connectivity_service/connectivity_service.dart';
 import 'package:new_project_2025/view/home/widget/delete_account/delete_account.dart';
 import 'package:new_project_2025/view/home/widget/profile_page/profile_page.dart';
 import 'package:new_project_2025/view/home/widget/setting_page/app_lock/App_lock.dart';
@@ -225,6 +226,16 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Future<void> _showLogoutDialog() async {
+    // ✅ Check connectivity before showing logout dialog
+    bool isConnected = await ConnectivityUtils.isConnected();
+
+    if (!isConnected) {
+      if (mounted) {
+        ConnectivityUtils.showNoInternetDialog(context);
+      }
+      return;
+    }
+
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -304,6 +315,16 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   Future<void> _handleLogout() async {
     try {
+      // ✅ Check connectivity again before performing logout
+      bool isConnected = await ConnectivityUtils.isConnected();
+
+      if (!isConnected) {
+        if (mounted) {
+          ConnectivityUtils.showNoInternetDialog(context);
+        }
+        return;
+      }
+
       // Call LogoutHelper's logoutUser function
       await LogoutHelper.logoutUser();
 
@@ -397,6 +418,44 @@ class _SettingsScreenState extends State<SettingsScreen>
       await VersionCheckService.checkForAppUpdate(context);
     } catch (e) {
       Navigator.of(context).pop();
+    }
+  }
+
+  // ✅ Navigate to Purchase/Renewal with connectivity check
+  Future<void> _navigateToPurchaseRenewal() async {
+    bool isConnected = await ConnectivityUtils.isConnected();
+
+    if (!isConnected) {
+      if (mounted) {
+        ConnectivityUtils.showNoInternetDialog(context);
+      }
+      return;
+    }
+
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => AppRenewalScreen()),
+      );
+    }
+  }
+
+  // ✅ Navigate to Delete Account with connectivity check
+  Future<void> _navigateToDeleteAccount() async {
+    bool isConnected = await ConnectivityUtils.isConnected();
+
+    if (!isConnected) {
+      if (mounted) {
+        ConnectivityUtils.showNoInternetDialog(context);
+      }
+      return;
+    }
+
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => AlertToConfirmScreen()),
+      );
     }
   }
 
@@ -516,7 +575,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => LockPatternPage(),
+                                  builder: (context) => LockPatternMain(),
                                 ),
                               ).then((_) {
                                 // Refresh app lock state when returning from pattern page
@@ -533,7 +592,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                           title: 'Data Backup',
                           subtitle: 'Backup your data to cloud',
                           iconColor: Colors.green,
-                          isDisabled: false, // Changed from true to false
+                          isDisabled: false,
                           onTap: () {
                             Navigator.push(
                               context,
@@ -543,13 +602,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                             );
                           },
                         ),
-
                         _buildSettingCard(
                           icon: Icons.cloud_download_outlined,
                           title: 'Restore Your Data',
                           subtitle: 'Restore data from backup',
                           iconColor: Colors.teal,
-                          isDisabled: false, // Changed from true to false
+                          isDisabled: false,
                           onTap: () {
                             Navigator.push(
                               context,
@@ -572,14 +630,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                           title: 'Purchase or Renewal',
                           subtitle: 'Manage your subscriptions',
                           iconColor: Colors.amber,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => AppRenewalScreen(),
-                              ),
-                            );
-                          },
+                          onTap:
+                              _navigateToPurchaseRenewal, // ✅ Added connectivity check
                         ),
                         _buildSectionTitle('Account Actions'),
                         _buildSettingCard(
@@ -587,21 +639,16 @@ class _SettingsScreenState extends State<SettingsScreen>
                           title: 'Logout',
                           subtitle: 'Sign out and close app',
                           iconColor: Colors.red,
-                          onTap: _showLogoutDialog,
+                          onTap:
+                              _showLogoutDialog, // ✅ Already has connectivity check
                         ),
                         _buildSettingCard(
                           icon: Icons.delete_forever_outlined,
                           title: 'Delete Account',
                           subtitle: 'Permanently delete your account',
                           iconColor: Colors.red[700]!,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => AlertToConfirmScreen(),
-                              ),
-                            );
-                          },
+                          onTap:
+                              _navigateToDeleteAccount, // ✅ Added connectivity check
                         ),
                         const SizedBox(height: 20),
                       ],

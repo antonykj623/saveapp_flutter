@@ -9,6 +9,7 @@ class PaymentReceiptLedger extends StatefulWidget {
   const PaymentReceiptLedger({super.key});
 
   @override
+     
   State<PaymentReceiptLedger> createState() => _PaymentReceiptLedgerState();
 }
 
@@ -32,13 +33,83 @@ class _PaymentReceiptLedgerState extends State<PaymentReceiptLedger> {
     super.dispose();
   }
 
+  // Helper method to parse date from string (handles multiple formats)
+  DateTime? _parseDate(String dateStr) {
+    try {
+      // Try common date formats
+      final formats = [
+        'yyyy-MM-dd',
+        'dd/MM/yyyy',
+        'MM/dd/yyyy',
+        'dd-MM-yyyy',
+        'yyyy/MM/dd',
+      ];
+
+      for (var format in formats) {
+        try {
+          return DateFormat(format).parse(dateStr);
+        } catch (e) {
+          continue;
+        }
+      }
+
+      // If none of the formats work, try DateTime.parse
+      return DateTime.parse(dateStr);
+    } catch (e) {
+      print('Error parsing date: $dateStr - $e');
+      return null;
+    }
+  }
+
+  // Check if transaction date is within selected range
+  bool _isDateInRange(String dateStr) {
+    final txDate = _parseDate(dateStr);
+    if (txDate == null) return false;
+
+    // Normalize dates to compare only date parts (ignore time)
+    final startDate = DateTime(
+      selected_startDate.year,
+      selected_startDate.month,
+      selected_startDate.day,
+    );
+    final endDate = DateTime(
+      selected_endDate.year,
+      selected_endDate.month,
+      selected_endDate.day,
+      23,
+      59,
+      59,
+    );
+    final transactionDate = DateTime(txDate.year, txDate.month, txDate.day);
+
+    return transactionDate.isAfter(startDate.subtract(Duration(days: 1))) &&
+        transactionDate.isBefore(endDate.add(Duration(days: 1)));
+  }
+
+  // Check if date is before a given date
+  bool _isDateBefore(String dateStr, DateTime compareDate) {
+    final txDate = _parseDate(dateStr);
+    if (txDate == null) return false;
+
+    final startOfDay = DateTime(
+      compareDate.year,
+      compareDate.month,
+      compareDate.day,
+    );
+    final transactionDate = DateTime(txDate.year, txDate.month, txDate.day);
+
+    return transactionDate.isBefore(startOfDay);
+  }
+
   Future<void> _loadTransactions() async {
     try {
       final db = await DatabaseHelper().database;
       final accounts = await db.query('TABLE_ACCOUNTSETTINGS');
       List<Map<String, dynamic>> balances = [];
 
-      print('=== DEBUG: Payment/Receipt Calculation (Excluding Cash/Bank) ===');
+      print(
+        '=== DEBUG: Payment/Receipt Calculation (Date Range: ${_getDisplayStartDate()} to ${_getDisplayEndDate()}) ===',
+      );
 
       double grandTotalPayments = 0;
       double grandTotalReceipts = 0;
@@ -56,7 +127,7 @@ class _PaymentReceiptLedgerState extends State<PaymentReceiptLedger> {
             print('Skipping Cash/Bank account: $accountName');
             continue;
           }
-
+    
           print('\n--- Checking Account: $accountName ---');
 
           // Get all transactions for this account
@@ -64,30 +135,71 @@ class _PaymentReceiptLedgerState extends State<PaymentReceiptLedger> {
             'TABLE_ACCOUNTS',
             where: "ACCOUNTS_setupid = ?",
             whereArgs: [account['keyid'].toString()],
+            orderBy: "ACCOUNTS_date ASC, ACCOUNTS_id ASC",
           );
 
-          print('Total transactions: ${transactions.length}');
-
-          // SKIP accounts with no transactions
-          if (transactions.isEmpty) {
-            print('No transactions found - SKIPPING this account');
-            continue;
-          }
+          print('Total transactions in DB: ${transactions.length}');
 
           // Get opening balance from account settings
-          double openingBalance =
+          double initialOpeningBalance =
               double.tryParse(accountData['balance']?.toString() ?? '0') ?? 0;
           String accountNature = accountData['Type'].toString().toLowerCase();
 
           print('Account Type: $accountNature');
           print('Account Category: $accountType');
-          print('Opening Balance: $openingBalance');
+          print('Initial Opening Balance: $initialOpeningBalance');
+
+          // Calculate opening balance by processing transactions BEFORE start date
+          double calculatedOpeningBalance = initialOpeningBalance;
+          int beforeCount = 0;
+
+          for (var tx in transactions) {
+            if (_isDateBefore(
+              tx['ACCOUNTS_date'].toString(),
+              selected_startDate,
+            )) {
+              double amount = double.parse(tx['ACCOUNTS_amount'].toString());
+              bool isDebit =
+                  tx['ACCOUNTS_type'].toString().toLowerCase() == 'debit';
+
+              if (accountNature == 'debit') {
+                calculatedOpeningBalance =
+                    isDebit
+                        ? calculatedOpeningBalance + amount
+                        : calculatedOpeningBalance - amount;
+              } else {
+                calculatedOpeningBalance =
+                    isDebit
+                        ? calculatedOpeningBalance - amount
+                        : calculatedOpeningBalance + amount;
+              }
+              beforeCount++;
+            }
+          }
+
+          print('Transactions before start date: $beforeCount');
+          print('Calculated Opening Balance: $calculatedOpeningBalance');
+
+          // Filter transactions by date range
+          final filteredTransactions =
+              transactions.where((tx) {
+                String dateStr = tx['ACCOUNTS_date']?.toString() ?? '';
+                return _isDateInRange(dateStr);
+              }).toList();
+
+          print('Transactions in date range: ${filteredTransactions.length}');
+
+          // SKIP accounts with no transactions in date range
+          if (filteredTransactions.isEmpty) {
+            print('No transactions in date range - SKIPPING this account');
+            continue;
+          }
 
           double accountPayments = 0; // VoucherType = 1
           double accountReceipts = 0; // VoucherType = 2
 
-          // Process each transaction
-          for (var tx in transactions) {
+          // Process each filtered transaction
+          for (var tx in filteredTransactions) {
             double amount = double.parse(tx['ACCOUNTS_amount'].toString());
             String transactionType =
                 tx['ACCOUNTS_type'].toString().toLowerCase();
@@ -111,9 +223,11 @@ class _PaymentReceiptLedgerState extends State<PaymentReceiptLedger> {
             }
           }
 
-          // SKIP accounts that have no payment or receipt vouchers
+          // SKIP accounts that have no payment or receipt vouchers in date range
           if (accountPayments == 0 && accountReceipts == 0) {
-            print('No Payment/Receipt vouchers found - SKIPPING this account');
+            print(
+              'No Payment/Receipt vouchers in date range - SKIPPING this account',
+            );
             continue;
           }
 
@@ -125,16 +239,18 @@ class _PaymentReceiptLedgerState extends State<PaymentReceiptLedger> {
 
           if (accountNature == 'debit') {
             // DEBIT ACCOUNT: Opening + Receipts - Payments
-            currentBalance = openingBalance + accountReceipts - accountPayments;
+            currentBalance =
+                calculatedOpeningBalance + accountReceipts - accountPayments;
 
             print(
-              'DEBIT: $openingBalance + $accountReceipts - $accountPayments = $currentBalance',
+              'DEBIT: $calculatedOpeningBalance + $accountReceipts - $accountPayments = $currentBalance',
             );
           } else {
             // CREDIT ACCOUNT: Opening - Receipts + Payments
-            currentBalance = openingBalance - accountReceipts + accountPayments;
+            currentBalance =
+                calculatedOpeningBalance - accountReceipts + accountPayments;
             print(
-              'CREDIT: $openingBalance - $accountReceipts + $accountPayments = $currentBalance',
+              'CREDIT: $calculatedOpeningBalance - $accountReceipts + $accountPayments = $currentBalance',
             );
           }
 
@@ -146,7 +262,7 @@ class _PaymentReceiptLedgerState extends State<PaymentReceiptLedger> {
             'payments': accountPayments,
             'receipts': accountReceipts,
             'balance': currentBalance,
-            'openingBalance': openingBalance,
+            'openingBalance': calculatedOpeningBalance,
             'type': accountNature,
             'accountType': accountType,
           });
@@ -161,7 +277,9 @@ class _PaymentReceiptLedgerState extends State<PaymentReceiptLedger> {
         totalReceipts = grandTotalReceipts;
       });
 
-      print('\n=== Accounts with transactions: ${balances.length} ===');
+      print(
+        '\n=== Accounts with transactions in date range: ${balances.length} ===',
+      );
       print('=== Grand Total Payments: $grandTotalPayments ===');
       print('=== Grand Total Receipts: $grandTotalReceipts ===\n');
     } catch (e) {
@@ -185,11 +303,20 @@ class _PaymentReceiptLedgerState extends State<PaymentReceiptLedger> {
         setState(() {
           if (isStart) {
             selected_startDate = pickedDate;
+            // If start date is after end date, adjust end date
+            if (selected_startDate.isAfter(selected_endDate)) {
+              selected_endDate = selected_startDate;
+            }
           } else {
             selected_endDate = pickedDate;
+            // If end date is before start date, adjust start date
+            if (selected_endDate.isBefore(selected_startDate)) {
+              selected_startDate = selected_endDate;
+            }
           }
-          _loadTransactions();
         });
+        // Auto-search after date selection
+        _loadTransactions();
       }
     });
   }
@@ -302,68 +429,126 @@ class _PaymentReceiptLedgerState extends State<PaymentReceiptLedger> {
         children: [
           Padding(
             padding: const EdgeInsets.all(10.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: <Widget>[
-                Container(
-                  width: 180,
-                  height: 60,
-                  child: InkWell(
-                    onTap: () => selectDate(true),
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.black),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            _getDisplayStartDate(),
-                            style: const TextStyle(fontSize: 18),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: <Widget>[
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                        child: InkWell(
+                          onTap: () => selectDate(true),
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.teal, width: 2),
+                              borderRadius: BorderRadius.circular(8),
+                              color: Colors.teal.shade50,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'From Date',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.teal.shade700,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      _getDisplayStartDate(),
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Icon(
+                                      Icons.calendar_today,
+                                      color: Colors.teal,
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
-                          const Icon(Icons.calendar_today),
-                        ],
+                        ),
                       ),
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                        child: InkWell(
+                          onTap: () => selectDate(false),
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.teal, width: 2),
+                              borderRadius: BorderRadius.circular(8),
+                              color: Colors.teal.shade50,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'To Date',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.teal.shade700,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      _getDisplayEndDate(),
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Icon(
+                                      Icons.calendar_today,
+                                      color: Colors.teal,
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 12),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.teal,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                ),
-                Container(
-                  width: 180,
-                  height: 60,
-                  child: InkWell(
-                    onTap: () => selectDate(false),
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.black),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            _getDisplayEndDate(),
-                            style: const TextStyle(fontSize: 18),
-                          ),
-                          const Icon(Icons.calendar_today),
-                        ],
-                      ),
-                    ),
+                  onPressed: _loadTransactions,
+                  icon: Icon(Icons.search),
+                  label: const Text(
+                    "Search Transactions",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.teal,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: _loadTransactions,
-            child: const Text("Search"),
           ),
           const SizedBox(height: 10),
 
@@ -375,6 +560,7 @@ class _PaymentReceiptLedgerState extends State<PaymentReceiptLedger> {
                 children: [
                   Expanded(
                     child: Card(
+                      elevation: 3,
                       color: Colors.red.shade50,
                       child: Padding(
                         padding: const EdgeInsets.all(12.0),
@@ -405,6 +591,7 @@ class _PaymentReceiptLedgerState extends State<PaymentReceiptLedger> {
                   SizedBox(width: 8),
                   Expanded(
                     child: Card(
+                      elevation: 3,
                       color: Colors.blue.shade50,
                       child: Padding(
                         padding: const EdgeInsets.all(12.0),
@@ -481,7 +668,7 @@ class _PaymentReceiptLedgerState extends State<PaymentReceiptLedger> {
                                     ),
                                     SizedBox(height: 16),
                                     Text(
-                                      'No Payment/Receipt Transactions Found',
+                                      'No Transactions Found',
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         fontSize: 16,
@@ -491,7 +678,7 @@ class _PaymentReceiptLedgerState extends State<PaymentReceiptLedger> {
                                     ),
                                     SizedBox(height: 8),
                                     Text(
-                                      'Only accounts with payment or receipt vouchers will appear here.\nCash/Bank accounts are excluded.',
+                                      'No payment or receipt transactions in selected date range.\nTry selecting a different date range.',
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         fontSize: 12,

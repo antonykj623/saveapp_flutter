@@ -1,21 +1,24 @@
+// FILE: lib/view/home/widget/Bank/bank_page/Edit_voucher_bank/AddEditVoucherScreen.dart
+// UPDATED with Modern Attractive Design + Premium Check
+
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
+import 'dart:convert';
 import 'package:new_project_2025/view/home/widget/Bank/bank_page/data_base_helper/data_base_helper_bank.dart';
 import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 import 'package:new_project_2025/view_model/AccountSet_up/Add_Acount.dart';
-import 'dart:convert';
+import 'package:new_project_2025/services/Premium_services/Premium_services.dart';
 
 class AddEditVoucherScreen extends StatefulWidget {
   final BankVoucher? voucher;
-
   AddEditVoucherScreen({this.voucher});
 
   @override
   _AddEditVoucherScreenState createState() => _AddEditVoucherScreenState();
 }
 
-class _AddEditVoucherScreenState extends State<AddEditVoucherScreen> {
+class _AddEditVoucherScreenState extends State<AddEditVoucherScreen>
+    with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
 
   late TextEditingController _dateController;
@@ -30,9 +33,16 @@ class _AddEditVoucherScreenState extends State<AddEditVoucherScreen> {
   List<String> _transactionTypes = ['Deposit', 'Withdrawal'];
   List<String> _creditOptions = ['Cash'];
 
+  late AnimationController _fadeController;
+  late AnimationController _slideController;
+
+  final _premiumService = PremiumService();
+
   @override
   void initState() {
     super.initState();
+    _initializeAnimations();
+
     _dateController = TextEditingController(
       text:
           widget.voucher?.date ??
@@ -52,6 +62,24 @@ class _AddEditVoucherScreenState extends State<AddEditVoucherScreen> {
     }
 
     _loadAccountsFromDB();
+  }
+
+  void _initializeAnimations() {
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        _fadeController.forward();
+        _slideController.forward();
+      }
+    });
   }
 
   Future<void> _loadAccountsFromDB() async {
@@ -115,549 +143,563 @@ class _AddEditVoucherScreenState extends State<AddEditVoucherScreen> {
     }
   }
 
-  Future<String> getNextSetupId(String name) async {
-    try {
-      final db = await DatabaseHelper().database;
-      final List<Map<String, dynamic>> allRows = await db.query(
-        'TABLE_ACCOUNTSETTINGS',
-      );
-      for (var row in allRows) {
-        Map<String, dynamic> dat = jsonDecode(row["data"]);
-        if (dat['Accountname'].toString().toLowerCase() == name.toLowerCase()) {
-          return row['keyid'].toString();
-        }
-      }
-      return '0';
-    } catch (e) {
-      print('Error getting setup ID: $e');
-      return '0';
-    }
-  }
-
-  String _getMonthName(int month) {
-    const months = [
-      'jan',
-      'feb',
-      'mar',
-      'apr',
-      'may',
-      'jun',
-      'jul',
-      'aug',
-      'sep',
-      'oct',
-      'nov',
-      'dec',
-    ];
-    return months[month - 1];
+  @override
+  void dispose() {
+    _dateController.dispose();
+    _amountController.dispose();
+    _remarksController.dispose();
+    _fadeController.dispose();
+    _slideController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     bool isEdit = widget.voucher != null;
+    final size = MediaQuery.of(context).size;
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.teal,
-        flexibleSpace: Container(
+      backgroundColor: const Color(0xFFF5F7FA),
+      body: Stack(
+        children: [
+          // Gradient Background
+          Container(
+            height: size.height * 0.25,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.teal[700]!,
+                  Colors.teal[500]!,
+                  Colors.cyan[400]!,
+                ],
+              ),
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(40),
+                bottomRight: Radius.circular(40),
+              ),
+            ),
+          ),
+
+          SafeArea(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  // Header
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: size.width * 0.05,
+                      vertical: size.height * 0.02,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.3),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.arrow_back_ios_new,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          isEdit ? 'Edit Voucher' : 'Add Voucher',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 22,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        Container(width: 48, height: 48),
+                      ],
+                    ),
+                  ),
+
+                  SizedBox(height: size.height * 0.02),
+
+                  // Form Container
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: size.width * 0.05,
+                    ),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          // Date Field
+                          _buildFormField(
+                            label: 'Date',
+                            icon: Icons.calendar_today_rounded,
+                            controller: _dateController,
+                            readOnly: true,
+                            onTap: () => _selectDate(),
+                          ),
+
+                          SizedBox(height: size.height * 0.02),
+
+                          // Debit Account Field
+                          _buildLabel('Debit Account'),
+                          const SizedBox(height: 8),
+                          _buildDropdownField(
+                            icon: Icons.account_balance_rounded,
+                            value: _selectedDebit,
+                            items: _debitOptions,
+                            hint: 'Select Bank Account',
+                            onChanged:
+                                (value) =>
+                                    setState(() => _selectedDebit = value),
+                            onAddPressed: () => _navigateToAddAccount('bank'),
+                          ),
+
+                          SizedBox(height: size.height * 0.02),
+
+                          // Amount Field
+                          _buildFormField(
+                            label: 'Amount',
+                            icon: Icons.currency_rupee_rounded,
+                            controller: _amountController,
+                            keyboardType: TextInputType.number,
+                            validator: (value) {
+                              if (value == null || value.isEmpty)
+                                return 'Please enter amount';
+                              if (double.tryParse(value) == null)
+                                return 'Please enter a valid number';
+                              return null;
+                            },
+                          ),
+
+                          SizedBox(height: size.height * 0.02),
+
+                          // Transaction Type
+                          _buildLabel('Transaction Type'),
+                          const SizedBox(height: 8),
+                          _buildTransactionTypeSelector(),
+
+                          SizedBox(height: size.height * 0.02),
+
+                          // Credit Account Field
+                          _buildLabel('Credit Account'),
+                          const SizedBox(height: 8),
+                          _buildDropdownField(
+                            icon: Icons.account_balance_wallet_rounded,
+                            value: _selectedCredit,
+                            items: _creditOptions,
+                            hint: 'Select Credit Account',
+                            onChanged:
+                                (value) =>
+                                    setState(() => _selectedCredit = value),
+                            onAddPressed: () => _navigateToAddAccount('cash'),
+                          ),
+
+                          SizedBox(height: size.height * 0.02),
+
+                          // Remarks Field
+                          _buildLabel('Remarks (Optional)'),
+                          const SizedBox(height: 8),
+                          _buildRemarksField(),
+
+                          SizedBox(height: size.height * 0.04),
+
+                          // Action Buttons
+                          Row(
+                            children: [
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () async {
+                                    print(
+                                      '========== BANK VOUCHER SAVE BUTTON ==========',
+                                    );
+
+                                    // Check premium before saving
+                                    final canAdd = await _premiumService
+                                        .canAddData(forceRefresh: true);
+
+                                    if (!canAdd) {
+                                      print('❌ Premium expired');
+                                      if (mounted) {
+                                        PremiumService.showPremiumExpiredDialog(
+                                          context,
+                                        );
+                                      }
+                                      return;
+                                    }
+
+                                    print('✅ Can save - proceeding');
+                                    _saveVoucher();
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors:
+                                            _canSave()
+                                                ? [
+                                                  Colors.teal[600]!,
+                                                  Colors.teal[800]!,
+                                                ]
+                                                : [
+                                                  Colors.grey[400]!,
+                                                  Colors.grey[600]!,
+                                                ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(14),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.teal.withOpacity(
+                                            _canSave() ? 0.3 : 0.1,
+                                          ),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.check_circle_rounded,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        const Text(
+                                          'Save',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 16,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              if (isEdit) ...[
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: _deleteVoucher,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 16,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            Colors.red[600]!,
+                                            Colors.red[800]!,
+                                          ],
+                                        ),
+                                        borderRadius: BorderRadius.circular(14),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.red.withOpacity(0.3),
+                                            blurRadius: 10,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: const [
+                                          Icon(
+                                            Icons.delete_rounded,
+                                            color: Colors.white,
+                                            size: 20,
+                                          ),
+                                          SizedBox(width: 8),
+                                          Text(
+                                            'Delete',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 16,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+
+                          SizedBox(height: size.height * 0.04),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLabel(String text) {
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+        color: Colors.teal[800],
+        letterSpacing: 0.3,
+      ),
+    );
+  }
+
+  Widget _buildFormField({
+    required String label,
+    required IconData icon,
+    required TextEditingController controller,
+    TextInputType keyboardType = TextInputType.text,
+    bool readOnly = false,
+    VoidCallback? onTap,
+    String? Function(String?)? validator,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildLabel(label),
+        const SizedBox(height: 8),
+        Container(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.teal, Colors.tealAccent.shade700],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+            gradient: LinearGradient(colors: [Colors.white, Colors.grey[50]!]),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.teal[100]!, width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.teal.withOpacity(0.08),
+                blurRadius: 12,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: TextFormField(
+            controller: controller,
+            keyboardType: keyboardType,
+            readOnly: readOnly,
+            onTap: onTap,
+            validator: validator,
+            decoration: InputDecoration(
+              prefixIcon: Icon(icon, color: Colors.teal[600], size: 20),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 16,
+                horizontal: 16,
+              ),
+              hintStyle: TextStyle(color: Colors.grey[400]),
             ),
           ),
         ),
-        title: Text(
-          isEdit ? 'Edit Bank Voucher' : 'Add Bank Voucher',
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-        elevation: 4,
-        shadowColor: Colors.teal.withOpacity(0.4),
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Date Field
-                Text(
-                  'Date',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.teal[800],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.2),
-                        spreadRadius: 2,
-                        blurRadius: 5,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: TextFormField(
-                    controller: _dateController,
-                    readOnly: true,
-                    decoration: InputDecoration(
-                      hintText: 'Select Date',
-                      hintStyle: TextStyle(color: Colors.grey[400]),
-                      prefixIcon: Icon(
-                        Icons.calendar_today,
-                        color: Colors.teal[400],
-                      ),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 16,
-                        horizontal: 16,
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                    ),
-                    onTap: () => _selectDate(),
-                  ),
-                ),
-                const SizedBox(height: 20),
+      ],
+    );
+  }
 
-                // Debit Account Field with Add Button
-                Text(
-                  'Debit Account',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.teal[800],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.2),
-                              spreadRadius: 2,
-                              blurRadius: 5,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child:
-                            _debitOptions.isEmpty
-                                ? Container(
-                                  height: 56,
-                                  alignment: Alignment.centerLeft,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                  ),
-                                  child: Text(
-                                    'No bank accounts found. Please add a bank account.',
-                                    style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                )
-                                : DropdownButtonFormField<String>(
-                                  value: _selectedDebit,
-                                  decoration: InputDecoration(
-                                    hintText: 'Select Bank Account',
-                                    hintStyle: TextStyle(
-                                      color: Colors.grey[400],
-                                    ),
-                                    prefixIcon: Icon(
-                                      Icons.account_balance,
-                                      color: Colors.teal[400],
-                                    ),
-                                    border: InputBorder.none,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      vertical: 16,
-                                      horizontal: 16,
-                                    ),
-                                    filled: true,
-                                    fillColor: Colors.white,
-                                  ),
-                                  items:
-                                      _debitOptions.map((String value) {
-                                        return DropdownMenuItem<String>(
-                                          value: value,
-                                          child: Text(value),
-                                        );
-                                      }).toList(),
-                                  onChanged: (String? newValue) {
-                                    setState(() {
-                                      _selectedDebit = newValue;
-                                    });
-                                  },
-                                  dropdownColor: Colors.white,
-                                  icon: Icon(
-                                    Icons.keyboard_arrow_down,
-                                    color: Colors.teal[400],
-                                  ),
-                                ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    FloatingActionButton(
-                      mini: true,
-                      onPressed: () => _navigateToAddAccount('bank'),
-                      backgroundColor: Colors.teal,
-                      child: const Icon(
-                        Icons.add,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                      elevation: 4,
-                      tooltip: 'Add Bank Account',
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                // Amount Field
-                Text(
-                  'Amount',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.teal[800],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.2),
-                        spreadRadius: 2,
-                        blurRadius: 5,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: TextFormField(
-                    controller: _amountController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      hintText: 'Enter Amount',
-                      hintStyle: TextStyle(color: Colors.grey[400]),
-                      prefixIcon: Icon(
-                        Icons.monetization_on,
-                        color: Colors.teal[400],
-                      ),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 16,
-                        horizontal: 16,
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter amount';
-                      }
-                      if (double.tryParse(value) == null) {
-                        return 'Please enter a valid number';
-                      }
-                      return null;
-                    },
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Transaction Type Field
-                Text(
-                  'Transaction Type',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.teal[800],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.2),
-                        spreadRadius: 2,
-                        blurRadius: 5,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: DropdownButtonFormField<String>(
-                    value: _selectedTransactionType,
-                    decoration: InputDecoration(
-                      hintText: 'Select Transaction Type',
-                      hintStyle: TextStyle(color: Colors.grey[400]),
-                      prefixIcon: Icon(
-                        Icons.swap_horiz,
-                        color: Colors.teal[400],
-                      ),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 16,
-                        horizontal: 16,
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                    ),
-                    items:
-                        _transactionTypes.map((String value) {
-                          return DropdownMenuItem<String>(
-                            value: value,
-                            child: Text(value),
-                          );
-                        }).toList(),
-                    onChanged: (String? newValue) {
-                      setState(() {
-                        _selectedTransactionType = newValue!;
-                      });
-                    },
-                    dropdownColor: Colors.white,
-                    icon: Icon(
-                      Icons.keyboard_arrow_down,
-                      color: Colors.teal[400],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Credit Account Field with Add Button
-                Text(
-                  'Credit Account',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.teal[800],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.2),
-                              spreadRadius: 2,
-                              blurRadius: 5,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: DropdownButtonFormField<String>(
-                          value: _selectedCredit,
-                          decoration: InputDecoration(
-                            hintText: 'Select Credit Account',
-                            hintStyle: TextStyle(color: Colors.grey[400]),
-                            prefixIcon: Icon(
-                              Icons.account_balance_wallet,
-                              color: Colors.teal[400],
-                            ),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              vertical: 16,
-                              horizontal: 16,
-                            ),
-                            filled: true,
-                            fillColor: Colors.white,
-                          ),
-                          items:
-                              _creditOptions.map((String value) {
-                                return DropdownMenuItem<String>(
-                                  value: value,
-                                  child: Text(value),
-                                );
-                              }).toList(),
-                          onChanged: (String? newValue) {
-                            setState(() {
-                              _selectedCredit = newValue;
-                            });
-                          },
-                          dropdownColor: Colors.white,
-                          icon: Icon(
-                            Icons.keyboard_arrow_down,
-                            color: Colors.teal[400],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    FloatingActionButton(
-                      mini: true,
-                      onPressed: () => _navigateToAddAccount('cash'),
-                      backgroundColor: Colors.teal,
-                      child: const Icon(
-                        Icons.add,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                      elevation: 4,
-                      tooltip: 'Add Cash Account',
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                // Remarks Field
-                Text(
-                  'Remarks',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.teal[800],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.2),
-                        spreadRadius: 2,
-                        blurRadius: 5,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: TextFormField(
-                    controller: _remarksController,
-                    decoration: InputDecoration(
-                      hintText: 'Enter Remarks (Optional)',
-                      hintStyle: TextStyle(color: Colors.grey[400]),
-                      prefixIcon: Icon(Icons.note, color: Colors.teal[400]),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.all(16),
-                      filled: true,
-                      fillColor: Colors.white,
-                    ),
-                    maxLines: null,
-                    expands: true,
-                  ),
-                ),
-                const SizedBox(height: 40),
-
-                // Action Buttons
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: _canSave() ? _saveVoucher : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.teal,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 5,
-                          shadowColor: Colors.teal.withOpacity(0.3),
-                        ),
-                        child: const Text(
-                          'Save',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (isEdit) ...[
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: _deleteVoucher,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            elevation: 5,
-                            shadowColor: Colors.red.withOpacity(0.3),
-                          ),
-                          child: const Text(
-                            'Delete',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
+  Widget _buildDropdownField({
+    required IconData icon,
+    required String? value,
+    required List<String> items,
+    required String hint,
+    required Function(String?) onChanged,
+    required VoidCallback onAddPressed,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.white, Colors.grey[50]!],
+              ),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.teal[100]!, width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.teal.withOpacity(0.08),
+                  blurRadius: 12,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
+            child: DropdownButtonFormField<String>(
+              value: value,
+              items:
+                  items
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+              onChanged: onChanged,
+              decoration: InputDecoration(
+                prefixIcon: Icon(icon, color: Colors.teal[600], size: 20),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: 16,
+                  horizontal: 16,
+                ),
+                hintText: hint,
+                hintStyle: TextStyle(color: Colors.grey[400]),
+              ),
+              dropdownColor: Colors.white,
+              icon: Icon(Icons.expand_more_rounded, color: Colors.teal[600]),
+            ),
           ),
+        ),
+        const SizedBox(width: 10),
+        GestureDetector(
+          onTap: onAddPressed,
+          child: Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.teal[500]!, Colors.teal[700]!],
+              ),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.teal.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Icon(Icons.add_rounded, color: Colors.white, size: 24),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTransactionTypeSelector() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [Colors.white, Colors.grey[50]!]),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.teal[100]!, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.teal.withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children:
+            _transactionTypes.map((type) {
+              bool isSelected = _selectedTransactionType == type;
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _selectedTransactionType = type),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      color: isSelected ? Colors.teal[50] : Colors.transparent,
+                      borderRadius:
+                          type == 'Deposit'
+                              ? const BorderRadius.only(
+                                topLeft: Radius.circular(12),
+                                bottomLeft: Radius.circular(12),
+                              )
+                              : const BorderRadius.only(
+                                topRight: Radius.circular(12),
+                                bottomRight: Radius.circular(12),
+                              ),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          type == 'Deposit'
+                              ? Icons.arrow_downward_rounded
+                              : Icons.arrow_upward_rounded,
+                          color:
+                              isSelected ? Colors.teal[700] : Colors.grey[400],
+                          size: 20,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          type,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color:
+                                isSelected
+                                    ? Colors.teal[800]
+                                    : Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildRemarksField() {
+    return Container(
+      height: 120,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [Colors.white, Colors.grey[50]!]),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.teal[100]!, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.teal.withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: TextFormField(
+        controller: _remarksController,
+        maxLines: null,
+        expands: true,
+        decoration: InputDecoration(
+          prefixIcon: Icon(
+            Icons.note_rounded,
+            color: Colors.teal[600],
+            size: 20,
+          ),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.all(16),
+          hintText: 'Enter remarks (optional)',
+          hintStyle: TextStyle(color: Colors.grey[400]),
         ),
       ),
     );
   }
 
-  bool _canSave() {
-    return _selectedDebit != null && _selectedCredit != null;
-  }
-
-  Future<void> _navigateToAddAccount(String defaultType) async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => Addaccountsdet1(defaultAccountType: defaultType),
-      ),
-    );
-    if (result == true) {
-      await _loadAccountsFromDB();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Account added successfully'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    }
-  }
+  bool _canSave() => _selectedDebit != null && _selectedCredit != null;
 
   Future<void> _selectDate() async {
-    final DateTime? picked = await showDatePicker(
+    DateTime? picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime(2000),
@@ -668,18 +710,16 @@ class _AddEditVoucherScreenState extends State<AddEditVoucherScreen> {
             colorScheme: ColorScheme.light(
               primary: Colors.teal,
               onPrimary: Colors.white,
-              surface: Colors.white,
             ),
-            dialogBackgroundColor: Colors.white,
           ),
           child: child!,
         );
       },
     );
     if (picked != null) {
-      setState(() {
-        _dateController.text = DateFormat('dd-MM-yyyy').format(picked);
-      });
+      setState(
+        () => _dateController.text = DateFormat('dd-MM-yyyy').format(picked),
+      );
     }
   }
 
@@ -799,9 +839,12 @@ class _AddEditVoucherScreenState extends State<AddEditVoucherScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('Bank voucher saved successfully'),
+              content: const Text('✓ Bank voucher saved successfully'),
               backgroundColor: Colors.green,
-              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           );
         }
@@ -813,7 +856,7 @@ class _AddEditVoucherScreenState extends State<AddEditVoucherScreen> {
             SnackBar(
               content: Text('Error saving voucher: $e'),
               backgroundColor: Colors.red,
-              duration: const Duration(seconds: 3),
+              behavior: SnackBarBehavior.floating,
             ),
           );
         }
@@ -834,9 +877,12 @@ class _AddEditVoucherScreenState extends State<AddEditVoucherScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('Bank voucher deleted successfully'),
+              content: const Text('✓ Bank voucher deleted successfully'),
               backgroundColor: Colors.green,
-              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           );
         }
@@ -848,7 +894,7 @@ class _AddEditVoucherScreenState extends State<AddEditVoucherScreen> {
             SnackBar(
               content: Text('Error deleting voucher: $e'),
               backgroundColor: Colors.red,
-              duration: const Duration(seconds: 3),
+              behavior: SnackBarBehavior.floating,
             ),
           );
         }
@@ -856,11 +902,64 @@ class _AddEditVoucherScreenState extends State<AddEditVoucherScreen> {
     }
   }
 
-  @override
-  void dispose() {
-    _dateController.dispose();
-    _amountController.dispose();
-    _remarksController.dispose();
-    super.dispose();
+  Future<String> getNextSetupId(String name) async {
+    try {
+      final db = await DatabaseHelper().database;
+      final List<Map<String, dynamic>> allRows = await db.query(
+        'TABLE_ACCOUNTSETTINGS',
+      );
+      for (var row in allRows) {
+        Map<String, dynamic> dat = jsonDecode(row["data"]);
+        if (dat['Accountname'].toString().toLowerCase() == name.toLowerCase()) {
+          return row['keyid'].toString();
+        }
+      }
+      return '0';
+    } catch (e) {
+      print('Error getting setup ID: $e');
+      return '0';
+    }
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'jan',
+      'feb',
+      'mar',
+      'apr',
+      'may',
+      'jun',
+      'jul',
+      'aug',
+      'sep',
+      'oct',
+      'nov',
+      'dec',
+    ];
+    return months[month - 1];
+  }
+
+  void _navigateToAddAccount(String type) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Addaccountsdet1(defaultAccountType: type),
+      ),
+    );
+    if (result == true) {
+      await _loadAccountsFromDB();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('✓ Account added successfully'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    }
   }
 }

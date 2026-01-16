@@ -24,7 +24,7 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
   List<Contact> _contacts = [];
   bool _isLoadingContacts = false;
   bool _isLoadingPlans = false;
-  bool _isPickingContact = false; // Track contact picker state
+  bool _isPickingContact = false;
 
   late AnimationController _fadeController;
   late AnimationController _slideController;
@@ -35,29 +35,25 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
   late Animation<double> _pulseAnimation;
   late Animation<double> _operatorAnimation;
 
-      static const platform = MethodChannel('com.example.contactpicker/channel');
+  static const platform = MethodChannel('com.example.contactpicker/channel');
   String? contactInfo;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this); // Add lifecycle observer
+    WidgetsBinding.instance.addObserver(this);
     _initAnimations();
     _mobileController.addListener(_onMobileNumberChanged);
- checkPermission();
-
-
+    checkPermission();
   }
 
-      checkPermission()
-  async {
-    //checking permission
+  checkPermission() async {
     await Permission.contacts.request();
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this); // Remove lifecycle observer
+    WidgetsBinding.instance.removeObserver(this);
     _mobileController.removeListener(_onMobileNumberChanged);
     _mobileController.dispose();
     if (_fadeController.isAnimating) _fadeController.stop();
@@ -71,20 +67,17 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
     super.dispose();
   }
 
-  // Handle app lifecycle changes
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     debugPrint('📱 App lifecycle state: $state');
 
     if (state == AppLifecycleState.resumed) {
-      // App came back to foreground
       debugPrint('✅ App resumed - contact picker returned');
       setState(() {
         _isPickingContact = false;
       });
     } else if (state == AppLifecycleState.paused) {
-      // App went to background
       if (_isPickingContact) {
         debugPrint('⏸️ App paused - contact picker opened');
       }
@@ -133,21 +126,23 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
     });
   }
 
+  // ✅ UPDATED: Only detect circle, NOT operator
   void _onMobileNumberChanged() {
     final number = _mobileController.text;
     if (number.length == 10) {
-      _fetchCircleAndOperator(number);
+      _fetchCircleOnly(number);
     } else {
       if (mounted) {
         setState(() {
           _selectedCircle = null;
-          _selectedOperator = null;
+          // ✅ Don't reset operator - let user keep their selection
         });
       }
     }
   }
 
-  Future<void> _fetchCircleAndOperator(String mobile) async {
+  // ✅ NEW: Only fetch circle, operator must be selected manually
+  Future<void> _fetchCircleOnly(String mobile) async {
     try {
       final data = await MobilePlansApiService.fetchCircleAndOperator(mobile);
       if (data != null && mounted) {
@@ -159,51 +154,13 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
             setState(() {
               _selectedCircle = circleName;
             });
+            _showSuccessSnackBar('Circle auto-detected: $circleName');
           }
         }
-        final operatorCode = data['operator'];
-        if (operatorCode != null) {
-          final operatorName = _getOperatorNameFromCode(operatorCode);
-          if (operatorName != null) {
-            setState(() {
-              _selectedOperator = operatorName;
-            });
-            _showSuccessSnackBar('Auto-detected: $operatorName operator');
-          } else {
-            _setDefaultOperator();
-          }
-        } else {
-          _setDefaultOperator();
-        }
-      } else {
-        _setDefaultOperator();
       }
     } catch (e) {
-      _showErrorSnackBar('Failed to fetch details. Please select manually.');
-      _setDefaultOperator();
-    }
-  }
-
-  String? _getOperatorNameFromCode(String apiOperatorCode) {
-    final operatorMapping = {
-      'AT': 'AIRTEL',
-      'CG': 'BSNL',
-      'VI': 'VI',
-      'RJ': 'JIO',
-      'ID': 'AIRTEL',
-      'AI': 'AIRTEL',
-      'BS': 'BSNL',
-      'VO': 'VI',
-      'JI': 'JIO',
-    };
-    return operatorMapping[apiOperatorCode];
-  }
-
-  void _setDefaultOperator() {
-    if (mounted) {
-      setState(() {
-        _selectedOperator = 'AIRTEL';
-      });
+      debugPrint('Error fetching circle: $e');
+      // Don't show error message - circle can be selected manually
     }
   }
 
@@ -479,19 +436,13 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
     if (_isPermissionRequesting || _isPickingContact) return;
 
     try {
-      // Set flag BEFORE opening picker
       setState(() {
         _isPickingContact = true;
       });
 
       debugPrint('🔵 Opening native contact picker...');
 
-    
-
-    
-
-      // Set a timeout for the contact picker
-          final result = await platform.invokeMethod('pickContact');
+      final result = await platform.invokeMethod('pickContact');
 
       debugPrint('🟢 Contact picker returned with result: $result');
 
@@ -505,36 +456,29 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
         String contactInfo = result.toString();
         debugPrint('📞 Contact info: $contactInfo');
 
-        // Check if user cancelled
         if (contactInfo.toLowerCase() == 'cancelled' ||
             contactInfo.toLowerCase().contains('no contact')) {
           debugPrint('⚠️ User cancelled or no contact selected');
           return;
         }
 
-        // Extract phone number - handle multiple formats
         String cleanNumber = '';
 
-        // Try different regex patterns
         List<RegExp> patterns = [
-          RegExp(
-            r'Phone:\s*([+\d\s\-()]+)',
-          ), // "Phone: +91 1234567890" or "Phone: 1234567890"
+          RegExp(r'Phone:\s*([+\d\s\-()]+)'),
           RegExp(r'phone:\s*([+\d\s\-()]+)'),
           RegExp(r'Number:\s*([+\d\s\-()]+)'),
           RegExp(r'number:\s*([+\d\s\-()]+)'),
-          RegExp(r',\s*([+\d\s\-()]{10,})'), // After comma
-          RegExp(r'([+\d\s\-()]{10,})'), // Direct number with formatting
+          RegExp(r',\s*([+\d\s\-()]{10,})'),
+          RegExp(r'([+\d\s\-()]{10,})'),
         ];
 
         for (var pattern in patterns) {
           Match? match = pattern.firstMatch(contactInfo);
           if (match != null) {
             String phoneNumber = match.group(1) ?? '';
-            // Remove all non-digit characters
             cleanNumber = phoneNumber.replaceAll(RegExp(r'[^\d]'), '');
 
-            // Remove country code if present
             if (cleanNumber.startsWith('91') && cleanNumber.length == 12) {
               cleanNumber = cleanNumber.substring(2);
             } else if (cleanNumber.startsWith('0') &&
@@ -543,19 +487,17 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
             }
 
             if (cleanNumber.length == 10) {
-              break; // Found valid 10-digit number
+              break;
             }
           }
         }
 
-        // Validate the extracted number
         if (cleanNumber.length == 10 &&
             RegExp(r'^[6-9]\d{9}$').hasMatch(cleanNumber)) {
           setState(() {
             _mobileController.text = cleanNumber;
           });
 
-          // Extract name if available
           String? contactName;
           final nameMatch = RegExp(r'Name:\s*([^,]+)').firstMatch(contactInfo);
           if (nameMatch != null) {
@@ -593,7 +535,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
           _isPickingContact = false;
         });
 
-        // Don't show error for user cancellation
         if (e.code != 'cancelled' &&
             e.code != 'CANCEL' &&
             !e.message.toString().toLowerCase().contains('cancel')) {
@@ -617,7 +558,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
           _isPickingContact = false;
         });
 
-        // Check if it's a cancellation (not an actual error)
         if (!e.toString().toLowerCase().contains('cancel')) {
           _showErrorSnackBar('Unexpected error. Please try again.');
         }
@@ -782,7 +722,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
         child: SafeArea(
           child: Column(
             children: [
-              // Header Section
               AnimatedBuilder(
                 animation: _fadeAnimation,
                 builder: (context, child) {
@@ -874,7 +813,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                   );
                 },
               ),
-              // Main Content
               Expanded(
                 child: AnimatedBuilder(
                   animation: _slideAnimation,
@@ -915,7 +853,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     SizedBox(height: 20),
-                                    // Mobile Number Section
                                     _buildSectionTitle('Mobile Number'),
                                     SizedBox(height: 12),
                                     Container(
@@ -1049,7 +986,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                                       ),
                                     ),
                                     SizedBox(height: 32),
-                                    // Circle Selection Section
                                     _buildSectionTitle('Select Circle'),
                                     SizedBox(height: 12),
                                     Container(
@@ -1492,7 +1428,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                                       },
                                     ),
                                     SizedBox(height: 40),
-                                    // Recharge Button
                                     AnimatedBuilder(
                                       animation: _pulseAnimation,
                                       builder: (context, child) {
@@ -1631,7 +1566,6 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen>
                                       },
                                     ),
                                     SizedBox(height: 20),
-                                    // Info Card
                                     Container(
                                       width: double.infinity,
                                       padding: EdgeInsets.all(20),

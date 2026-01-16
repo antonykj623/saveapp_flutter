@@ -8,6 +8,9 @@ import 'package:new_project_2025/view/home/widget/wallet_page/addmoney_wallet/ad
 import 'package:new_project_2025/view/home/widget/payment_page/add_payment/add_paymet.dart';
 import 'package:new_project_2025/view/home/widget/payment_page/payment_class/payment_class.dart';
 
+// PREMIUM SERVICE IMPORT
+import 'package:new_project_2025/services/Premium_services/Premium_services.dart';
+
 class WalletPage extends StatefulWidget {
   const WalletPage({super.key});
 
@@ -25,11 +28,33 @@ class _WalletPageState extends State<WalletPage> {
   bool hasWalletMoney = false;
   bool _isLoading = true;
 
+  // Premium-related state
+  bool isCheckingPremium = false;
+  PremiumStatus? premiumStatus;
+
   @override
   void initState() {
     super.initState();
-    _loadWalletData();
-    _loadPayments();
+    _checkPremiumAndLoadData(); // check premium first, then load wallet & payments
+  }
+
+  // New: check premium then load wallet data
+  Future<void> _checkPremiumAndLoadData() async {
+    setState(() => isCheckingPremium = true);
+    try {
+      final status = await PremiumService().checkPremiumStatus(
+        forceRefresh: true,
+      );
+      setState(() {
+        premiumStatus = status;
+        isCheckingPremium = false;
+      });
+      await _loadWalletData();
+    } catch (e) {
+      // if premium check fails, still attempt to load data
+      setState(() => isCheckingPremium = false);
+      await _loadWalletData();
+    }
   }
 
   Future<void> _loadPayments() async {
@@ -134,7 +159,7 @@ class _WalletPageState extends State<WalletPage> {
         selectedYear,
         selectedMonth + 1,
         1,
-      ).subtract(Duration(days: 1));
+      ).subtract(const Duration(days: 1));
 
       var sortedData = walletData.toList();
       sortedData.sort((a, b) {
@@ -185,10 +210,10 @@ class _WalletPageState extends State<WalletPage> {
           }
         }
         if (firstWalletTransactionDate.isAfter(
-              startOfMonth.subtract(Duration(days: 1)),
+              startOfMonth.subtract(const Duration(days: 1)),
             ) &&
             firstWalletTransactionDate.isBefore(
-              endOfMonth.add(Duration(days: 1)),
+              endOfMonth.add(const Duration(days: 1)),
             )) {
           for (var row in sortedData) {
             Map<String, dynamic> data = jsonDecode(row['data']);
@@ -403,7 +428,7 @@ class _WalletPageState extends State<WalletPage> {
                 setState(() {
                   selectedYearMonth =
                       '$year-${month.toString().padLeft(2, '0')}';
-                  _loadWalletData();
+                  _checkPremiumAndLoadData();
                 });
               },
             ),
@@ -458,102 +483,82 @@ class _WalletPageState extends State<WalletPage> {
     }
   }
 
-  void _showEditDeleteDialog(WalletTransaction transaction) async {
-    bool isPayment = await _isPaymentTransaction(transaction);
+  // New: handle add-money with premium check
+  Future<void> _handleAddMoney() async {
+    setState(() => isCheckingPremium = true);
 
-    if (isPayment) {
-      Payment? paymentData = await _getPaymentData(transaction);
-      if (paymentData != null) {
-        showDialog(
-          context: context,
-          builder:
-              (context) => AlertDialog(
-                title: const Text('Choose Action'),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.edit),
-                      title: const Text('Edit'),
-                      onTap: () {
-                        Navigator.pop(context);
-                        _navigateToEditPayment(paymentData);
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.delete, color: Colors.red),
-                      title: const Text(
-                        'Delete',
-                        style: TextStyle(color: Colors.red),
-                      ),
-                      onTap: () {
-                        Navigator.pop(context);
-                        _confirmDeletePayment(paymentData.id!);
-                      },
-                    ),
-                  ],
-                ),
-              ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error loading payment data')),
-        );
-      }
-    } else {
-      showDialog(
-        context: context,
-        builder:
-            (context) => AlertDialog(
-              title: const Text('Choose Action'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.edit),
-                    title: const Text('Edit'),
-                    onTap: () async {
-                      Navigator.pop(context);
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder:
-                              (context) => AddMoneyToWalletPage(
-                                transaction: transaction,
-                              ),
-                        ),
-                      );
-                      if (result == true) {
-                        _loadWalletData();
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Transaction updated successfully'),
-                            ),
-                          );
-                        }
-                      }
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.delete, color: Colors.red),
-                    title: const Text(
-                      'Delete',
-                      style: TextStyle(color: Colors.red),
-                    ),
-                    onTap: () {
-                      Navigator.pop(context);
-                      _confirmDeleteWalletTransaction(transaction.id!);
-                    },
-                  ),
-                ],
-              ),
-            ),
-      );
+    final canAdd = await PremiumService().canAddData(forceRefresh: true);
+    final status = PremiumService().getCachedStatus();
+
+    setState(() {
+      isCheckingPremium = false;
+      premiumStatus = status;
+    });
+
+    // Product 2 users can always add money
+    if (status != null && status.productId == 2) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const AddMoneyToWalletPage()),
+      ).then((_) => _checkPremiumAndLoadData());
+      return;
     }
+
+    // Product 1 users need active premium/trial
+    if (!canAdd) {
+      PremiumService.showPremiumExpiredDialog(
+        context,
+        customMessage:
+            status?.isPremium == true
+                ? 'Your premium subscription has expired.'
+                : 'Your trial period has ended.\nPlease upgrade to continue.',
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const AddMoneyToWalletPage()),
+    ).then((_) => _checkPremiumAndLoadData());
   }
 
+  // UPDATED: navigate to edit payment with premium check
   void _navigateToEditPayment(Payment payment) async {
+    setState(() => isCheckingPremium = true);
+
+    final canAdd = await PremiumService().canAddData(forceRefresh: true);
+    final status = PremiumService().getCachedStatus();
+
+    setState(() {
+      isCheckingPremium = false;
+      premiumStatus = status;
+    });
+
+    // Product 2 users can always edit
+    if (status != null && status.productId == 2) {
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => AddPaymentVoucherPage(payment: payment),
+        ),
+      );
+
+      if (result == true) {
+        _loadPayments();
+        _loadWalletData();
+      }
+      return;
+    }
+
+    // Product 1 users need active premium/trial
+    if (!canAdd) {
+      PremiumService.showPremiumExpiredDialog(
+        context,
+        customMessage: 'Premium required to edit payment entries.',
+      );
+      return;
+    }
+
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -567,7 +572,56 @@ class _WalletPageState extends State<WalletPage> {
     }
   }
 
-  void _confirmDeletePayment(int id) {
+  // UPDATED: confirm delete payment with premium check
+  void _confirmDeletePayment(int id) async {
+    setState(() => isCheckingPremium = true);
+
+    final canAdd = await PremiumService().canAddData(forceRefresh: true);
+    final status = PremiumService().getCachedStatus();
+
+    setState(() {
+      isCheckingPremium = false;
+      premiumStatus = status;
+    });
+
+    // Product 2 users can always delete
+    if (status != null && status.productId == 2) {
+      showDialog(
+        context: context,
+        builder:
+            (context) => AlertDialog(
+              title: const Text('Confirm Delete'),
+              content: const Text(
+                'Are you sure you want to delete this payment?',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _deletePayment(id);
+                  },
+                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                  child: const Text('Delete'),
+                ),
+              ],
+            ),
+      );
+      return;
+    }
+
+    // Product 1 users need active premium/trial
+    if (!canAdd) {
+      PremiumService.showPremiumExpiredDialog(
+        context,
+        customMessage: 'Premium required to delete payment entries.',
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder:
@@ -594,7 +648,34 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
-  void _confirmDeleteWalletTransaction(int id) {
+  // UPDATED: confirm delete wallet transaction with premium check
+  void _confirmDeleteWalletTransaction(int id) async {
+    setState(() => isCheckingPremium = true);
+
+    final canAdd = await PremiumService().canAddData(forceRefresh: true);
+    final status = PremiumService().getCachedStatus();
+
+    setState(() {
+      isCheckingPremium = false;
+      premiumStatus = status;
+    });
+
+    if (status != null && status.productId == 2 && !canAdd) {
+      PremiumService.showPremiumExpiredDialog(
+        context,
+        customMessage: 'Premium required to delete wallet transactions.',
+      );
+      return;
+    }
+
+    if (!canAdd) {
+      PremiumService.showPremiumExpiredDialog(
+        context,
+        customMessage: 'Premium required to delete wallet transactions.',
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder:
@@ -639,8 +720,575 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
+  // Helper: handle edit of wallet transaction with premium check
+  Future<void> _handleEditWalletTransaction(
+    WalletTransaction transaction,
+  ) async {
+    setState(() => isCheckingPremium = true);
+
+    final canAdd = await PremiumService().canAddData(forceRefresh: true);
+    final status = PremiumService().getCachedStatus();
+
+    setState(() {
+      isCheckingPremium = false;
+      premiumStatus = status;
+    });
+
+    if (status != null && status.productId == 2 && !canAdd) {
+      PremiumService.showPremiumExpiredDialog(
+        context,
+        customMessage: 'Premium required to edit wallet transactions.',
+      );
+      return;
+    }
+
+    if (!canAdd) {
+      PremiumService.showPremiumExpiredDialog(
+        context,
+        customMessage: 'Premium required to edit wallet transactions.',
+      );
+      return;
+    }
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddMoneyToWalletPage(transaction: transaction),
+      ),
+    );
+
+    if (result == true) {
+      _loadWalletData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Transaction updated successfully')),
+        );
+      }
+    }
+  }
+
+  void _showEditDeleteDialog(WalletTransaction transaction) async {
+    bool isPayment = await _isPaymentTransaction(transaction);
+
+    if (isPayment) {
+      Payment? paymentData = await _getPaymentData(transaction);
+      if (paymentData != null) {
+        showDialog(
+          context: context,
+          builder:
+              (context) => AlertDialog(
+                title: const Text('Choose Action'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.edit),
+                      title: const Text('Edit'),
+                      onTap: () {
+                        Navigator.pop(context);
+                        _navigateToEditPayment(paymentData);
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.delete, color: Colors.red),
+                      title: const Text(
+                        'Delete',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                      onTap: () {
+                        Navigator.pop(context);
+                        _confirmDeletePayment(paymentData.id!);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+        );
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Error loading payment data')),
+          );
+        }
+      }
+    } else {
+      showDialog(
+        context: context,
+        builder:
+            (context) => AlertDialog(
+              title: const Text('Choose Action'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.edit),
+                    title: const Text('Edit'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _handleEditWalletTransaction(transaction);
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.delete, color: Colors.red),
+                    title: const Text(
+                      'Delete',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _confirmDeleteWalletTransaction(transaction.id!);
+                    },
+                  ),
+                ],
+              ),
+            ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Wrap main content and overlay in a Stack so we can show the premium-checking overlay
+    final mainContent =
+        _isLoading
+            ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Colors.teal.shade400,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Loading wallet data...',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                  ),
+                ],
+              ),
+            )
+            : RefreshIndicator(
+              onRefresh: _checkPremiumAndLoadData,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 16),
+
+                    // PREMIUM BANNER (if premiumStatus known)
+                    if (premiumStatus != null)
+                      PremiumService.buildPremiumBanner(
+                        context: context,
+                        status: premiumStatus!,
+                        isChecking: isCheckingPremium,
+                        onRefresh: _checkPremiumAndLoadData,
+                      ),
+
+                    // Month Picker Card
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      child: InkWell(
+                        onTap: _showMonthYearPicker,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.teal.shade400,
+                                Colors.teal.shade600,
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.teal.withOpacity(0.3),
+                                spreadRadius: 2,
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Select Period',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.white.withOpacity(0.8),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _getDisplayMonth(),
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Icon(
+                                Icons.calendar_today,
+                                color: Colors.white.withOpacity(0.9),
+                                size: 28,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Balance Cards
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _buildBalanceCard(
+                              'Opening Balance',
+                              openingBalance,
+                              Colors.blue,
+                              Icons.arrow_downward,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildBalanceCard(
+                              'Closing Balance',
+                              closingBalance,
+                              Colors.green,
+                              Icons.arrow_upward,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Warning Banner
+                    if (!hasWalletMoney)
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.amber[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.amber[300]!),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              color: Colors.amber[700],
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Add money to wallet to see payment transactions',
+                                style: TextStyle(
+                                  color: Colors.amber[900],
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 20),
+
+                    // Transactions Section Header
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Transactions',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey[800],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${transactions.length} transaction${transactions.length != 1 ? 's' : ''}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[500],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Transactions Table
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.grey.shade300,
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.1),
+                            spreadRadius: 1,
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child:
+                            transactions.isEmpty
+                                ? Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 40,
+                                    horizontal: 20,
+                                  ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.account_balance_wallet_outlined,
+                                        size: 56,
+                                        color: Colors.grey[300],
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        hasWalletMoney
+                                            ? 'No transactions for this month'
+                                            : 'No wallet data available',
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        hasWalletMoney
+                                            ? 'Try selecting a different month'
+                                            : 'Add money to get started',
+                                        style: TextStyle(
+                                          color: Colors.grey[400],
+                                          fontSize: 13,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
+                                  ),
+                                )
+                                : Column(
+                                  children: [
+                                    // TABLE HEADER
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF0D7377),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          _buildTableHeaderCell('Date', 0.20),
+                                          _buildTableHeaderCell(
+                                            'Account Name',
+                                            0.35,
+                                          ),
+                                          _buildTableHeaderCell('Amount', 0.22),
+                                          _buildTableHeaderCell('Action', 0.23),
+                                        ],
+                                      ),
+                                    ),
+                                    // TABLE ROWS
+                                    SizedBox(
+                                      height: transactions.length * 70.0,
+                                      child: ListView.builder(
+                                        shrinkWrap: true,
+                                        physics:
+                                            const NeverScrollableScrollPhysics(),
+                                        itemCount: transactions.length,
+                                        itemBuilder: (context, index) {
+                                          final transaction =
+                                              transactions[index];
+                                          final isCredit =
+                                              transaction.amount >= 0;
+                                          return Container(
+                                            decoration: BoxDecoration(
+                                              border: Border(
+                                                bottom: BorderSide(
+                                                  color: Colors.grey.shade300,
+                                                  width: 1,
+                                                ),
+                                              ),
+                                              color:
+                                                  index.isEven
+                                                      ? Colors.grey.shade50
+                                                      : Colors.white,
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Expanded(
+                                                  flex: 20,
+                                                  child: _buildTableDataCell(
+                                                    DateFormat(
+                                                      'dd/MM/yyyy',
+                                                    ).format(
+                                                      DateFormat(
+                                                        'yyyy-MM-dd',
+                                                      ).parse(transaction.date),
+                                                    ),
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  flex: 35,
+                                                  child: _buildTableDataCell(
+                                                    transaction.description,
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  flex: 22,
+                                                  child: _buildTableDataCell(
+                                                    '${isCredit ? '+' : '-'} ₹${(isCredit ? transaction.amount : -transaction.amount).toStringAsFixed(0)}',
+                                                    textColor:
+                                                        isCredit
+                                                            ? Colors.green
+                                                            : Colors.red,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  flex: 23,
+                                                  child: Container(
+                                                    alignment: Alignment.center,
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          vertical: 12,
+                                                          horizontal: 4,
+                                                        ),
+                                                    child: InkWell(
+                                                      onTap: () {
+                                                        _showEditDeleteDialog(
+                                                          transaction,
+                                                        );
+                                                      },
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            6,
+                                                          ),
+                                                      child: Container(
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 6,
+                                                              vertical: 6,
+                                                            ),
+                                                        decoration: BoxDecoration(
+                                                          color: Colors.red
+                                                              .withOpacity(0.1),
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                6,
+                                                              ),
+                                                        ),
+                                                        child: Text(
+                                                          'Edit/Delete',
+                                                          textAlign:
+                                                              TextAlign.center,
+                                                          maxLines: 1,
+                                                          overflow:
+                                                              TextOverflow
+                                                                  .ellipsis,
+                                                          style: TextStyle(
+                                                            color:
+                                                                Colors
+                                                                    .red
+                                                                    .shade600,
+                                                            fontSize: 10,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Closing Balance Summary
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.green[400]!, Colors.green[600]!],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.green.withOpacity(0.3),
+                            spreadRadius: 2,
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            'Final Balance',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.white.withOpacity(0.9),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '₹ ${closingBalance.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 30),
+                  ],
+                ),
+              ),
+            );
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
@@ -665,460 +1313,48 @@ class _WalletPageState extends State<WalletPage> {
           ),
         ),
       ),
-      body:
-          _isLoading
-              ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        Colors.teal.shade400,
-                      ),
+      body: Stack(
+        children: [
+          // main content (loading or content)
+          Positioned.fill(child: mainContent),
+
+          // premium checking overlay
+          if (isCheckingPremium)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withOpacity(0.3),
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Loading wallet data...',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation(Colors.green),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Verifying Access...',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              )
-              : RefreshIndicator(
-                onRefresh: _loadWalletData,
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 16),
-                      // Month Picker Card
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 16),
-                        child: InkWell(
-                          onTap: _showMonthYearPicker,
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.teal.shade400,
-                                  Colors.teal.shade600,
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.teal.withOpacity(0.3),
-                                  spreadRadius: 2,
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Select Period',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.white.withOpacity(0.8),
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      _getDisplayMonth(),
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Icon(
-                                  Icons.calendar_today,
-                                  color: Colors.white.withOpacity(0.9),
-                                  size: 28,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Balance Cards
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _buildBalanceCard(
-                                'Opening Balance',
-                                openingBalance,
-                                Colors.blue,
-                                Icons.arrow_downward,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _buildBalanceCard(
-                                'Closing Balance',
-                                closingBalance,
-                                Colors.green,
-                                Icons.arrow_upward,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Warning Banner
-                      if (!hasWalletMoney)
-                        Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 16),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.amber[50],
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.amber[300]!),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.info_outline,
-                                color: Colors.amber[700],
-                                size: 20,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'Add money to wallet to see payment transactions',
-                                  style: TextStyle(
-                                    color: Colors.amber[900],
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      const SizedBox(height: 20),
-
-                      // Transactions Section Header
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Transactions',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey[800],
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${transactions.length} transaction${transactions.length != 1 ? 's' : ''}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[500],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Transactions Table
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.grey.shade300,
-                            width: 1.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.1),
-                              spreadRadius: 1,
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child:
-                              transactions.isEmpty
-                                  ? Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 40,
-                                      horizontal: 20,
-                                    ),
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.account_balance_wallet_outlined,
-                                          size: 56,
-                                          color: Colors.grey[300],
-                                        ),
-                                        const SizedBox(height: 16),
-                                        Text(
-                                          hasWalletMoney
-                                              ? 'No transactions for this month'
-                                              : 'No wallet data available',
-                                          style: TextStyle(
-                                            color: Colors.grey[600],
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          hasWalletMoney
-                                              ? 'Try selecting a different month'
-                                              : 'Add money to get started',
-                                          style: TextStyle(
-                                            color: Colors.grey[400],
-                                            fontSize: 13,
-                                          ),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                  : Column(
-                                    children: [
-                                      // TABLE HEADER
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF0D7377),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            _buildTableHeaderCell('Date', 0.20),
-                                            _buildTableHeaderCell(
-                                              'Account Name',
-                                              0.35,
-                                            ),
-                                            _buildTableHeaderCell(
-                                              'Amount',
-                                              0.22,
-                                            ),
-                                            _buildTableHeaderCell(
-                                              'Action',
-                                              0.23,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      // TABLE ROWS
-                                      SizedBox(
-                                        height: transactions.length * 70.0,
-                                        child: ListView.builder(
-                                          shrinkWrap: true,
-                                          physics:
-                                              const NeverScrollableScrollPhysics(),
-                                          itemCount: transactions.length,
-                                          itemBuilder: (context, index) {
-                                            final transaction =
-                                                transactions[index];
-                                            final isCredit =
-                                                transaction.amount >= 0;
-                                            return Container(
-                                              decoration: BoxDecoration(
-                                                border: Border(
-                                                  bottom: BorderSide(
-                                                    color: Colors.grey.shade300,
-                                                    width: 1,
-                                                  ),
-                                                ),
-                                                color:
-                                                    index.isEven
-                                                        ? Colors.grey.shade50
-                                                        : Colors.white,
-                                              ),
-                                              child: Row(
-                                                children: [
-                                                  Expanded(
-                                                    flex: 20,
-                                                    child: _buildTableDataCell(
-                                                      DateFormat(
-                                                        'dd/MM/yyyy',
-                                                      ).format(
-                                                        DateFormat(
-                                                          'yyyy-MM-dd',
-                                                        ).parse(
-                                                          transaction.date,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  Expanded(
-                                                    flex: 35,
-                                                    child: _buildTableDataCell(
-                                                      transaction.description,
-                                                    ),
-                                                  ),
-                                                  Expanded(
-                                                    flex: 22,
-                                                    child: _buildTableDataCell(
-                                                      '${isCredit ? '+' : '-'} ₹${(isCredit ? transaction.amount : -transaction.amount).toStringAsFixed(0)}',
-                                                      textColor:
-                                                          isCredit
-                                                              ? Colors.green
-                                                              : Colors.red,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                  Expanded(
-                                                    flex: 23,
-                                                    child: Container(
-                                                      alignment:
-                                                          Alignment.center,
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            vertical: 12,
-                                                            horizontal: 4,
-                                                          ),
-                                                      child: InkWell(
-                                                        onTap: () {
-                                                          _showEditDeleteDialog(
-                                                            transaction,
-                                                          );
-                                                        },
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              6,
-                                                            ),
-                                                        child: Container(
-                                                          padding:
-                                                              const EdgeInsets.symmetric(
-                                                                horizontal: 6,
-                                                                vertical: 6,
-                                                              ),
-                                                          decoration: BoxDecoration(
-                                                            color: Colors.red
-                                                                .withOpacity(
-                                                                  0.1,
-                                                                ),
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  6,
-                                                                ),
-                                                          ),
-                                                          child: Text(
-                                                            'Edit/Delete',
-                                                            textAlign:
-                                                                TextAlign
-                                                                    .center,
-                                                            maxLines: 1,
-                                                            overflow:
-                                                                TextOverflow
-                                                                    .ellipsis,
-                                                            style: TextStyle(
-                                                              color:
-                                                                  Colors
-                                                                      .red
-                                                                      .shade600,
-                                                              fontSize: 10,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Closing Balance Summary
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 16),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Colors.green[400]!, Colors.green[600]!],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.green.withOpacity(0.3),
-                              spreadRadius: 2,
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            Text(
-                              'Final Balance',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.white.withOpacity(0.9),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '₹ ${closingBalance.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 30),
-                    ],
                   ),
                 ),
               ),
+            ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF0D7377),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const AddMoneyToWalletPage(),
-            ),
-          ).then((_) => _loadWalletData());
-        },
+        onPressed: _handleAddMoney,
         child: const Icon(Icons.add, color: Colors.white, size: 28),
       ),
     );

@@ -10,7 +10,7 @@ class BillRegisterPage extends StatefulWidget {
   State<BillRegisterPage> createState() => _BillRegisterPageState();
 }
 
-class _BillRegisterPageState extends State<BillRegisterPage> {
+class _BillRegisterPageState extends State<BillRegisterPage> {    
   List<Map<String, dynamic>> billsList = [];
   bool isLoading = true;
 

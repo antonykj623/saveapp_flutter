@@ -1,66 +1,30 @@
-// // File: pack_list_entity.dart
-// // This is the ONLY correct version that works with your DTHPlansScreen
+import 'package:flutter/material.dart';
 
-// class PackListEntity {
-//   String? status;
-//   List<PackListPacks>? packs;
+class  pageone extends StatefulWidget {
+  const  pageone({super.key});
 
-//   PackListEntity({this.status, this.packs});
+  @override
+  State< pageone> createState() => pageoneState();
+}
 
-//   factory PackListEntity.fromJson(Map<String, dynamic> json) {
-//     return PackListEntity(
-//       status: json['status'] as String?,
-//       packs: json['packs'] == null
-//           ? null
-//           : (json['packs'] as List)
-//               .map((e) => PackListPacks.fromJson(e as Map<String, dynamic>))
-//               .toList(),
-//     );
-//   }
-// }
+class pageoneState extends State< pageone>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
 
-// class PackListPacks {
-//   String? name;
-//   List<Prices>? prices;          // ← uses Prices (not PackListPacksPrices)
+  @override    
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this);
+  }
 
-//   PackListPacks({this.name, this.prices});
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
-//   factory PackListPacks.fromJson(Map<String, dynamic> json) {
-//     return PackListPacks(
-//       name: json['name']?.toString(),
-//       prices: json['prices'] == null
-//           ? null
-//           : (json['prices'] as List)
-//               .map((e) => Prices.fromJson(e as Map<String, dynamic>))
-//               .toList(),
-//     );
-//   }
-// }
-
-// // THIS IS THE CLASS YOU NEED – MUST BE NAMED "Prices"
-// class Prices {
-//   dynamic amount;       // can be int or String from API
-//   String? validity;
-//   String? description;
-
-//   Prices({this.amount, this.validity, this.description});
-
-//   factory Prices.fromJson(Map<String, dynamic> json) {
-//     return Prices(
-//       amount: json['amount'],
-//       validity: json['validity']?.toString(),
-//       description: json['description']?.toString(),
-//     );
-//   }
-
-//   Map<String, dynamic> toJson() {
-//     return {
-//       'amount': amount,
-//       'validity': validity,
-//       'description': description,
-//     };
-//   }
-
-//   @override
-//   String toString() => '₹$amount • $validity';
-// }
+  @override
+  Widget build(BuildContext context) {
+    return const Placeholder();
+  }
+}

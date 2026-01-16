@@ -1,23 +1,17 @@
-
-
-
-
-
-
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:new_project_2025/services/Premium_services/Premium_services.dart';
 
 import '../../model/receipt.dart';
 import '../../services/dbhelper/DatabaseHelper.dart';
 import '../../services/dbhelper/dbhelper.dart';
 
-
 import 'package:intl/intl.dart';
 
 import 'addDiary.dart';
 
-
+// Import the PremiumService
 
 class Diary extends StatefulWidget {
   const Diary({super.key});
@@ -27,7 +21,6 @@ class Diary extends StatefulWidget {
 }
 
 class _ReceiptsPageState extends State<Diary> {
-
   bool _showContainer = false;
 
   var dropdownvalu = 'OneTime';
@@ -39,8 +32,6 @@ class _ReceiptsPageState extends State<Diary> {
     'Quarterly',
     'Half Yearly',
     'Yearly',
-
-
   ];
   String selectedYearMonth = DateFormat('yyyy-MM').format(DateTime.now());
   DateTime selected_startDate = DateTime.now();
@@ -50,90 +41,139 @@ class _ReceiptsPageState extends State<Diary> {
   double total = 0;
   final ScrollController _verticalScrollController = ScrollController();
 
+  // Premium status variables
+  bool _isCheckingPremium = true;
+  PremiumStatus? _premiumStatus;
+  final PremiumService _premiumService = PremiumService();
+
   @override
   void initState() {
     super.initState();
-    _loadReceipts();
+    _checkPremiumAndLoad();
+  }
+
+  // Check premium status on page load
+  Future<void> _checkPremiumAndLoad() async {
+    setState(() {
+      _isCheckingPremium = true;
+    });
+
+    try {
+      final status = await _premiumService.checkPremiumStatus(
+        forceRefresh: true,
+      );
+      setState(() {
+        _premiumStatus = status;
+        _isCheckingPremium = false;
+      });
+
+      if (status.isActive) {
+        _loadReceipts();
+      } else {
+        // Show premium expired dialog
+        if (mounted) {
+          PremiumService.showPremiumExpiredDialog(
+            context,
+            customMessage:
+                'Your access has expired. Please upgrade to access Diary features.',
+            onUpgrade: () {
+              // Navigate to upgrade page or show upgrade options
+              // Navigator.push(context, MaterialPageRoute(builder: (context) => UpgradePage()));
+            },
+          );
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _isCheckingPremium = false;
+      });
+    }
+  }
+
+  // Check premium before adding new diary
+  Future<void> _checkPremiumBeforeAdd() async {
+    final canAdd = await _premiumService.canAddData(forceRefresh: true);
+
+    if (canAdd) {
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => AddDiary()),
+        );
+      }
+    } else {
+      if (mounted) {
+        PremiumService.showPremiumExpiredDialog(
+          context,
+          customMessage:
+              'Premium access required to add diary entries. Please upgrade to continue.',
+          onUpgrade: () {
+            // Navigate to upgrade page
+          },
+        );
+      }
+    }
   }
 
   void _showContentDialog() {
+    // Check premium before showing content
+    if (_premiumStatus?.isActive != true) {
+      PremiumService.showPremiumExpiredDialog(
+        context,
+        customMessage: 'Premium access required to view diary entries.',
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text(''),
-         content: SizedBox(
-
-           height: 700,
-           width: double.infinity,
-           child: Padding(
-             padding: const EdgeInsets.only(bottom: 0.0),
-             child: SingleChildScrollView(
-
-
-
-                   // Icon(
-                   //   Icons.book,
-                   //   color: Colors.black,
-                   //   size: 50,
-                   // ),
-
-
-               child:  Padding(
-                   padding: const EdgeInsets.only(left: 18.0),
-                   child: Text("01-05-2025\n\nMy Subject\n\nygsudjbfjugfgh\nfhfghfhgfghfgghas\nbdufusdshdbjhbd"),
-                 ),
-
-                 ),
-           ),
-         ),
-
-
-          // Row(
-          //   children: [
-          //     Icon(Icons.description, size: 30),
-          //     SizedBox(width: 10),
-          //     Expanded(child: Text('This is the same content shown in the row.')),
-          //   ],
-          // ),
-          actions: [
-
-              Padding(
-                padding: const EdgeInsets.only(bottom:80.0),
-                child: Center(
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.teal,
-                      foregroundColor: Colors.white,
-                    ),
-                    onPressed: () {
-                      Navigator.pop(context);
-                      //  _loadReceipts(); // Reload receipts based on current selections
-                    },
-                    child: const Text("Edit"),
+          content: SizedBox(
+            height: 700,
+            width: double.infinity,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 0.0),
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 18.0),
+                  child: Text(
+                    "01-05-2025\n\nMy Subject\n\nygsudjbfjugfgh\nfhfghfhgfghfgghas\nbdufusdshdbjhbd",
                   ),
                 ),
               ),
-
+            ),
+          ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 80.0),
+              child: Center(
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.teal,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: const Text("Edit"),
+                ),
+              ),
+            ),
           ],
         );
       },
     );
   }
 
-   toggleView() {
+  toggleView() {
     setState(() {
-      if(_showContainer)
-        {
-          _showContainer = false;
-        }
-      else{
+      if (_showContainer) {
+        _showContainer = false;
+      } else {
         _showContainer = true;
-
       }
-
-
-
     });
   }
 
@@ -144,6 +184,10 @@ class _ReceiptsPageState extends State<Diary> {
   }
 
   void _loadReceipts() async {
+    // Only load if premium is active
+    if (_premiumStatus?.isActive != true) {
+      return;
+    }
     // final receiptsList = await DatabaseHelper1.instance.getReceiptsByMonth(
     //   DateFormat('yyyy-MM-dd').format(selectedDate),
     // );
@@ -156,7 +200,7 @@ class _ReceiptsPageState extends State<Diary> {
   void showMonthYearPicker(bool isStart) {
     showDatePicker(
       context: context,
-
+      initialDate: DateTime.now(),
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
     ).then((pickedDate) {
@@ -167,8 +211,6 @@ class _ReceiptsPageState extends State<Diary> {
           } else {
             selected_endDate = pickedDate;
           }
-
-          // _loadReceipts();
         });
       }
     });
@@ -177,13 +219,12 @@ class _ReceiptsPageState extends State<Diary> {
   selectDate(bool isStart) {
     showDatePicker(
       context: context,
-
+      initialDate: DateTime.now(),
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
     ).then((pickedDate) {
       if (pickedDate != null) {
         setState(() {
-          // selectedDate = pickedDate;
           selectedYearMonth = DateFormat('yyyy-MM').format(pickedDate);
           if (isStart) {
             selected_startDate = pickedDate;
@@ -229,6 +270,15 @@ class _ReceiptsPageState extends State<Diary> {
       ),
       body: Column(
         children: [
+          // Premium Status Banner
+          if (_premiumStatus != null)
+            PremiumService.buildPremiumBanner(
+              context: context,
+              status: _premiumStatus!,
+              isChecking: _isCheckingPremium,
+              onRefresh: () => _checkPremiumAndLoad(),
+            ),
+
           Padding(
             padding: const EdgeInsets.all(10.0),
             child: Row(
@@ -264,7 +314,7 @@ class _ReceiptsPageState extends State<Diary> {
                   width: 180,
                   height: 60,
                   child: InkWell(
-                    onTap:() {
+                    onTap: () {
                       selectDate(false);
                     },
                     child: Container(
@@ -289,101 +339,76 @@ class _ReceiptsPageState extends State<Diary> {
               ],
             ),
           ),
-          SizedBox(height: 20,),
-
-
-
-       Padding(
-         padding: const EdgeInsets.only(left:20.0,right: 20.0),
-         child: Column(
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-
-                        border: const Border(
-                          bottom: BorderSide(color: Colors.black),
-                        ),
-                      ),
-                      child: DropdownButton(
-
-                        isExpanded: true,
-                        // Initial Value
-                        value: dropdownvalu,
-
-                        // Down Arrow Icon
-                        icon: const Icon(Icons.keyboard_arrow_down),
-
-                        // Array list of items
-                        items: items1.map((String items) {
+          SizedBox(height: 20),
+          Padding(
+            padding: const EdgeInsets.only(left: 20.0, right: 20.0),
+            child: Column(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    border: const Border(
+                      bottom: BorderSide(color: Colors.black),
+                    ),
+                  ),
+                  child: DropdownButton(
+                    isExpanded: true,
+                    value: dropdownvalu,
+                    icon: const Icon(Icons.keyboard_arrow_down),
+                    items:
+                        items1.map((String items) {
                           return DropdownMenuItem(
                             value: items,
-
-                              child: Center(child: Text(items,)),
-
+                            child: Center(child: Text(items)),
                           );
                         }).toList(),
-                        // After selecting the desired option,it will
-                        // change button value to selected value
-                        onChanged: (String? newValue2) {
-                          setState(() {
-                            dropdownvalu = newValue2!;
-                            // _showTextBox = newValue2 == 'EMI';
-                            //  print("Value is..:$dropdownvalu");
-                          });
-                        },
-                      ),
-
-
-
-
-            )]),
-       ),
-  SizedBox(height: 20,),
+                    onChanged: (String? newValue2) {
+                      setState(() {
+                        dropdownvalu = newValue2!;
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 20),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.teal,
               foregroundColor: Colors.white,
             ),
             onPressed: () {
-            //  _loadReceipts(); // Reload receipts based on current selections
+              _loadReceipts();
             },
             child: const Text("Search"),
           ),
-          SizedBox(height: 10,),
+          SizedBox(height: 10),
           Padding(
-            padding: const EdgeInsets.only(left:20.0,right: 20.0),
+            padding: const EdgeInsets.only(left: 20.0, right: 20.0),
             child: Column(
-                children: [
-                  Container(
-
-                    width: double.infinity,
-                    height: (!_showContainer)? 70:150,
-                    padding: EdgeInsets.all(5),
-                    decoration: BoxDecoration(
-
-                      border: Border.all(color: Colors.black),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 10),
-                      child: Column(
-
-                        children: [
-
-                          Row(
-
-                            children: [
-
-                              Expanded(
-                                child:   Container(
-
-
-
-                                  child: Text("This view was toggled!"),
-                                ),flex: 3,
+              children: [
+                Container(
+                  width: double.infinity,
+                  height: (!_showContainer) ? 70 : 150,
+                  padding: EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.black),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 10),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Container(
+                                child: Text("This view was toggled!"),
                               ),
-
-                              Expanded(child: Row(
+                              flex: 3,
+                            ),
+                            Expanded(
+                              child: Row(
                                 children: [
                                   IconButton(
                                     padding: EdgeInsets.all(0),
@@ -392,107 +417,71 @@ class _ReceiptsPageState extends State<Diary> {
                                       color: Colors.black,
                                       size: 20,
                                     ),
-                                    onPressed: () {
-
-
-                                    },
+                                    onPressed: () {},
                                   ),
-
                                   IconButton(
                                     padding: EdgeInsets.all(0),
                                     icon: Icon(
-                                      (!_showContainer)? Icons.arrow_drop_down : Icons.arrow_drop_up,
+                                      (!_showContainer)
+                                          ? Icons.arrow_drop_down
+                                          : Icons.arrow_drop_up,
                                       color: Colors.black,
                                       size: 20,
                                     ),
                                     onPressed: () {
                                       toggleView();
-
                                     },
                                   ),
-
                                 ],
-                              ) ,flex: 2,)
-
-
-
-
-
-
-                            ],
-                          ),
-                          SizedBox(height: 10,),
-                          (_showContainer)?
-
-
-                          GestureDetector(
-
-                              onTap: _showContentDialog,
-                          child: Expanded(
-
-
-                                child:
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.book,
-                                color: Colors.black,
-                                size: 50,
                               ),
-
-                          Text("01-05-2025\nMy Subject\nygsudjbfjugfghfhfghfhgfghfgghas\nbdufusdshdbjhbd")
-                                ]),
-
-
-                            flex: 3,))
-                                :Container(
-
-
-                              )
-
-
-                        ],
-                      )
-
-
-
-
+                              flex: 2,
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 10),
+                        (_showContainer)
+                            ? GestureDetector(
+                              onTap: _showContentDialog,
+                              child: Expanded(
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.book,
+                                      color: Colors.black,
+                                      size: 50,
+                                    ),
+                                    Text(
+                                      "01-05-2025\nMy Subject\nygsudjbfjugfghfhfghfhgfghfgghas\nbdufusdshdbjhbd",
+                                    ),
+                                  ],
+                                ),
+                                flex: 3,
+                              ),
+                            )
+                            : Container(),
+                      ],
                     ),
                   ),
-
-
-          ],),
+                ),
+              ],
+            ),
           ),
           Spacer(),
           Spacer(),
           Padding(
-            padding: const EdgeInsets.only(bottom: 18.0,left: 300),
+            padding: const EdgeInsets.only(bottom: 18.0, left: 300),
             child: Container(
-
-
-
               child: FloatingActionButton(
                 backgroundColor: Colors.red,
-                tooltip: 'Increment',
-                shape:   const CircleBorder(),
-                onPressed: (){
-               Navigator.push(context,MaterialPageRoute(builder:(context)=>AddDiary( )));
-
-
-                },
+                tooltip: 'Add Diary',
+                shape: const CircleBorder(),
+                onPressed: _checkPremiumBeforeAdd, // Premium check before add
                 child: const Icon(Icons.add, color: Colors.white, size: 25),
               ),
-
-
-
             ),
-          )
-
-
-
+          ),
         ],
       ),
-
     );
   }
 
@@ -504,17 +493,16 @@ class _ReceiptsPageState extends State<Diary> {
         alignment: Alignment.center,
         padding: const EdgeInsets.all(4.0),
         decoration: BoxDecoration(
-          border: Border(right: BorderSide(color: Colors.black,style: BorderStyle.solid)),
+          border: Border(
+            right: BorderSide(color: Colors.black, style: BorderStyle.solid),
+          ),
         ),
         child: Text(
           text,
-          style: const TextStyle(fontWeight: FontWeight.bold,),
+          style: const TextStyle(fontWeight: FontWeight.bold),
           textAlign: TextAlign.center,
         ),
       ),
     );
   }
-
-
 }
-

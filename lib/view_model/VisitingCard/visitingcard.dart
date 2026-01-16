@@ -13,7 +13,7 @@ class VisitingCard extends StatefulWidget {
   final Uint8List? cardImage;
 
   const VisitingCard({
-    super.key,  
+    super.key,
     this.cardData,
     this.cardId,
     this.logoImage,
@@ -939,7 +939,6 @@ class _VisitingCardFormState extends State<VisitingCard>
     });
 
     try {
-  
       setState(() => _saveProgress = 0.2);
 
       final cardData = {

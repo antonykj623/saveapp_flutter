@@ -2,28 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:new_project_2025/view/home/widget/setting_page/app_lock/check_pattern.dart';
 import 'package:new_project_2025/view/home/widget/setting_page/app_lock/set_pattern.dart';
 
-class LockPatternPage extends StatelessWidget {
-  const LockPatternPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Pattern Lock',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        useMaterial3: true,
-        fontFamily: 'SF Pro Display',
-      ),
-      routes: {
-        "/check_pattern": (BuildContext context) => const CheckPattern(),
-        "/set_pattern": (BuildContext context) => SetPattern(),
-      },
-      home: const LockPatternMain(),
-    );
-  }
-}
-
+// Remove MaterialApp from here — this should be a normal page, not a full app
 class LockPatternMain extends StatefulWidget {
   const LockPatternMain({super.key});
 
@@ -75,6 +54,10 @@ class _LockPatternMainWidgetState extends State<LockPatternMain>
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      // Add this to allow system back gesture & button to work properly
+      extendBodyBehindAppBar: false,
+      backgroundColor: Colors.transparent, // Let gradient show through
+
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -99,7 +82,7 @@ class _LockPatternMainWidgetState extends State<LockPatternMain>
             opacity: _fadeAnimation,
             child: Column(
               children: [
-                // Modern App Bar
+                // App Bar with Back Button
                 Container(
                   padding: EdgeInsets.symmetric(
                     horizontal: screenSize.width * 0.06,
@@ -107,6 +90,29 @@ class _LockPatternMainWidgetState extends State<LockPatternMain>
                   ),
                   child: Row(
                     children: [
+                      // Back Button
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.2),
+                              width: 1,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+
+                      // Security Icon
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
@@ -175,7 +181,7 @@ class _LockPatternMainWidgetState extends State<LockPatternMain>
                         padding: EdgeInsets.all(screenSize.width * 0.06),
                         child: Column(
                           children: [
-                            // Header Section
+                            // Header Section (same as before)
                             Container(
                               padding: const EdgeInsets.symmetric(vertical: 24),
                               child: Column(
@@ -292,16 +298,19 @@ class _LockPatternMainWidgetState extends State<LockPatternMain>
 
                             const Spacer(),
 
-                            // Action Buttons
+                            // Buttons
                             SizedBox(
                               width: double.infinity,
                               child: _ModernButton(
                                 onPressed: () async {
-                                  final result = await Navigator.pushNamed(
-                                    context,
-                                    "/set_pattern",
-                                  );
-                                  if (result is List<int>) {
+                                  final result =
+                                      await Navigator.push<List<int>>(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => SetPattern(),
+                                        ),
+                                      );
+                                  if (result != null) {
                                     _showSuccessMessage(result);
                                     setState(() {
                                       pattern = result;
@@ -326,9 +335,12 @@ class _LockPatternMainWidgetState extends State<LockPatternMain>
                                 width: double.infinity,
                                 child: _ModernButton(
                                   onPressed: () {
-                                    Navigator.pushNamed(
+                                    Navigator.push(
                                       context,
-                                      "/check_pattern",
+                                      MaterialPageRoute(
+                                        builder:
+                                            (context) => const CheckPattern(),
+                                      ),
                                     );
                                   },
                                   text: 'Test Pattern',
@@ -409,6 +421,7 @@ class _LockPatternMainWidgetState extends State<LockPatternMain>
   }
 }
 
+// Keep _ModernButton class exactly as before (unchanged)
 class _ModernButton extends StatefulWidget {
   final VoidCallback onPressed;
   final String text;
@@ -474,9 +487,7 @@ class _ModernButtonState extends State<_ModernButton>
             color:
                 widget.isPrimary
                     ? null
-                    : isDark
-                    ? Colors.grey[800]
-                    : Colors.grey[100],
+                    : (isDark ? Colors.grey[800] : Colors.grey[100]),
             borderRadius: BorderRadius.circular(16),
             border:
                 widget.isPrimary

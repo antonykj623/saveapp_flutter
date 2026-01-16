@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:new_project_2025/services/Premium_services/Premium_services.dart';
 import 'package:new_project_2025/view/home/dream_page/add_dream_screen/add_dream_screen.dart';
 import 'package:new_project_2025/view/home/dream_page/model_dream_page/model_dream.dart';
 import 'package:new_project_2025/view/home/dream_page/view_details_screen/view_details_screen.dart';
@@ -15,7 +16,8 @@ class _MyDreamScreenState extends State<MyDreamScreen> {
   List<Dream> dreams = [];
   final DatabaseHelper _dbHelper = DatabaseHelper();
   List<TargetCategory> targetCategories = []; // Add this
-
+  bool Premium = true;
+  late PremiumService premium;
   @override
   void initState() {
     super.initState();

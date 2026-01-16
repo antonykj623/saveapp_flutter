@@ -7,6 +7,9 @@ import 'package:new_project_2025/view/home/widget/Receipt/add_receipt_voucher_sc
 import 'package:new_project_2025/view/home/widget/payment_page/Month_date/Moth_datepage.dart';
 import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 
+// PREMIUM SERVICE IMPORT
+import 'package:new_project_2025/services/Premium_services/Premium_services.dart';
+
 class ReceiptsPage extends StatefulWidget {
   const ReceiptsPage({super.key});
 
@@ -44,12 +47,16 @@ class _ReceiptsPageState extends State<ReceiptsPage>
   double _animatedTotal = 0;
   final List<Particle> _particles = [];
 
+  // PREMIUM: state variables
+  bool isCheckingPremium = false;
+  PremiumStatus? premiumStatus;
+
   @override
   void initState() {
     super.initState();
     _initializeAnimations();
     _initializeParticles();
-    _loadReceipts();
+    _checkPremiumAndLoadData(); // changed from direct _loadReceipts()
   }
 
   void _initializeAnimations() {
@@ -163,6 +170,25 @@ class _ReceiptsPageState extends State<ReceiptsPage>
     super.dispose();
   }
 
+  // NEW: check premium status first, then load receipts
+  Future<void> _checkPremiumAndLoadData() async {
+    setState(() => isCheckingPremium = true);
+    try {
+      final status = await PremiumService().checkPremiumStatus(
+        forceRefresh: true,
+      );
+      setState(() {
+        premiumStatus = status;
+        isCheckingPremium = false;
+      });
+      _loadReceipts();
+    } catch (e) {
+      // If premium check fails, still attempt to load receipts but mark checking false.
+      setState(() => isCheckingPremium = false);
+      _loadReceipts();
+    }
+  }
+
   Future<void> _loadReceipts() async {
     setState(() => _isLoading = true);
     _fadeController.reset();
@@ -227,9 +253,9 @@ class _ReceiptsPageState extends State<ReceiptsPage>
               return Receipt(
                 id: int.parse(debitEntry['ACCOUNTS_entryid']),
                 date: debitEntry['ACCOUNTS_date'],
-                accountName: accountName,
+                accountName: accountName, // Cr - Shows first (To Account)
                 amount: double.parse(debitEntry['ACCOUNTS_amount'].toString()),
-                paymentMode: paymentMode,
+                paymentMode: paymentMode, // Dr - Shows second (Cash/Bank)
                 remarks: debitEntry['ACCOUNTS_remarks'] ?? '',
               );
             }).toList();
@@ -372,7 +398,35 @@ class _ReceiptsPageState extends State<ReceiptsPage>
     return '$monthName $year';
   }
 
+  // UPDATED: navigate to edit receipt with premium check
   void _navigateToEditReceipt(Receipt receipt) async {
+    setState(() => isCheckingPremium = true);
+
+    final canAdd = await PremiumService().canAddData(forceRefresh: true);
+    final status = PremiumService().getCachedStatus();
+
+    setState(() {
+      isCheckingPremium = false;
+      premiumStatus = status;
+    });
+
+    if (status != null && status.productId == 2 && !canAdd) {
+      PremiumService.showPremiumExpiredDialog(
+        context,
+        customMessage: 'Premium required to edit receipt entries.',
+      );
+      return;
+    }
+
+    if (!canAdd) {
+      PremiumService.showPremiumExpiredDialog(
+        context,
+        customMessage: 'Premium required to edit receipt entries.',
+      );
+      return;
+    }
+
+    // Rest of existing edit navigation code...
     final result = await Navigator.push(
       context,
       PageRouteBuilder(
@@ -431,6 +485,64 @@ class _ReceiptsPageState extends State<ReceiptsPage>
         _showStyledSnackBar('Error deleting receipt: $e', Colors.red);
       }
     }
+  }
+
+  // NEW: handle add receipt with premium enforcement
+  Future<void> _handleAddReceipt() async {
+    setState(() => isCheckingPremium = true);
+
+    final canAdd = await PremiumService().canAddData(forceRefresh: true);
+    final status = PremiumService().getCachedStatus();
+
+    setState(() {
+      isCheckingPremium = false;
+      premiumStatus = status;
+    });
+
+    // Check if product_id is 2 and premium is not active
+    if (status != null && status.productId == 2 && !canAdd) {
+      PremiumService.showPremiumExpiredDialog(
+        context,
+        customMessage:
+            status.isPremium
+                ? 'Your premium subscription has expired.'
+                : 'Your trial period has ended.\nPlease upgrade to continue.',
+      );
+      return;
+    }
+
+    if (!canAdd) {
+      PremiumService.showPremiumExpiredDialog(
+        context,
+        customMessage:
+            status?.isPremium == true
+                ? 'Your premium subscription has expired.'
+                : 'Your trial period has ended.\nPlease upgrade to continue.',
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        pageBuilder:
+            (context, animation, secondaryAnimation) =>
+                const AddReceiptVoucherPage(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return ScaleTransition(
+            scale: Tween<double>(begin: 0.8, end: 1.0).animate(
+              CurvedAnimation(parent: animation, curve: Curves.elasticOut),
+            ),
+            child: FadeTransition(opacity: animation, child: child),
+          );
+        },
+      ),
+    ).then((result) {
+      if (result == true) {
+        _fadeController.reset();
+        _loadReceipts();
+      }
+    });
   }
 
   @override
@@ -664,7 +776,7 @@ class _ReceiptsPageState extends State<ReceiptsPage>
                                       ),
                                       onPressed: () {
                                         _fadeController.reset();
-                                        _loadReceipts();
+                                        _checkPremiumAndLoadData();
                                       },
                                     ),
                                   ),
@@ -679,6 +791,15 @@ class _ReceiptsPageState extends State<ReceiptsPage>
                 ),
 
                 SizedBox(height: size.height * 0.015),
+
+                // PREMIUM BANNER (if premiumStatus known)
+                if (premiumStatus != null)
+                  PremiumService.buildPremiumBanner(
+                    context: context,
+                    status: premiumStatus!,
+                    isChecking: isCheckingPremium,
+                    onRefresh: _checkPremiumAndLoadData,
+                  ),
 
                 // MONTH SELECTOR with Slide Animation
                 SlideTransition(
@@ -803,9 +924,6 @@ class _ReceiptsPageState extends State<ReceiptsPage>
                 ),
 
                 SizedBox(height: size.height * 0.015),
-
-                // JOURNAL TABLE with Staggered Animation
-                // Replace the JOURNAL TABLE section (around line 665-758) with this:
 
                 // JOURNAL TABLE with Staggered Animation
                 Expanded(
@@ -1033,6 +1151,37 @@ class _ReceiptsPageState extends State<ReceiptsPage>
               ],
             ),
           ),
+
+          // PREMIUM CHECKING OVERLAY
+          if (isCheckingPremium)
+            Container(
+              color: Colors.black.withOpacity(0.3),
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation(Colors.green),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Verifying Access...',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
       floatingActionButton: ScaleTransition(
@@ -1073,40 +1222,7 @@ class _ReceiptsPageState extends State<ReceiptsPage>
                 child: FloatingActionButton(
                   backgroundColor: Colors.transparent,
                   elevation: 0,
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      PageRouteBuilder(
-                        pageBuilder:
-                            (context, animation, secondaryAnimation) =>
-                                const AddReceiptVoucherPage(),
-                        transitionsBuilder: (
-                          context,
-                          animation,
-                          secondaryAnimation,
-                          child,
-                        ) {
-                          return ScaleTransition(
-                            scale: Tween<double>(begin: 0.8, end: 1.0).animate(
-                              CurvedAnimation(
-                                parent: animation,
-                                curve: Curves.elasticOut,
-                              ),
-                            ),
-                            child: FadeTransition(
-                              opacity: animation,
-                              child: child,
-                            ),
-                          );
-                        },
-                      ),
-                    ).then((result) {
-                      if (result == true) {
-                        _fadeController.reset();
-                        _loadReceipts();
-                      }
-                    });
-                  },
+                  onPressed: _handleAddReceipt,
                   child: Icon(
                     Icons.add_rounded,
                     color: Colors.white,
@@ -1360,14 +1476,14 @@ class _ReceiptsPageState extends State<ReceiptsPage>
         borderRadius: BorderRadius.circular(16),
         child: Column(
           children: [
-            // DEBIT ROW (Cash/Bank Dr)
+            // FIRST ROW - CREDIT ENTRY (To Account Cr) - Shows FIRST
             Container(
               decoration: BoxDecoration(
                 border: Border(
                   bottom: BorderSide(color: Colors.grey.shade200, width: 1),
                 ),
                 gradient: LinearGradient(
-                  colors: [Colors.white, Colors.green[50]!.withOpacity(0.4)],
+                  colors: [Colors.white, Colors.teal[50]!.withOpacity(0.4)],
                 ),
               ),
               child: Row(
@@ -1394,18 +1510,18 @@ class _ReceiptsPageState extends State<ReceiptsPage>
                   Expanded(
                     flex: 3,
                     child: _buildDataCell(
-                      receipt.paymentMode,
+                      '     To ${receipt.accountName}',
                       fontSize,
-                      isDebit: false,
+                      isCredit: true,
                     ),
                   ),
                   Expanded(
                     flex: 2,
                     child: _buildDataCell(
-                      '₹${_formatAmount(receipt.amount)} Dr',
+                      '₹${_formatAmount(receipt.amount)} Cr',
                       fontSize,
                       isAmount: true,
-                      isDebit: true,
+                      isCredit: true,
                     ),
                   ),
                   Expanded(flex: 2, child: _buildActionCell(receipt, fontSize)),
@@ -1413,14 +1529,14 @@ class _ReceiptsPageState extends State<ReceiptsPage>
               ),
             ),
 
-            // CREDIT ROW (To Account Cr)
+            // SECOND ROW - DEBIT ENTRY (Cash/Bank Dr) - Shows SECOND
             Container(
               decoration: BoxDecoration(
                 border: Border(
                   bottom: BorderSide(color: Colors.grey.shade200, width: 1),
                 ),
                 gradient: LinearGradient(
-                  colors: [Colors.white, Colors.teal[50]!.withOpacity(0.4)],
+                  colors: [Colors.white, Colors.green[50]!.withOpacity(0.4)],
                 ),
               ),
               child: Row(
@@ -1443,18 +1559,18 @@ class _ReceiptsPageState extends State<ReceiptsPage>
                   Expanded(
                     flex: 3,
                     child: _buildDataCell(
-                      '     To ${receipt.accountName}',
+                      receipt.paymentMode,
                       fontSize,
-                      isCredit: false,
+                      isDebit: true,
                     ),
                   ),
                   Expanded(
                     flex: 2,
                     child: _buildDataCell(
-                      '₹${_formatAmount(receipt.amount)} Cr',
+                      '₹${_formatAmount(receipt.amount)} Dr',
                       fontSize,
                       isAmount: true,
-                      isCredit: true,
+                      isDebit: true,
                     ),
                   ),
                   Expanded(flex: 2, child: _buildDataCell('', fontSize)),
@@ -1647,7 +1763,35 @@ class _ReceiptsPageState extends State<ReceiptsPage>
     );
   }
 
-  void _showDeleteConfirmation(int id) {
+  // UPDATED: show delete confirmation with premium enforcement
+  void _showDeleteConfirmation(int id) async {
+    setState(() => isCheckingPremium = true);
+
+    final canAdd = await PremiumService().canAddData(forceRefresh: true);
+    final status = PremiumService().getCachedStatus();
+
+    setState(() {
+      isCheckingPremium = false;
+      premiumStatus = status;
+    });
+
+    if (status != null && status.productId == 2 && !canAdd) {
+      PremiumService.showPremiumExpiredDialog(
+        context,
+        customMessage: 'Premium required to delete receipt entries.',
+      );
+      return;
+    }
+
+    if (!canAdd) {
+      PremiumService.showPremiumExpiredDialog(
+        context,
+        customMessage: 'Premium required to delete receipt entries.',
+      );
+      return;
+    }
+
+    // Original delete confirmation dialog code
     final size = MediaQuery.of(context).size;
     final isSmallScreen = size.width < 360;
 

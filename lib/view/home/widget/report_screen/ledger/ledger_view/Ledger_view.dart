@@ -1,7 +1,10 @@
+import 'dart:async';
+import 'dart:math';
 import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 import '../../../save_DB/Budegt_database_helper/Save_DB.dart';
 
 class Ledgercash extends StatefulWidget {
@@ -13,9 +16,10 @@ class Ledgercash extends StatefulWidget {
   State<Ledgercash> createState() => _LedgercashState();
 }
 
-class _LedgercashState extends State<Ledgercash> {
-  DateTime selected_startDate = DateTime.now().subtract(Duration(days: 30));
-  DateTime selected_endDate = DateTime.now();
+class _LedgercashState extends State<Ledgercash>
+    with TickerProviderStateMixin, WidgetsBindingObserver {
+  late DateTime selected_startDate;
+  late DateTime selected_endDate;
   List<Map<String, dynamic>> transactions = [];
   double openingBalance = 0;
   double closingBalance = 0;
@@ -26,37 +30,82 @@ class _LedgercashState extends State<Ledgercash> {
   int creditCount = 0;
   String accountType = '';
   final ScrollController _verticalScrollController = ScrollController();
+  bool _isLoading = false;
+  bool _showScrollToTop = false;
+
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late AnimationController _waveController;
+  late AnimationController _searchButtonController;
+  late AnimationController _pulseController;
+  late AnimationController _shimmerController;
+
+  List<Particle> _particles = [];
+  Timer? _waveTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
+    selected_endDate = DateTime.now();
+    selected_startDate = DateTime(
+      selected_endDate.year,
+      selected_endDate.month,
+      1,
+    );
+
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+    _waveController = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    )..repeat(reverse: true);
+    _searchButtonController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _pulseController = AnimationController(
+      duration: const Duration(seconds: 3),
+      vsync: this,
+    )..repeat(reverse: true);
+    _shimmerController = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    )..repeat();
+
+    _fadeAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOutQuart,
+    );
+
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        _animationController.forward();
+        _searchButtonController.forward();
+      }
+    });
+
     _loadTransactions();
+
+    _verticalScrollController.addListener(() {
+      setState(() => _showScrollToTop = _verticalScrollController.offset > 400);
+    });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _animationController.dispose();
+    _waveController.dispose();
+    _searchButtonController.dispose();
+    _pulseController.dispose();
+    _shimmerController.dispose();
     _verticalScrollController.dispose();
+    _waveTimer?.cancel();
     super.dispose();
-  }
-
-  void selectDate(bool isStart) {
-    showDatePicker(
-      context: context,
-      initialDate: isStart ? selected_startDate : selected_endDate,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    ).then((pickedDate) {
-      if (pickedDate != null) {
-        setState(() {
-          if (isStart) {
-            selected_startDate = pickedDate;
-          } else {
-            selected_endDate = pickedDate;
-          }
-          _loadTransactions();
-        });
-      }
-    });
   }
 
   DateTime _parseDate(String dateStr) {
@@ -69,7 +118,6 @@ class _LedgercashState extends State<Ledgercash> {
         try {
           return DateFormat('dd-MM-yyyy').parse(dateStr);
         } catch (e3) {
-          print('Error parsing date: $dateStr');
           return DateTime.now();
         }
       }
@@ -81,578 +129,515 @@ class _LedgercashState extends State<Ledgercash> {
       DateTime txDate = _parseDate(dateStr);
       DateTime startOfDay = DateTime(start.year, start.month, start.day);
       DateTime endOfDay = DateTime(end.year, end.month, end.day, 23, 59, 59);
-      return txDate.isAfter(startOfDay.subtract(Duration(seconds: 1))) &&
-          txDate.isBefore(endOfDay.add(Duration(seconds: 1)));
+      return txDate.isAfter(startOfDay.subtract(const Duration(seconds: 1))) &&
+          txDate.isBefore(endOfDay.add(const Duration(seconds: 1)));
     } catch (e) {
-      print('Error checking date range: $e');
       return false;
     }
   }
 
   Future<void> _loadTransactions() async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+
     try {
       final db = await DatabaseHelper().database;
 
-      print('\n=== Loading Transactions for ${widget.accountName} ===');
-      print(
-        'Date Range: ${DateFormat('dd/MM/yyyy').format(selected_startDate)} to ${DateFormat('dd/MM/yyyy').format(selected_endDate)}',
-      );
-
-      // Find the account setup ID
-      final account = await db.query(
+      final accountResult = await db.query(
         'TABLE_ACCOUNTSETTINGS',
         where: "data LIKE ?",
         whereArgs: ['%\"Accountname\":\"${widget.accountName}\"%'],
       );
 
-      if (account.isEmpty) {
-        throw Exception('Account ${widget.accountName} not found');
+      if (accountResult.isEmpty) {
+        setState(() {
+          transactions.clear();
+          totalTransactions = debitCount = creditCount = 0;
+          totalDebits = totalCredits = closingBalance = 0;
+          _isLoading = false;
+        });
+        return;
       }
 
-      final setupId = account.first['keyid'].toString();
-      final data = account.first['data'];
+      final account = accountResult.first;
+      final setupId = account['keyid'].toString();
+      final accountData = jsonDecode(account['data'] as String);
+      accountType = (accountData['Type']?.toString() ?? 'debit').toLowerCase();
+      openingBalance =
+          double.tryParse(accountData['balance']?.toString() ?? '0') ?? 0.0;
 
-      print('Account Setup ID: $setupId');
+      final allTx = await db.query(
+        'TABLE_ACCOUNTS',
+        where: "ACCOUNTS_setupid = ?",
+        whereArgs: [setupId],
+        orderBy: "ACCOUNTS_date ASC, ACCOUNTS_id ASC",
+      );
 
-      if (data is String) {
-        Map<String, dynamic> accountData = jsonDecode(data);
-        accountType = accountData['Type'].toString().toLowerCase();
-        openingBalance =
-            double.tryParse(accountData['balance']?.toString() ?? '0') ?? 0;
+      List<Map<String, dynamic>> periodTx = [];
+      for (var tx in allTx) {
+        if (_isDateInRange(
+          tx['ACCOUNTS_date'].toString(),
+          selected_startDate,
+          selected_endDate,
+        )) {
+          periodTx.add(tx);
+        }
+      }
 
-        print('Account Type: $accountType');
-        print('Opening Balance: $openingBalance');
+      // Build contra account map
+      final allAccounts = await db.query('TABLE_ACCOUNTSETTINGS');
+      Map<String, String> idToName = {};
+      for (var acc in allAccounts) {
+        try {
+          final data = jsonDecode(acc['data'] as String);
+          idToName[acc['keyid'].toString()] = data['Accountname'] ?? 'Unknown';
+        } catch (_) {}
+      }
 
-        // Get ALL transactions for this account (no date filter in SQL)
-        final allTransactions = await db.query(
-          'TABLE_ACCOUNTS',
-          where: "ACCOUNTS_setupid = ?",
-          whereArgs: [setupId],
-          orderBy: "ACCOUNTS_id ASC",
-        );
+      List<Map<String, dynamic>> txList = [];
+      double running = openingBalance;
+      double debits = 0, credits = 0;
+      int drCount = 0, crCount = 0;
 
-        print('Total transactions found in DB: ${allTransactions.length}');
+      for (var tx in periodTx) {
+        double amount = double.parse(tx['ACCOUNTS_amount'].toString());
+        bool isDebit = tx['ACCOUNTS_type'].toString().toLowerCase() == 'debit';
+        int voucherType =
+            int.tryParse(tx['ACCOUNTS_VoucherType']?.toString() ?? '0') ?? 0;
+        String entryId = tx['ACCOUNTS_entryid']?.toString() ?? '';
 
-        // Filter transactions by date range in Dart
-        List<Map<String, dynamic>> transactionsResult = [];
-        for (var tx in allTransactions) {
-          String txDateStr = tx['ACCOUNTS_date'].toString();
-          if (_isDateInRange(txDateStr, selected_startDate, selected_endDate)) {
-            transactionsResult.add(tx);
+        if (isDebit) {
+          debits += amount;
+          drCount++;
+        } else {
+          credits += amount;
+          crCount++;
+        }
+
+        // Find contra account
+        String contraName = '';
+        if (entryId.isNotEmpty) {
+          final contra = await db.query(
+            'TABLE_ACCOUNTS',
+            where: "ACCOUNTS_entryid = ? AND ACCOUNTS_setupid != ?",
+            whereArgs: [entryId, setupId],
+            limit: 1,
+          );
+          if (contra.isNotEmpty) {
+            contraName =
+                idToName[contra.first['ACCOUNTS_setupid'].toString()] ??
+                'Unknown';
           }
         }
 
-        print(
-          'Transactions in selected date range: ${transactionsResult.length}',
-        );
+        String desc =
+            contraName.isNotEmpty
+                ? (voucherType == 1
+                    ? (isDebit
+                        ? 'Payment To $contraName'
+                        : 'Payment From $contraName')
+                    : (isDebit
+                        ? 'Receipt From $contraName'
+                        : 'Receipt To $contraName'))
+                : (tx['ACCOUNTS_remarks']?.toString() ?? 'Transaction');
 
-        List<Map<String, dynamic>> txList = [];
-        double runningBalance = openingBalance;
-        double debitsTotal = 0;
-        double creditsTotal = 0;
-        int drCount = 0;
-        int crCount = 0;
-
-        // Get account setup information for contra entries
-        List<Map<String, dynamic>> allAccounts = await db.query(
-          'TABLE_ACCOUNTSETTINGS',
-        );
-        Map<String, String> setupIdToAccountName = {};
-
-        for (var acc in allAccounts) {
-          try {
-            Map<String, dynamic> accData = jsonDecode(acc["data"]);
-            String accSetupId = acc['keyid'].toString();
-            String accName = accData['Accountname'].toString();
-            setupIdToAccountName[accSetupId] = accName;
-          } catch (e) {
-            print('Error parsing account: $e');
-          }
+        // Update running balance
+        if (accountType == 'debit') {
+          running = isDebit ? running + amount : running - amount;
+        } else {
+          running = isDebit ? running - amount : running + amount;
         }
 
-        for (var tx in transactionsResult) {
-          double amount = double.parse(tx['ACCOUNTS_amount'].toString());
-          bool isDebit =
-              tx['ACCOUNTS_type'].toString().toLowerCase() == 'debit';
-          int voucherType =
-              int.tryParse(tx['ACCOUNTS_VoucherType']?.toString() ?? '0') ?? 0;
-          String entryId = tx['ACCOUNTS_entryid']?.toString() ?? '';
-
-          print('\nTransaction ID: ${tx['ACCOUNTS_id']}');
-          print('  Date: ${tx['ACCOUNTS_date']}');
-          print('  Amount: $amount');
-          print('  Type: ${isDebit ? "Debit" : "Credit"}');
-          print('  Voucher Type: $voucherType (1=Payment, 2=Receipt)');
-
-          // Count debits and credits - use absolute values
-          if (isDebit) {
-            debitsTotal += amount.abs();
-            drCount++;
-          } else {
-            creditsTotal += amount.abs();
-            crCount++;
-          }
-
-          // Find contra entry
-          String contraAccount = '';
-          String transactionDescription = '';
-
-          try {
-            var contraEntry = await db.query(
-              'TABLE_ACCOUNTS',
-              where:
-                  "ACCOUNTS_VoucherType = ? AND ACCOUNTS_entryid = ? AND ACCOUNTS_setupid != ?",
-              whereArgs: [voucherType, entryId, setupId],
-              limit: 1,
-            );
-
-            if (contraEntry.isNotEmpty) {
-              String contraSetupId =
-                  contraEntry.first['ACCOUNTS_setupid'].toString();
-              contraAccount =
-                  setupIdToAccountName[contraSetupId] ?? 'Unknown Account';
-              print('  Contra Account: $contraAccount');
-            }
-          } catch (e) {
-            print('  Error finding contra entry: $e');
-          }
-
-          // Determine transaction type
-          String txType = '';
-          if (voucherType == 1) {
-            // Payment voucher
-            txType = isDebit ? 'Payment To' : 'Payment From';
-          } else if (voucherType == 2) {
-            // Receipt voucher
-            txType = isDebit ? 'Receipt From' : 'Receipt To';
-          } else {
-            txType = 'Transaction';
-          }
-
-          transactionDescription =
-              contraAccount.isNotEmpty
-                  ? '$txType $contraAccount'
-                  : tx['ACCOUNTS_remarks']?.toString() ?? 'Transaction';
-
-          // Calculate running balance based on account type
-          if (accountType == 'debit') {
-            // For debit accounts: Debit increases, Credit decreases
-            runningBalance =
-                isDebit ? runningBalance + amount : runningBalance - amount;
-          } else {
-            // For credit accounts: Credit increases, Debit decreases
-            runningBalance =
-                isDebit ? runningBalance - amount : runningBalance + amount;
-          }
-
-          print('  Description: $transactionDescription');
-          print('  Running Balance: $runningBalance');
-
-          txList.add({
-            'date': tx['ACCOUNTS_date'],
-            'description': transactionDescription,
-            'contraAccount': contraAccount,
-            'debitAmount': isDebit ? amount.abs() : 0,
-            'creditAmount': isDebit ? 0 : amount.abs(),
-            'balance': runningBalance,
-            'remarks': tx['ACCOUNTS_remarks'] ?? '',
-            'voucherType': voucherType,
-            'entryType': isDebit ? 'Dr' : 'Cr',
-          });
-        }
-
-        print('\n=== Summary ===');
-        print('Total Transactions: ${txList.length}');
-        print('Debit Count: $drCount');
-        print('Credit Count: $crCount');
-        print('Total Debits: $debitsTotal');
-        print('Total Credits: $creditsTotal');
-        print('Closing Balance: $runningBalance');
-
-        setState(() {
-          transactions = txList;
-          closingBalance = runningBalance;
-          totalDebits = debitsTotal;
-          totalCredits = creditsTotal;
-          totalTransactions = txList.length;
-          debitCount = drCount;
-          creditCount = crCount;
+        txList.add({
+          'date': tx['ACCOUNTS_date'],
+          'description': desc,
+          'debit': isDebit ? amount : 0.0,
+          'credit': isDebit ? 0.0 : amount,
+          'balance': running,
+          'raw': tx, // Keep raw data for future use if needed
         });
       }
+
+      setState(() {
+        transactions = txList;
+        totalTransactions = txList.length;
+        debitCount = drCount;
+        creditCount = crCount;
+        totalDebits = debits;
+        totalCredits = credits;
+        closingBalance = running;
+        _isLoading = false;
+      });
+
+      _animationController.forward();
     } catch (e) {
-      print('Error loading transactions: $e');
+      print('Ledger Error: $e');
+      setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading transactions: $e')),
+          SnackBar(
+            content: Text('Error loading ledger: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
   }
 
-  String _getDisplayStartDate() {
-    return DateFormat('dd/MM/yyyy').format(selected_startDate);
-  }
-
-  String _getDisplayEndDate() {
-    return DateFormat('dd/MM/yyyy').format(selected_endDate);
-  }
-
-  Widget _buildHeaderCell(String text, {required int flex}) {
-    return Expanded(
-      flex: flex,
-      child: Container(
-        height: 50,
-        alignment: Alignment.center,
-        padding: const EdgeInsets.all(4.0),
-        decoration: BoxDecoration(
-          border: Border(right: BorderSide(color: Colors.grey.shade400)),
-          color: Colors.grey.shade200,
-        ),
-        child: Text(
-          text,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-          textAlign: TextAlign.center,
-        ),
-      ),
+  Future<void> selectDate(bool isStart) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: isStart ? selected_startDate : selected_endDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+      builder:
+          (context, child) => Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: const ColorScheme.light(primary: Colors.teal),
+            ),
+            child: child!,
+          ),
     );
+    if (picked != null) {
+      setState(() {
+        if (isStart)
+          selected_startDate = picked;
+        else
+          selected_endDate = picked;
+      });
+    }
   }
 
-  Widget _buildDataCell(String text, {required int flex, Color? textColor}) {
+  String _fmt(DateTime d) => DateFormat('dd MMM yyyy').format(d);
+
+  Widget _header(String text, int flex) {
     return Expanded(
       flex: flex,
       child: Container(
-        height: 50,
+        padding: const EdgeInsets.all(12),
         alignment: Alignment.center,
-        padding: const EdgeInsets.all(4.0),
         decoration: BoxDecoration(
-          border: Border(right: BorderSide(color: Colors.grey.shade300)),
+          gradient: LinearGradient(
+            colors: [Colors.teal.shade700, Colors.teal.shade500],
+          ),
         ),
         child: Text(
           text,
-          textAlign: TextAlign.center,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 10,
-            color: textColor ?? Colors.black,
-            fontWeight: textColor != null ? FontWeight.bold : FontWeight.normal,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
           ),
         ),
       ),
     );
   }
 
-  Color _getBalanceColor(double balance) {
-    if (balance > 0) return Colors.green;
-    if (balance < 0) return Colors.red;
-    return Colors.black;
+  Widget _cell(String text, int flex, {Color? color}) {
+    return Expanded(
+      flex: flex,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 11.5,
+            color: color ?? Colors.black87,
+            fontWeight: color != null ? FontWeight.bold : null,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _viewButton() {
+    return Expanded(
+      flex: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(6),
+        child: ElevatedButton.icon(
+          onPressed: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Transaction details coming soon!'),
+                backgroundColor: Colors.teal,
+              ),
+            );
+          },
+          icon: const Icon(Icons.remove_red_eye, size: 16),
+          label: const Text('View', style: TextStyle(fontSize: 10)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.teal.shade600,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.teal,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.teal.shade700, Colors.blue.shade700],
+            ),
+          ),
+        ),
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
         ),
         title: Text(
           '${widget.accountName} Ledger',
-          style: const TextStyle(color: Colors.white, fontSize: 16),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
       body: Column(
         children: [
-          // Date selection
+          // Date Pickers
           Padding(
-            padding: const EdgeInsets.all(10.0),
+            padding: const EdgeInsets.all(12),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 Expanded(
-                  child: InkWell(
-                    onTap: () => selectDate(true),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.black),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            _getDisplayStartDate(),
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                          const Icon(Icons.calendar_today, size: 16),
-                        ],
-                      ),
-                    ),
-                  ),
+                  child: _dateCard('From', _fmt(selected_startDate), true),
                 ),
-                Expanded(
-                  child: InkWell(
-                    onTap: () => selectDate(false),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.black),
-                        borderRadius: BorderRadius.circular(6),
+                const SizedBox(width: 12),
+                Expanded(child: _dateCard('To', _fmt(selected_endDate), false)),
+              ],
+            ),
+          ),
+
+          // Search Button
+          ElevatedButton.icon(
+            onPressed: _isLoading ? null : _loadTransactions,
+            icon:
+                _isLoading
+                    ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            _getDisplayEndDate(),
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                          const Icon(Icons.calendar_today, size: 16),
-                        ],
-                      ),
-                    ),
-                  ),
+                    )
+                    : const Icon(Icons.search),
+            label: Text(_isLoading ? 'Loading...' : 'Search Ledger'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal.shade600,
+              padding: const EdgeInsets.all(16),
+            ),
+          ).paddingSymmetric(horizontal: 16, vertical: 12),
+ 
+          // Summary Cards
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _summary(
+                  'Transactions',
+                  totalTransactions.toString(),
+                  Icons.receipt_long,
+                  Colors.blue,
+                ),
+                _summary(
+                  'Debits',
+                  debitCount.toString(),
+                  Icons.arrow_downward,
+                  Colors.orange,
+                ),
+                _summary(
+                  'Credits',
+                  creditCount.toString(),
+                  Icons.arrow_upward,
+                  Colors.purple,
+                ),
+                _summary(
+                  'Closing',
+                  '₹${closingBalance.toStringAsFixed(2)}',
+                  Icons.account_balance_wallet,
+                  closingBalance >= 0 ? Colors.green : Colors.red,
                 ),
               ],
             ),
           ),
 
-          // Transaction Summary Card
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.teal.shade50, Colors.teal.shade100],
-              ),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.teal.shade300),
+          const SizedBox(height: 10),
+
+          // Table Header (Type column removed)
+          Row(
+            children: [
+              _header('Date', 2),
+              _header('Particulars', 4),
+              _header('Debit', 2),
+              _header('Credit', 2),
+              _header('Balance', 2),
+              _header('Action', 2),
+            ],
+          ),
+
+          // Transaction Rows
+          Expanded(
+            child:
+                transactions.isEmpty
+                    ? const Center(
+                      child: Text(
+                        'No transactions found',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    )
+                    : ListView.builder(
+                      controller: _verticalScrollController,
+                      itemCount: transactions.length,
+                      itemBuilder: (context, i) {
+                        final tx = transactions[i];
+                        final isEven = i % 2 == 0;
+                        return Container(
+                          color: isEven ? Colors.grey.shade50 : Colors.white,
+                          child: Row(
+                            children: [
+                              _cell(
+                                DateFormat(
+                                  'dd/MM',
+                                ).format(_parseDate(tx['date'])),
+                                2,
+                              ),
+                              _cell(tx['description'], 4),
+                              _cell(
+                                tx['debit'] > 0
+                                    ? tx['debit'].toStringAsFixed(2)
+                                    : '-',
+                                2,
+                                color: Colors.orange.shade700,
+                              ),
+                              _cell(
+                                tx['credit'] > 0
+                                    ? tx['credit'].toStringAsFixed(2)
+                                    : '-',
+                                2,
+                                color: Colors.purple.shade700,
+                              ),
+                              _cell(
+                                tx['balance'].toStringAsFixed(2),
+                                2,
+                                color:
+                                    tx['balance'] >= 0
+                                        ? Colors.green.shade700
+                                        : Colors.red.shade700,
+                              ),
+                              _viewButton(),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+          ),
+        ],
+      ),
+
+      floatingActionButton:
+          _showScrollToTop
+              ? FloatingActionButton(
+                backgroundColor: Colors.teal,
+                child: const Icon(Icons.arrow_upward),
+                onPressed:
+                    () => _verticalScrollController.animateTo(
+                      0,
+                      duration: const Duration(milliseconds: 600),
+                      curve: Curves.easeInOut,
+                    ),
+              )
+              : null,
+    );
+  }
+
+  Widget _dateCard(String label, String date, bool isStart) {
+    return GestureDetector(
+      onTap: () => selectDate(isStart),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.teal.shade600, Colors.teal.shade400],
+          ),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 8)],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
             ),
-            child: Column(
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Transaction Summary',
-                  style: TextStyle(
-                    fontSize: 14,
+                  date,
+                  style: const TextStyle(
+                    color: Colors.white,
                     fontWeight: FontWeight.bold,
-                    color: Colors.teal.shade900,
                   ),
                 ),
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildSummaryItem(
-                      'Total\nTransactions',
-                      totalTransactions.toString(),
-                      Colors.blue,
-                    ),
-                    _buildSummaryItem(
-                      'Debit\nEntries',
-                      debitCount.toString(),
-                      Colors.orange,
-                    ),
-                    _buildSummaryItem(
-                      'Credit\nEntries',
-                      creditCount.toString(),
-                      Colors.purple,
-                    ),
-                  ],
-                ),
+                const Icon(Icons.calendar_today, color: Colors.white, size: 18),
               ],
             ),
-          ),
-
-          // Balance Summary
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              border: Border.all(color: Colors.blue.shade200),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildBalanceItem(
-                  'Opening',
-                  openingBalance,
-                  _getBalanceColor(openingBalance),
-                ),
-                _buildBalanceItem('Total Dr', totalDebits, Colors.orange),
-                _buildBalanceItem('Total Cr', totalCredits, Colors.purple),
-                _buildBalanceItem(
-                  'Closing',
-                  closingBalance,
-                  _getBalanceColor(closingBalance),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          // Transactions table
-          Expanded(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.black12),
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    decoration: const BoxDecoration(
-                      border: Border(bottom: BorderSide(color: Colors.black)),
-                    ),
-                    child: Row(
-                      children: [
-                        _buildHeaderCell('Date', flex: 2),
-                        _buildHeaderCell('Description', flex: 3),
-                        _buildHeaderCell('Type', flex: 1),
-                        _buildHeaderCell('Debit', flex: 2),
-                        _buildHeaderCell('Credit', flex: 2),
-                        _buildHeaderCell('Balance', flex: 2),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child:
-                        transactions.isEmpty
-                            ? const Center(
-                              child: Text(
-                                'No transactions found for the selected period',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            )
-                            : ListView.builder(
-                              controller: _verticalScrollController,
-                              itemCount: transactions.length,
-                              itemBuilder: (context, index) {
-                                final tx = transactions[index];
-                                return Container(
-                                  decoration: BoxDecoration(
-                                    color:
-                                        index % 2 == 0
-                                            ? Colors.white
-                                            : Colors.grey.shade50,
-                                    border: const Border(
-                                      bottom: BorderSide(color: Colors.black12),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      _buildDataCell(tx['date'], flex: 2),
-                                      _buildDataCell(
-                                        tx['description'],
-                                        flex: 3,
-                                      ),
-                                      _buildDataCell(
-                                        tx['entryType'],
-                                        flex: 1,
-                                        textColor:
-                                            tx['entryType'] == 'Dr'
-                                                ? Colors.orange
-                                                : Colors.purple,
-                                      ),
-                                      _buildDataCell(
-                                        tx['debitAmount'] > 0
-                                            ? tx['debitAmount'].toStringAsFixed(
-                                              2,
-                                            )
-                                            : '-',
-                                        flex: 2,
-                                        textColor:
-                                            tx['debitAmount'] > 0
-                                                ? Colors.orange
-                                                : Colors.grey,
-                                      ),
-                                      _buildDataCell(
-                                        tx['creditAmount'] > 0
-                                            ? tx['creditAmount']
-                                                .toStringAsFixed(2)
-                                            : '-',
-                                        flex: 2,
-                                        textColor:
-                                            tx['creditAmount'] > 0
-                                                ? Colors.purple
-                                                : Colors.grey,
-                                      ),
-                                      _buildDataCell(
-                                        tx['balance'].toStringAsFixed(2),
-                                        flex: 2,
-                                        textColor: _getBalanceColor(
-                                          tx['balance'],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildSummaryItem(String label, String value, Color color) {
-    return Column(
-      children: [
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 4),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color),
-          ),
-          child: Text(
+  Widget _summary(String title, String value, IconData icon, Color color) {
+    return Container(
+      width: 100,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6)],
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 6),
+          Text(
             value,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
+            style: TextStyle(fontWeight: FontWeight.bold, color: color),
           ),
-        ),
-      ],
+          Text(title, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+        ],
+      ),
     );
   }
+}
 
-  Widget _buildBalanceItem(String label, double value, Color color) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value.abs().toStringAsFixed(2),
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-      ],
-    );
-  }
+class Particle {
+  double x, y, speedX, speedY, opacity = 1.0;
+  Color color;
+  double size;
+
+  Particle({
+    required this.x,
+    required this.y,
+    required this.color,
+    required this.size,
+    required this.speedX,
+    required this.speedY,
+  });
 }

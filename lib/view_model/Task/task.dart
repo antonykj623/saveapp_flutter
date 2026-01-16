@@ -412,19 +412,3 @@ class _TestNotificationPageState extends State<TestNotificationPage> {
   }
 }
 
-// HOW TO ADD THIS TO YOUR APP:
-// 
-// In your main navigation/drawer/settings, add:
-// 
-// ListTile(
-//   leading: Icon(Icons.bug_report),
-//   title: Text('Test Notifications'),
-//   onTap: () {
-//     Navigator.push(
-//       context,
-//       MaterialPageRoute(
-//         builder: (context) => TestNotificationPage(),
-//       ),
-//     );
-//   },
-// )

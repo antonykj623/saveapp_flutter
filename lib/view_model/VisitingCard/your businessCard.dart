@@ -525,8 +525,7 @@ class _AddVisitingCardState extends State<AddVisitingCard>
           ),
         ),
       ),
-      floatingActionButton: 
-      Container(
+      floatingActionButton: Container(
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             colors: [Color(0xFF667eea), Color(0xFF764ba2)],

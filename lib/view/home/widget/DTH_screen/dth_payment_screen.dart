@@ -92,7 +92,7 @@ class _DthPaymentScreenState extends State<DthPaymentScreen>
     _pulseController.repeat(reverse: true);
     _rotateController.repeat();
 
-    getProfileByPhoneNumber();
+    getProfileByPhoneNumber(); 
     wlCheckoutFlutter.on(WeiplCheckoutFlutter.wlResponse, handleResponse);
   }
 
@@ -1085,6 +1085,6 @@ class _DthPaymentScreenState extends State<DthPaymentScreen>
         isProcessing = false;
       });
       _showNotification("Error setting up payment: $e", "Error");
-    }
+    }  
   }
 }

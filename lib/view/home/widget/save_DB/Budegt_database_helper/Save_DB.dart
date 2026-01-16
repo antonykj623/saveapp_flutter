@@ -768,52 +768,6 @@ class DatabaseHelper {
     }
   }
 
-  // Future<List<Dream>> getAllDreams() async {
-  //   try {
-  //     final db = await database;
-  //     final List<Map<String, dynamic>> maps = await db.query('TABLE_TARGET');
-
-  //     List<Dream> dreams = [];
-
-  //     for (var map in maps) {
-  //       try {
-  //         String dataString = map['data'].toString();
-  //         Map<String, dynamic> dreamData;
-
-  //         try {
-  //           dreamData = jsonDecode(dataString);
-  //         } catch (e) {
-  //           dreamData = _parseDreamData(dataString);
-  //         }
-
-  //         Dream dream = Dream(
-  //           name: dreamData['targetname'] ?? 'Unknown Dream',
-  //           category: dreamData['category'] ?? 'General',
-  //           investment: dreamData['investment'] ?? 'My Saving',
-  //           closingBalance: 0.0,
-  //           addedAmount: 0.0,
-  //           savedAmount:
-  //               double.tryParse(dreamData['savedamount'].toString()) ?? 0.0,
-  //           targetAmount:
-  //               double.tryParse(dreamData['targetamount'].toString()) ?? 0.0,
-  //           targetDate:
-  //               _parseDateFromString(dreamData['target_date']) ??
-  //               DateTime.now(),
-  //           notes: dreamData['note'] ?? '',
-  //         );
-
-  //         dreams.add(dream);
-  //       } catch (e) {
-  //         print('Error parsing individual dream: $e');
-  //       }
-  //     }
-
-  //     return dreams;
-  //   } catch (e) {
-  //     print("Error getting dreams: $e");
-  //     return [];
-  //   }
-  // }
   Future<List<Dream>> getAllDreams() async {
     try {
       final db = await database;
@@ -831,8 +785,8 @@ class DatabaseHelper {
           } catch (e) {
             dreamData = _parseDreamData(dataString);
           }
-
-          Dream dream = Dream(
+   
+          Dream dream = Dream( 
             id: map['keyid'], // NEW: Set the database keyid as Dream.id
             name: dreamData['targetname'] ?? 'Unknown Dream',
             category: dreamData['category'] ?? 'General',

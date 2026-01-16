@@ -154,15 +154,31 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage>
         cashOptions = ['Cash', ...cashAccounts];
         bankOptions = banks;
         accountOptions = allAccounts;
-        if (paymentMode == 'Cash') {
-          if (selectedCashOption == null ||
-              !cashOptions.contains(selectedCashOption))
+
+        // FIX: Properly maintain selection based on what's actually selected
+        if (selectedCashOption != null) {
+          // Check if current selection is still valid
+          if (bankOptions.contains(selectedCashOption)) {
+            // It's a bank account - set mode to Bank
+            paymentMode = 'Bank';
+          } else if (cashOptions.contains(selectedCashOption)) {
+            // It's a cash account - set mode to Cash
+            paymentMode = 'Cash';
+          } else {
+            // Selection is no longer valid - reset
             selectedCashOption = null;
-        } else {
-          if (selectedCashOption == null ||
-              !bankOptions.contains(selectedCashOption))
+          }
+        }
+
+        // If no valid selection, set default based on payment mode
+        if (selectedCashOption == null) {
+          if (paymentMode == 'Cash') {
+            selectedCashOption =
+                cashOptions.isNotEmpty ? cashOptions.first : null;
+          } else {
             selectedCashOption =
                 bankOptions.isNotEmpty ? bankOptions.first : null;
+          }
         }
       });
     } catch (e) {}
@@ -795,20 +811,21 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage>
                                         decoration: const InputDecoration(
                                           border: InputBorder.none,
                                         ),
-                                        value:
-                                            paymentMode == 'Cash'
-                                                ? (cashOptions.contains(
-                                                      selectedCashOption,
-                                                    )
-                                                    ? selectedCashOption
-                                                    : null)
-                                                : (bankOptions.contains(
-                                                      selectedCashOption,
-                                                    )
-                                                    ? selectedCashOption
-                                                    : (bankOptions.isNotEmpty
-                                                        ? bankOptions.first
-                                                        : null)),
+                                        // FIX: Correct value logic
+                                        value: () {
+                                          final currentOptions =
+                                              paymentMode == 'Cash'
+                                                  ? cashOptions
+                                                  : bankOptions;
+                                          // Return current selection if it's in the current list, otherwise null
+                                          return currentOptions.contains(
+                                                selectedCashOption,
+                                              )
+                                              ? selectedCashOption
+                                              : (currentOptions.isNotEmpty
+                                                  ? currentOptions.first
+                                                  : null);
+                                        }(),
                                         isExpanded: true,
                                         hint: Text(
                                           'Select ${paymentMode == 'Bank' ? 'Bank' : 'Cash'} Account',
@@ -819,10 +836,16 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage>
                                         onChanged: (String? newValue) {
                                           setState(() {
                                             selectedCashOption = newValue!;
-                                            paymentMode =
-                                                bankOptions.contains(newValue)
-                                                    ? 'Bank'
-                                                    : 'Cash';
+                                            // FIX: Auto-detect actual account type from the lists
+                                            if (bankOptions.contains(
+                                              newValue,
+                                            )) {
+                                              paymentMode = 'Bank';
+                                            } else if (cashOptions.contains(
+                                              newValue,
+                                            )) {
+                                              paymentMode = 'Cash';
+                                            }
                                           });
                                           _dropdownAnimationController
                                               .forward()
@@ -833,51 +856,24 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage>
                                               );
                                         },
                                         items:
-                                            paymentMode == 'Cash'
-                                                ? cashOptions
-                                                    .map<
-                                                      DropdownMenuItem<String>
-                                                    >(
-                                                      (
-                                                        String v,
-                                                      ) => DropdownMenuItem<
-                                                        String
-                                                      >(
-                                                        value: v,
-                                                        child: Text(
-                                                          v,
-                                                          style:
-                                                              const TextStyle(
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w500,
-                                                              ),
-                                                        ),
+                                            (paymentMode == 'Cash'
+                                                    ? cashOptions
+                                                    : bankOptions)
+                                                .map<DropdownMenuItem<String>>(
+                                                  (
+                                                    String v,
+                                                  ) => DropdownMenuItem<String>(
+                                                    value: v,
+                                                    child: Text(
+                                                      v,
+                                                      style: const TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.w500,
                                                       ),
-                                                    )
-                                                    .toList()
-                                                : bankOptions
-                                                    .map<
-                                                      DropdownMenuItem<String>
-                                                    >(
-                                                      (
-                                                        String v,
-                                                      ) => DropdownMenuItem<
-                                                        String
-                                                      >(
-                                                        value: v,
-                                                        child: Text(
-                                                          v,
-                                                          style:
-                                                              const TextStyle(
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w500,
-                                                              ),
-                                                        ),
-                                                      ),
-                                                    )
-                                                    .toList(),
+                                                    ),
+                                                  ),
+                                                )
+                                                .toList(),
                                       ),
                                     ),
                                   ),
@@ -887,13 +883,71 @@ class _AddReceiptVoucherPageState extends State<AddReceiptVoucherPage>
                           ),
                           const SizedBox(width: 12),
                           _buildAddButton(() async {
+                            // ✅ FIX: Pass current payment mode to Account Setup page
                             final result = await Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => Addaccountsdet(),
+                                builder:
+                                    (context) => Addaccountsdet(
+                                      preselectedAccountType:
+                                          paymentMode, // Pass "Bank" or "Cash"
+                                    ),
                               ),
                             );
-                            if (result == true) await _loadAccountsFromDB();
+
+                            if (result != null &&
+                                result is Map &&
+                                result['success'] == true) {
+                              await _loadAccountsFromDB();
+
+                              // ✅ Auto-select the newly added account
+                              if (result['isNewAccount'] == true) {
+                                String newAccountName = result['accountName'];
+                                String accountType =
+                                    result['accountType']
+                                        .toString()
+                                        .toLowerCase();
+
+                                setState(() {
+                                  selectedCashOption = newAccountName;
+
+                                  // Set payment mode based on account type
+                                  if (accountType == 'bank') {
+                                    paymentMode = 'Bank';
+                                    print(
+                                      '✅ New Bank account added: $newAccountName - Auto-selected',
+                                    );
+                                  } else if (accountType == 'cash') {
+                                    paymentMode = 'Cash';
+                                    print(
+                                      '✅ New Cash account added: $newAccountName - Auto-selected',
+                                    );
+                                  }
+                                });
+                              }
+
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Row(
+                                      children: [
+                                        Icon(
+                                          Icons.check_circle,
+                                          color: Colors.white,
+                                        ),
+                                        SizedBox(width: 12),
+                                        Text('Account added successfully'),
+                                      ],
+                                    ),
+                                    backgroundColor: Colors.green,
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                );
+                              }
+                            }
                           }),
                         ],
                       ),

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:new_project_2025/services/Premium_services/Premium_services.dart';
 import 'package:new_project_2025/view/home/widget/payment_page/Month_date/Moth_datepage.dart';
 import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 import 'add_payment/add_paymet.dart';
@@ -42,12 +43,32 @@ class _PaymentsPageState extends State<PaymentsPage>
   double _animatedTotal = 0;
   final List<Particle> _particles = [];
 
+  bool isCheckingPremium = false;
+  PremiumStatus? premiumStatus;
+
   @override
   void initState() {
     super.initState();
     _initializeAnimations();
     _initializeParticles();
-    _loadPayments();
+    _checkPremiumAndLoadData();
+  }
+
+  Future<void> _checkPremiumAndLoadData() async {
+    setState(() => isCheckingPremium = true);
+    try {
+      final status = await PremiumService().checkPremiumStatus(
+        forceRefresh: true,
+      );
+      setState(() {
+        premiumStatus = status;
+        isCheckingPremium = false;
+      });
+      _loadPayments();
+    } catch (e) {
+      setState(() => isCheckingPremium = false);
+      _loadPayments();
+    }
   }
 
   void _initializeAnimations() {
@@ -181,9 +202,7 @@ class _PaymentsPageState extends State<PaymentsPage>
             String accountName = accountData['Accountname'].toString();
             setupIdToAccountName[setupId] = accountName;
           }
-        } catch (e) {
-          print('Error parsing account settings: $e');
-        }
+        } catch (e) {}
       }
 
       final uniqueDebitEntries = <String, Map<String, dynamic>>{};
@@ -205,7 +224,6 @@ class _PaymentsPageState extends State<PaymentsPage>
               String accountName =
                   setupIdToAccountName[debitSetupId] ??
                   'Unknown Account (ID: $debitSetupId)';
-
               String paymentMode = 'Cash';
               try {
                 var creditEntry = paymentsList.firstWhere(
@@ -218,15 +236,8 @@ class _PaymentsPageState extends State<PaymentsPage>
                 String creditSetupId =
                     creditEntry['ACCOUNTS_setupid'].toString();
                 paymentMode = setupIdToAccountName[creditSetupId] ?? 'Cash';
-              } catch (e) {
-                print(
-                  'Could not find credit entry for payment ID ${mp['ACCOUNTS_entryid']}: $e',
-                );
-              }
-
-              // FIX: Safe parsing for large amounts using helper method
+              } catch (e) {}
               double amount = _safeParseDouble(mp['ACCOUNTS_amount']);
-
               return Payment(
                 id: int.parse(mp['ACCOUNTS_entryid']),
                 date: mp['ACCOUNTS_date'],
@@ -237,16 +248,13 @@ class _PaymentsPageState extends State<PaymentsPage>
               );
             }).toList();
 
-        // FIX: Safe total calculation with precision handling
         total = _calculateTotal(payments);
-
         _isLoading = false;
       });
 
       _animateTotal();
       _fadeController.forward();
     } catch (e) {
-      print('Error loading payments: $e');
       if (mounted) {
         _showStyledSnackBar('Error loading payments: $e', Colors.red);
       }
@@ -260,27 +268,17 @@ class _PaymentsPageState extends State<PaymentsPage>
 
   String _formatAmount(double amount) {
     try {
-      // Handle very large numbers
-      if (amount.isInfinite || amount.isNaN) {
-        return '0.00';
-      }
-
-      if (amount >= 10000000) {
-        // Crores
+      if (amount.isInfinite || amount.isNaN) return '0.00';
+      if (amount >= 10000000)
         return '${(amount / 10000000).toStringAsFixed(2)} Cr';
-      } else if (amount >= 100000) {
-        // Lakhs
+      else if (amount >= 100000)
         return '${(amount / 100000).toStringAsFixed(2)} L';
-      } else if (amount >= 1000) {
-        // Thousands with Indian formatting
+      else if (amount >= 1000) {
         final formatter = NumberFormat('#,##,###.##', 'en_IN');
         return formatter.format(amount);
-      } else {
-        // Less than 1000
+      } else
         return amount.toStringAsFixed(2);
-      }
     } catch (e) {
-      print('Error formatting amount: $e');
       return '0.00';
     }
   }
@@ -288,83 +286,50 @@ class _PaymentsPageState extends State<PaymentsPage>
   double _safeParseDouble(dynamic value, {double defaultValue = 0.0}) {
     try {
       if (value == null) return defaultValue;
-
       String strValue = value.toString().replaceAll(',', '').trim();
-
       if (strValue.isEmpty) return defaultValue;
-
       double parsed = double.parse(strValue);
-
-      if (parsed.isInfinite || parsed.isNaN) {
-        return defaultValue;
-      }
-
+      if (parsed.isInfinite || parsed.isNaN) return defaultValue;
       return parsed;
     } catch (e) {
-      print('Error parsing double from $value: $e');
       return defaultValue;
     }
   }
 
   double _calculateTotal(List<Payment> paymentList) {
     if (paymentList.isEmpty) return 0.0;
-
     try {
-      // Use BigInt for very large amounts to avoid precision loss
-      // Convert to smallest unit (paise) for calculation
       int totalPaise = 0;
-
       for (var payment in paymentList) {
-        if (payment.amount.isInfinite || payment.amount.isNaN) {
-          continue;
-        }
-        // Convert to paise (multiply by 100) and add
+        if (payment.amount.isInfinite || payment.amount.isNaN) continue;
         totalPaise += (payment.amount * 100).round();
       }
-
-      // Convert back to rupees
       double total = totalPaise / 100.0;
-
-      // Validate result
-      if (total.isInfinite || total.isNaN) {
-        return 0.0;
-      }
-
+      if (total.isInfinite || total.isNaN) return 0.0;
       return total;
     } catch (e) {
-      print('Error calculating total: $e');
       return 0.0;
     }
   }
 
   void _animateTotal() {
     double targetTotal = total;
-
-    // Validate total before animation
-    if (targetTotal.isInfinite || targetTotal.isNaN) {
-      targetTotal = 0.0;
-    }
-
-    // For large amounts, skip animation and set directly
+    if (targetTotal.isInfinite || targetTotal.isNaN) targetTotal = 0.0;
     if (targetTotal > 999999999) {
-      if (mounted) {
+      if (mounted)
         setState(() {
           _animatedTotal = targetTotal;
         });
-      }
       return;
     }
-
     int steps = 60;
     int stepDuration = 30;
-
     for (int i = 0; i <= steps; i++) {
       Future.delayed(Duration(milliseconds: i * stepDuration), () {
-        if (mounted) {
+        if (mounted)
           setState(() {
             _animatedTotal = (targetTotal * i) / steps;
           });
-        }
       });
     }
   }
@@ -395,7 +360,6 @@ class _PaymentsPageState extends State<PaymentsPage>
     final yearMonthParts = selectedYearMonth.split('-');
     final initialYear = int.parse(yearMonthParts[0]);
     final initialMonth = int.parse(yearMonthParts[1]);
-
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
@@ -463,7 +427,88 @@ class _PaymentsPageState extends State<PaymentsPage>
     return '$monthName $year';
   }
 
+  Future<void> _handleAddPayment() async {
+    setState(() => isCheckingPremium = true);
+
+    final canAdd = await PremiumService().canAddData(forceRefresh: true);
+    final status = PremiumService().getCachedStatus();
+
+    setState(() {
+      isCheckingPremium = false;
+      premiumStatus = status;
+    });
+
+    // Check if product_id is 2 and premium is not active
+    if (status != null && status.productId == 2 && !canAdd) {
+      PremiumService.showPremiumExpiredDialog(
+        context,
+        customMessage:
+            status.isPremium
+                ? 'Your premium subscription has expired.'
+                : 'Your trial period has ended.\nPlease upgrade to continue.',
+      );
+      return;
+    }
+    if (!canAdd) {
+      PremiumService.showPremiumExpiredDialog(
+        context,
+        customMessage:
+            status?.isPremium == true
+                ? 'Your premium subscription has expired.'
+                : 'Your trial period has ended.\nPlease upgrade to continue.',
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        pageBuilder:
+            (context, animation, secondaryAnimation) =>
+                const AddPaymentVoucherPage(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return ScaleTransition(
+            scale: Tween<double>(begin: 0.8, end: 1.0).animate(
+              CurvedAnimation(parent: animation, curve: Curves.elasticOut),
+            ),
+            child: FadeTransition(opacity: animation, child: child),
+          );
+        },
+      ),
+    ).then((result) {
+      if (result == true) {
+        _fadeController.reset();
+        _loadPayments();
+      }
+    });
+  }
+
   void _navigateToEditPayment(Payment payment) async {
+    setState(() => isCheckingPremium = true);
+
+    final canAdd = await PremiumService().canAddData(forceRefresh: true);
+    final status = PremiumService().getCachedStatus();
+
+    setState(() {
+      isCheckingPremium = false;
+      premiumStatus = status;
+    });
+
+    if (status != null && status.productId == 2 && !canAdd) {
+      PremiumService.showPremiumExpiredDialog(
+        context,
+        customMessage: 'Premium required to edit payment entries.',
+      );
+      return;
+    }
+    if (!canAdd) {
+      PremiumService.showPremiumExpiredDialog(
+        context,
+        customMessage: 'Premium required to edit payment entries.',
+      );
+      return;
+    }
+
     final result = await Navigator.push(
       context,
       PageRouteBuilder(
@@ -490,48 +535,251 @@ class _PaymentsPageState extends State<PaymentsPage>
     }
   }
 
-  void _updateTotalAfterChange() {
-    setState(() {
-      total = _calculateTotal(payments);
-      _animatedTotal = total;
-    });
-  }
-
   void _deletePayment(int id) async {
     try {
       final db = await DatabaseHelper().database;
-
       await db.delete(
         "TABLE_ACCOUNTS",
         where: "ACCOUNTS_VoucherType = ? AND ACCOUNTS_entryid = ?",
         whereArgs: [1, id.toString()],
       );
-
       await db.delete(
         "TABLE_WALLET",
         where: "data LIKE ?",
         whereArgs: ['%"paymentEntryId":"$id"%'],
       );
-
       final isBalanced = await DatabaseHelper().validateDoubleEntry();
       if (!isBalanced) {
         throw Exception('Double-entry accounting is unbalanced after deletion');
       }
-
-      // Reload payments and recalculate total
       _fadeController.reset();
       await _loadPayments();
-      _updateTotalAfterChange();
-
+      setState(() {
+        total = _calculateTotal(payments);
+        _animatedTotal = total;
+      });
       if (mounted) {
         _showStyledSnackBar('Payment deleted successfully! ✨', Colors.green);
       }
     } catch (e) {
-      print('Error deleting payment: $e');
       if (mounted) {
         _showStyledSnackBar('Error deleting payment: $e', Colors.red);
       }
     }
+  }
+
+  void _showDeleteConfirmation(int id) async {
+    setState(() => isCheckingPremium = true);
+
+    final canAdd = await PremiumService().canAddData(forceRefresh: true);
+    final status = PremiumService().getCachedStatus();
+
+    setState(() {
+      isCheckingPremium = false;
+      premiumStatus = status;
+    });
+
+    if (status != null && status.productId == 2 && !canAdd) {
+      PremiumService.showPremiumExpiredDialog(
+        context,
+        customMessage: 'Premium required to delete payment entries.',
+      );
+      return;
+    }
+    if (!canAdd) {
+      PremiumService.showPremiumExpiredDialog(
+        context,
+        customMessage: 'Premium required to delete payment entries.',
+      );
+      return;
+    }
+
+    final size = MediaQuery.of(context).size;
+    final isSmallScreen = size.width < 360;
+
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: '',
+      barrierColor: Colors.black.withOpacity(0.6),
+      transitionDuration: const Duration(milliseconds: 400),
+      pageBuilder: (context, anim1, anim2) => const SizedBox.shrink(),
+      transitionBuilder: (context, anim1, anim2, child) {
+        return ScaleTransition(
+          scale: Tween<double>(
+            begin: 0.7,
+            end: 1.0,
+          ).animate(CurvedAnimation(parent: anim1, curve: Curves.elasticOut)),
+          child: FadeTransition(
+            opacity: anim1,
+            child: Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(28),
+              ),
+              child: Container(
+                width: size.width * 0.85,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Colors.white, Colors.red[50]!, Colors.orange[50]!],
+                  ),
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.red.withOpacity(0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                padding: EdgeInsets.all(size.width * 0.06),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TweenAnimationBuilder(
+                      tween: Tween<double>(begin: 0, end: 1),
+                      duration: const Duration(milliseconds: 600),
+                      curve: Curves.elasticOut,
+                      builder: (context, double value, child) {
+                        return Transform.scale(
+                          scale: value,
+                          child: Container(
+                            padding: EdgeInsets.all(
+                              isSmallScreen ? 16.0 : 18.0,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Colors.orange[500]!, Colors.red[500]!],
+                              ),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.orange.withOpacity(0.5),
+                                  blurRadius: 20,
+                                  spreadRadius: 3,
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              Icons.warning_rounded,
+                              color: Colors.white,
+                              size: isSmallScreen ? 36 : 40,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    SizedBox(height: size.height * 0.025),
+                    ShaderMask(
+                      shaderCallback:
+                          (bounds) => LinearGradient(
+                            colors: [Colors.red[700]!, Colors.orange[700]!],
+                          ).createShader(bounds),
+                      child: Text(
+                        'Confirm Delete',
+                        style: TextStyle(
+                          fontSize: isSmallScreen ? 20 : 22,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: size.height * 0.015),
+                    Text(
+                      'Are you sure you want to delete this payment? This action cannot be undone.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: isSmallScreen ? 14 : 15,
+                        color: Colors.grey[700],
+                        height: 1.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    SizedBox(height: size.height * 0.03),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            height: isSmallScreen ? 48 : 52,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.withOpacity(0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              style: TextButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              child: Text(
+                                'Cancel',
+                                style: TextStyle(
+                                  color: Colors.grey[800],
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: isSmallScreen ? 15 : 16,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Container(
+                            height: isSmallScreen ? 48 : 52,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Colors.red[600]!, Colors.red[800]!],
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.red.withOpacity(0.5),
+                                  blurRadius: 15,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: TextButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _deletePayment(id);
+                              },
+                              style: TextButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              child: Text(
+                                'Delete',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: isSmallScreen ? 15 : 16,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -569,7 +817,6 @@ class _PaymentsPageState extends State<PaymentsPage>
       backgroundColor: Colors.grey[50],
       body: Stack(
         children: [
-          // Animated Floating Particles Background
           AnimatedBuilder(
             animation: _particleController,
             builder: (context, child) {
@@ -582,11 +829,9 @@ class _PaymentsPageState extends State<PaymentsPage>
               );
             },
           ),
-
           SafeArea(
             child: Column(
               children: [
-                // HEADER SECTION with Wave Animation
                 AnimatedBuilder(
                   animation: _waveAnimation,
                   builder: (context, child) {
@@ -619,7 +864,6 @@ class _PaymentsPageState extends State<PaymentsPage>
                         ),
                         child: Row(
                           children: [
-                            // Animated Back Button
                             TweenAnimationBuilder(
                               tween: Tween<double>(begin: 0, end: 1),
                               duration: const Duration(milliseconds: 600),
@@ -654,8 +898,6 @@ class _PaymentsPageState extends State<PaymentsPage>
                               },
                             ),
                             SizedBox(width: size.width * 0.03),
-
-                            // Title with 3D rotating icon
                             Expanded(
                               child: Row(
                                 children: [
@@ -736,8 +978,6 @@ class _PaymentsPageState extends State<PaymentsPage>
                                 ],
                               ),
                             ),
-
-                            // Animated Refresh Button
                             AnimatedBuilder(
                               animation: _pulseAnimation,
                               builder: (context, child) {
@@ -766,7 +1006,7 @@ class _PaymentsPageState extends State<PaymentsPage>
                                       ),
                                       onPressed: () {
                                         _fadeController.reset();
-                                        _loadPayments();
+                                        _checkPremiumAndLoadData();
                                       },
                                     ),
                                   ),
@@ -779,10 +1019,14 @@ class _PaymentsPageState extends State<PaymentsPage>
                     );
                   },
                 ),
-
+                if (premiumStatus != null)
+                  PremiumService.buildPremiumBanner(
+                    context: context,
+                    status: premiumStatus!,
+                    isChecking: isCheckingPremium,
+                    onRefresh: _checkPremiumAndLoadData,
+                  ),
                 SizedBox(height: size.height * 0.015),
-
-                // MONTH SELECTOR with Slide Animation
                 SlideTransition(
                   position: _slideAnimation,
                   child: Container(
@@ -903,9 +1147,7 @@ class _PaymentsPageState extends State<PaymentsPage>
                     ),
                   ),
                 ),
-
                 SizedBox(height: size.height * 0.015),
-
                 Expanded(
                   child: FadeTransition(
                     opacity: _fadeAnimation,
@@ -996,8 +1238,6 @@ class _PaymentsPageState extends State<PaymentsPage>
                                         ],
                                       ),
                                     ),
-
-                                    // TABLE CONTENT
                                     Expanded(
                                       child: _buildJournalList(contentFontSize),
                                     ),
@@ -1007,10 +1247,7 @@ class _PaymentsPageState extends State<PaymentsPage>
                     ),
                   ),
                 ),
-
                 SizedBox(height: size.height * 0.015),
-
-                // TOTAL AMOUNT CARD with Glow Effect
                 Padding(
                   padding: EdgeInsets.symmetric(
                     horizontal: size.width * 0.04,
@@ -1034,30 +1271,20 @@ class _PaymentsPageState extends State<PaymentsPage>
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                                 colors: [
-                                  // PAYMENT PAGE: Green colors
                                   Colors.green[500]!,
                                   Colors.teal[500]!,
                                   Colors.cyan[500]!,
-
-                                  // RECEIPT PAGE: Teal colors
-                                  // Colors.teal[500]!,
-                                  // Colors.green[500]!,
-                                  // Colors.lightGreen[500]!,
                                 ],
                               ),
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.green.withOpacity(
-                                    0.4,
-                                  ), // or Colors.teal for receipt
+                                  color: Colors.green.withOpacity(0.4),
                                   blurRadius: 20,
                                   offset: const Offset(0, 8),
                                 ),
                                 BoxShadow(
-                                  color: Colors.teal.withOpacity(
-                                    0.3,
-                                  ), // or Colors.green for receipt
+                                  color: Colors.teal.withOpacity(0.3),
                                   blurRadius: 30,
                                   spreadRadius: 2,
                                 ),
@@ -1093,7 +1320,7 @@ class _PaymentsPageState extends State<PaymentsPage>
                                     ),
                                     SizedBox(width: size.width * 0.03),
                                     Text(
-                                      'Total Payments', // or 'Total Receipts' for receipt page
+                                      'Total Payments',
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontSize: isSmallScreen ? 15 : 17,
@@ -1136,17 +1363,43 @@ class _PaymentsPageState extends State<PaymentsPage>
                     ),
                   ),
                 ),
-
                 SizedBox(height: size.height * 0.08),
               ],
             ),
           ),
+          if (isCheckingPremium)
+            Container(
+              color: Colors.black.withOpacity(0.3),
+              child: Center(
+                child: Container(
+                  padding: EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation(Colors.purple),
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'Verifying Access...',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
       floatingActionButton: Padding(
-        padding: EdgeInsets.only(
-          bottom: size.height * 0.01,
-        ), // Add bottom padding
+        padding: EdgeInsets.only(bottom: size.height * 0.01),
         child: ScaleTransition(
           scale: _fabAnimation,
           child: AnimatedBuilder(
@@ -1162,76 +1415,25 @@ class _PaymentsPageState extends State<PaymentsPage>
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        // PAYMENT PAGE: Purple colors
                         Colors.purple[600]!,
                         Colors.deepPurple[700]!,
                         Colors.blue[600]!,
-
-                        // RECEIPT PAGE: Green colors
-                        // Colors.green[600]!,
-                        // Colors.teal[700]!,
-                        // Colors.cyan[600]!,
                       ],
                     ),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.purple.withOpacity(
-                          0.5,
-                        ), // or Colors.green for receipt
+                        color: Colors.purple.withOpacity(0.5),
                         blurRadius: 25,
                         offset: const Offset(0, 10),
                         spreadRadius: 2,
-                      ),
-                      BoxShadow(
-                        color: Colors.blue.withOpacity(
-                          0.3,
-                        ), // or Colors.teal for receipt
-                        blurRadius: 15,
-                        offset: const Offset(0, 5),
                       ),
                     ],
                   ),
                   child: FloatingActionButton(
                     backgroundColor: Colors.transparent,
                     elevation: 0,
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        PageRouteBuilder(
-                          pageBuilder:
-                              (context, animation, secondaryAnimation) =>
-                                  const AddPaymentVoucherPage(), // or AddReceiptVoucherPage()
-                          transitionsBuilder: (
-                            context,
-                            animation,
-                            secondaryAnimation,
-                            child,
-                          ) {
-                            return ScaleTransition(
-                              scale: Tween<double>(
-                                begin: 0.8,
-                                end: 1.0,
-                              ).animate(
-                                CurvedAnimation(
-                                  parent: animation,
-                                  curve: Curves.elasticOut,
-                                ),
-                              ),
-                              child: FadeTransition(
-                                opacity: animation,
-                                child: child,
-                              ),
-                            );
-                          },
-                        ),
-                      ).then((result) {
-                        if (result == true) {
-                          _fadeController.reset();
-                          _loadPayments(); // or _loadReceipts()
-                        }
-                      });
-                    },
+                    onPressed: _handleAddPayment,
                     child: Icon(
                       Icons.add_rounded,
                       color: Colors.white,
@@ -1486,7 +1688,6 @@ class _PaymentsPageState extends State<PaymentsPage>
         borderRadius: BorderRadius.circular(16),
         child: Column(
           children: [
-            // DEBIT ROW
             Container(
               decoration: BoxDecoration(
                 border: Border(
@@ -1538,8 +1739,6 @@ class _PaymentsPageState extends State<PaymentsPage>
                 ],
               ),
             ),
-
-            // CREDIT ROW
             Container(
               decoration: BoxDecoration(
                 border: Border(
@@ -1587,8 +1786,6 @@ class _PaymentsPageState extends State<PaymentsPage>
                 ],
               ),
             ),
-
-            // REMARKS ROW
             if (payment.remarks != null && payment.remarks!.isNotEmpty)
               Container(
                 width: double.infinity,
@@ -1772,201 +1969,10 @@ class _PaymentsPageState extends State<PaymentsPage>
       ),
     );
   }
-
-  void _showDeleteConfirmation(int id) {
-    final size = MediaQuery.of(context).size;
-    final isSmallScreen = size.width < 360;
-
-    showGeneralDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: '',
-      barrierColor: Colors.black.withOpacity(0.6),
-      transitionDuration: const Duration(milliseconds: 400),
-      pageBuilder: (context, anim1, anim2) => const SizedBox.shrink(),
-      transitionBuilder: (context, anim1, anim2, child) {
-        return ScaleTransition(
-          scale: Tween<double>(
-            begin: 0.7,
-            end: 1.0,
-          ).animate(CurvedAnimation(parent: anim1, curve: Curves.elasticOut)),
-          child: FadeTransition(
-            opacity: anim1,
-            child: Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(28),
-              ),
-              child: Container(
-                width: size.width * 0.85,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Colors.white, Colors.red[50]!, Colors.orange[50]!],
-                  ),
-                  borderRadius: BorderRadius.circular(28),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.red.withOpacity(0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                padding: EdgeInsets.all(size.width * 0.06),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TweenAnimationBuilder(
-                      tween: Tween<double>(begin: 0, end: 1),
-                      duration: const Duration(milliseconds: 600),
-                      curve: Curves.elasticOut,
-                      builder: (context, double value, child) {
-                        return Transform.scale(
-                          scale: value,
-                          child: Container(
-                            padding: EdgeInsets.all(
-                              isSmallScreen ? 16.0 : 18.0,
-                            ),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Colors.orange[500]!, Colors.red[500]!],
-                              ),
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.orange.withOpacity(0.5),
-                                  blurRadius: 20,
-                                  spreadRadius: 3,
-                                ),
-                              ],
-                            ),
-                            child: Icon(
-                              Icons.warning_rounded,
-                              color: Colors.white,
-                              size: isSmallScreen ? 36 : 40,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    SizedBox(height: size.height * 0.025),
-                    ShaderMask(
-                      shaderCallback:
-                          (bounds) => LinearGradient(
-                            colors: [Colors.red[700]!, Colors.orange[700]!],
-                          ).createShader(bounds),
-                      child: Text(
-                        'Confirm Delete',
-                        style: TextStyle(
-                          fontSize: isSmallScreen ? 20 : 22,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: size.height * 0.015),
-                    Text(
-                      'Are you sure you want to delete this payment? This action cannot be undone.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: isSmallScreen ? 14 : 15,
-                        color: Colors.grey[700],
-                        height: 1.5,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    SizedBox(height: size.height * 0.03),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            height: isSmallScreen ? 48 : 52,
-                            decoration: BoxDecoration(
-                              color: Colors.grey[200],
-                              borderRadius: BorderRadius.circular(14),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.grey.withOpacity(0.3),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              style: TextButton.styleFrom(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              child: Text(
-                                'Cancel',
-                                style: TextStyle(
-                                  color: Colors.grey[800],
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: isSmallScreen ? 15 : 16,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Container(
-                            height: isSmallScreen ? 48 : 52,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Colors.red[600]!, Colors.red[800]!],
-                              ),
-                              borderRadius: BorderRadius.circular(14),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.red.withOpacity(0.5),
-                                  blurRadius: 15,
-                                  offset: const Offset(0, 6),
-                                ),
-                              ],
-                            ),
-                            child: TextButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                                _deletePayment(id);
-                              },
-                              style: TextButton.styleFrom(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              child: Text(
-                                'Delete',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: isSmallScreen ? 15 : 16,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
 }
 
-// Custom Wave Clipper for Header
 class WaveClipper extends CustomClipper<Path> {
   final double animation;
-
   WaveClipper(this.animation);
 
   @override
@@ -1985,7 +1991,6 @@ class WaveClipper extends CustomClipper<Path> {
       firstEndPoint.dx,
       firstEndPoint.dy,
     );
-
     final secondControlPoint = Offset(
       size.width * 3 / 4,
       size.height - 30 - 20 * math.sin(animation * 2 * math.pi),
@@ -2007,7 +2012,6 @@ class WaveClipper extends CustomClipper<Path> {
   bool shouldReclip(WaveClipper oldClipper) => true;
 }
 
-// Particle class for background animation
 class Particle {
   double x;
   double y;
@@ -2024,39 +2028,31 @@ class Particle {
   });
 }
 
-// Custom Painter for Floating Particles
 class ParticlePainter extends CustomPainter {
   final List<Particle> particles;
   final double animation;
-
   ParticlePainter({required this.particles, required this.animation});
 
   @override
   void paint(Canvas canvas, Size size) {
     for (var particle in particles) {
-      // Update particle position
       particle.y = (particle.y - particle.speed * 0.01) % 1.0;
-
       final paint =
           Paint()
             ..color = particle.color
             ..style = PaintingStyle.fill;
-
       final offset = Offset(
         particle.x * size.width +
             math.sin(animation * 2 * math.pi + particle.y * 10) * 20,
         particle.y * size.height,
       );
-
       canvas.drawCircle(offset, particle.size, paint);
 
-      // Draw glow effect
       final glowPaint =
           Paint()
             ..color = particle.color.withOpacity(0.1)
             ..style = PaintingStyle.fill
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
-
       canvas.drawCircle(offset, particle.size * 3, glowPaint);
     }
   }

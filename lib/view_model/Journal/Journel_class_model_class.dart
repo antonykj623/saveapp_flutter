@@ -2,7 +2,7 @@ class JournalEntry {
   final int entryId;
   final String date;
   final String debitAccount;
-  final String creditAccount;
+  final String creditAccount;  
   final double amount;
   final String? remarks;
 

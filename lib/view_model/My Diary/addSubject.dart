@@ -26,7 +26,6 @@ class _SlidebleListState1 extends State<Adddsubject> {
   @override
   void initState() {
     super.initState();
-    // Schedule the dialog to be shown after the widget has been built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       showmyDialog();
     });}

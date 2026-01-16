@@ -16,7 +16,7 @@ void main() async {
 
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
-    debugPrint('Flutter Error: ${details.exception}');
+    debugPrint('Flutter Error: ${details.exception} ');
     debugPrint('Stack trace: ${details.stack}');
   };
 
@@ -31,7 +31,6 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-  // Global navigator key for auto backup
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();
   final _autoBackupService = AutoBackupService();
@@ -41,7 +40,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    // Initialize auto backup service after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final context = navigatorKey.currentContext;
       if (context != null) {
@@ -63,7 +61,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
-    // Check auto backup when app comes to foreground
     if (state == AppLifecycleState.resumed) {
       final context = navigatorKey.currentContext;
       if (context != null) {
@@ -340,6 +337,7 @@ class _SplashPageState extends State<SplashPage> {
                           borderRadius: BorderRadius.circular(25),
                         ),
                         child: const Icon(
+                          
                           Icons.receipt_long,
                           size: 60,
                           color: Colors.white,

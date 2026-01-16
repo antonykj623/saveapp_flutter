@@ -297,19 +297,18 @@ class MobilePlansApiService {
       benefits.add(apiPlan.benefit);
     }
 
-    // Add subscription benefits
+    
     for (var subscription in apiPlan.subscriptions) {
       benefits.add('${subscription.name} Subscription');
     }
 
-    // Determine if plan is popular (you can customize this logic)
     bool isPopular = apiPlan.subscriptions.isNotEmpty || apiPlan.amount >= 399;
 
     return {
       'id': apiPlan.id.toString(),
       'amount': apiPlan.amount,
       'validity': apiPlan.validity,
-      'data': apiPlan.data.isEmpty ? '' : apiPlan.data,
+      'data': apiPlan.data.isEmpty ? '' :  apiPlan.data,
       'description': _generateDescription(apiPlan),
       'category': category,
       'popular': isPopular,

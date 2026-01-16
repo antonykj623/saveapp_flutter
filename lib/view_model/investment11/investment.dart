@@ -22,6 +22,7 @@ class _Home_ScreenState extends State<Investment> {
   void initState() {
     super.initState();
     queryall();
+    _ensureMySavingsExists();
   }
 
   void queryall() async {
@@ -29,6 +30,20 @@ class _Home_ScreenState extends State<Investment> {
     allrows.forEach((k) {
       print("Investment Name: ${k['investname']}");
     });
+  }
+
+  Future<void> _ensureMySavingsExists() async {
+    try {
+      List<Map<String, dynamic>> investNames = await dbhelper.getAllInvestmentNames();
+      bool mySavingsExists = investNames.any((item) => item['investname'] == 'My Savings');
+      
+      if (!mySavingsExists) {
+        await dbhelper.insertInvestmentName('My Savings');
+        print('My Savings added to database');
+      }
+    } catch (e) {
+      print('Error ensuring My Savings exists: $e');
+    }
   }
 
   @override
@@ -58,8 +73,10 @@ class _Home_ScreenState extends State<Investment> {
                     return const Center(child: CircularProgressIndicator());
                   }
                   if (snapshot.hasError) {
-                    return const Center(
-                      child: Text('Error loading investments'),
+                    return Center(
+                      child: Text(
+                        'Error loading investments: ${snapshot.error}',
+                      ),
                     );
                   }
                   List<Map<String, dynamic>> dat = snapshot.data ?? [];
@@ -237,7 +254,7 @@ class _Home_ScreenState extends State<Investment> {
     );
   }
 
-  // Fixed method to get investment accounts with proper details
+  // FIXED: Now calculates actual balance from transactions
   Future<List<Map<String, dynamic>>> getInvestmentAccountsWithDetails() async {
     try {
       List<Map<String, dynamic>> investments = [];
@@ -249,31 +266,129 @@ class _Home_ScreenState extends State<Investment> {
       for (var investName in investmentNames) {
         String name = investName['investname'];
 
-        // Get investment details and calculate actual balance
-        double balance = 0.0;
-
-        // First try to get from account setup
-        try {
-          Map<String, dynamic>? accountDetails = await dbhelper
-              .getInvestmentDetailsByName(name);
-          if (accountDetails != null) {
-            Map<String, dynamic> data = jsonDecode(accountDetails['data']);
-            // Get target amount as the balance to show
-            balance =
-                double.tryParse(data['target_amount']?.toString() ?? '0') ??
-                0.0;
-          }
-        } catch (e) {
-          print('Error getting investment details for $name: $e');
-        }
+        // Calculate actual current balance from transactions
+        double balance = await calculateInvestmentBalance(name);
 
         investments.add({'name': name, 'balance': balance});
       }
 
+      print('Loaded ${investments.length} investments');
       return investments;
     } catch (e) {
-      print('Error getting investment accounts with details: $e');  
+      print('Error getting investment accounts with details: $e');
       return [];
+    }
+  }
+
+  // Calculate investment balance based on opening balance + transactions
+  Future<double> calculateInvestmentBalance(String accountName) async {
+    try {
+      final db = await dbhelper.database;
+
+      // Get account setup ID
+      String setupId = await getAccountSetupId(accountName);
+      if (setupId == '0') {
+        print('No setup ID found for account: $accountName');
+        return 0.0;
+      }
+
+      // Get opening balance from account setup
+      double openingBalance = await getAccountOpeningBalance(accountName);
+      print('Opening balance for $accountName: $openingBalance');
+
+      // Get all transactions for this investment account
+      final List<Map<String, dynamic>> transactions = await db.query(
+        'TABLE_ACCOUNTS',
+        where: 'ACCOUNTS_setupid = ?',
+        whereArgs: [setupId],
+        orderBy: 'ACCOUNTS_id ASC',
+      );
+
+      double transactionBalance = 0.0;
+      print('Found ${transactions.length} transactions for $accountName');
+
+      for (var transaction in transactions) {
+        try {
+          double amount =
+              double.tryParse(transaction['ACCOUNTS_amount'].toString()) ?? 0.0;
+          String type = transaction['ACCOUNTS_type'].toString().toLowerCase();
+
+          print('Transaction: Amount=$amount, Type=$type');
+
+          if (type == 'debit') {
+            // Payment to investment (money going into investment)
+            transactionBalance += amount;
+          } else if (type == 'credit') {
+            // Receipt from investment (money coming out)
+            transactionBalance -= amount;
+          }
+        } catch (e) {
+          print('Error parsing transaction: $e');
+        }
+      }
+
+      double totalBalance = openingBalance + transactionBalance;
+      print(
+        'Final balance for $accountName: Opening($openingBalance) + Trans($transactionBalance) = $totalBalance',
+      );
+
+      return totalBalance;
+    } catch (e) {
+      print('Error calculating investment balance for $accountName: $e');
+      return 0.0;
+    }
+  }
+
+  // Get account setup ID for given account name
+  Future<String> getAccountSetupId(String accountName) async {
+    try {
+      final db = await dbhelper.database;
+      final accounts = await db.query('TABLE_ACCOUNTSETTINGS');
+
+      for (var account in accounts) {
+        final dataValue = account['data'];
+        if (dataValue != null) {
+          Map<String, dynamic> data = jsonDecode(dataValue.toString());
+          final storedAccountName = data['Accountname'];
+          if (storedAccountName != null &&
+              storedAccountName.toString().toLowerCase() ==
+                  accountName.toLowerCase()) {
+            final keyId = account['keyid'];
+            return keyId?.toString() ?? '0';
+          }
+        }
+      }
+      return '0';
+    } catch (e) {
+      print('Error getting account setup ID: $e');
+      return '0';
+    }
+  }
+
+  // Get account opening balance from TABLE_ACCOUNTSETTINGS
+  Future<double> getAccountOpeningBalance(String accountName) async {
+    try {
+      final db = await dbhelper.database;
+      final accounts = await db.query('TABLE_ACCOUNTSETTINGS');
+
+      for (var account in accounts) {
+        final dataValue = account['data'];
+        if (dataValue != null) {
+          Map<String, dynamic> data = jsonDecode(dataValue.toString());
+          final storedAccountName = data['Accountname'];
+          if (storedAccountName != null &&
+              storedAccountName.toString().toLowerCase() ==
+                  accountName.toLowerCase()) {
+            // Try to get OpeningBalance first, fallback to Amount
+            final openingBalance = data['OpeningBalance'] ?? data['Amount'];
+            return double.tryParse(openingBalance?.toString() ?? '0') ?? 0.0;
+          }
+        }
+      }
+      return 0.0;
+    } catch (e) {
+      print('Error getting opening balance: $e');
+      return 0.0;
     }
   }
 
@@ -282,7 +397,7 @@ class _Home_ScreenState extends State<Investment> {
     if (name == 'My Savings') {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Cannot delete My Savings'), 
+          content: Text('Cannot delete My Savings'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -351,9 +466,8 @@ class _Home_ScreenState extends State<Investment> {
         }
       }
 
-      // 3. Delete related transactions from TABLE_ACCOUNTS if any
-      // Get setup ID and delete related transactions
-      String setupId = await dbhelper.getAccountSetupId(name);
+      // 3. Delete related transactions from TABLE_ACCOUNTS
+      String setupId = await getAccountSetupId(name);
       if (setupId != '0') {
         final db = await dbhelper.database;
         await db.delete(

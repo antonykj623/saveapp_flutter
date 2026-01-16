@@ -6,8 +6,15 @@ import '../../view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 class Addaccountsdet extends StatefulWidget {
   final String id;
   final Map<String, dynamic> accountData;
+  final String?
+  preselectedAccountType; // ✅ NEW: Accept preselected type from Add Receipt
 
-  const Addaccountsdet({super.key, this.id = "0", this.accountData = const {}});
+  const Addaccountsdet({
+    super.key,
+    this.id = "0",
+    this.accountData = const {},
+    this.preselectedAccountType, // ✅ NEW: Parameter to receive Bank/Cash
+  });
 
   @override
   State<Addaccountsdet> createState() => _SlidebleListState1();
@@ -16,7 +23,7 @@ class Addaccountsdet extends StatefulWidget {
 var items1 = [
   'Asset Account',
   'Bank',
-  'Cash',   
+  'Cash',
   'Credit Card',
   'Customers',
   'Expense Account',
@@ -33,7 +40,6 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
 
   String dropdownvalu1 = 'Asset Account';
   String dropdownvalu2 = 'Debit';
-  String? preselectedAccountType;
 
   String getAccountTypeDebitCredit(String accountType) {
     switch (accountType.toLowerCase()) {
@@ -48,25 +54,37 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
       case 'expense account':
       case 'insurance':
       case 'investment':
-      default:  
-        return 'Debit';  
+      default:
+        return 'Debit';
     }
   }
 
   @override
   void initState() {
     super.initState();
-    _loadPreferences();
+
+    // ✅ FIX: Priority 1 - Check if preselected type was passed from Add Receipt page
+    if (widget.preselectedAccountType != null && widget.id == "0") {
+      // Auto-select Bank or Cash based on what was passed
+      dropdownvalu1 = widget.preselectedAccountType!;
+      dropdownvalu2 = getAccountTypeDebitCredit(dropdownvalu1);
+      print('✅ Auto-selected account type from Add Receipt: $dropdownvalu1');
+    } else {
+      // Priority 2 - Load from SharedPreferences if no preselected type
+      _loadPreferences();
+    }
+
+    // Load existing data if editing
     _loadExistingData();
   }
 
   Future<void> _loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
-    preselectedAccountType = prefs.getString("account_type");
+    String? preselectedAccountType = prefs.getString("account_type");
 
     if (preselectedAccountType != null && widget.id == "0") {
       setState(() {
-        dropdownvalu1 = preselectedAccountType!;
+        dropdownvalu1 = preselectedAccountType;
         dropdownvalu2 = getAccountTypeDebitCredit(dropdownvalu1);
       });
     }
@@ -119,6 +137,9 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // ============================================================
+              // ACCOUNT NAME FIELD
+              // ============================================================
               TextFormField(
                 enabled: true,
                 controller: accountname,
@@ -143,6 +164,10 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
                 },
               ),
               const SizedBox(height: 20),
+
+              // ============================================================
+              // ACCOUNT TYPE DROPDOWN
+              // ============================================================
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
@@ -173,6 +198,10 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
                 ),
               ),
               const SizedBox(height: 20),
+
+              // ============================================================
+              // OPENING BALANCE FIELD
+              // ============================================================
               TextFormField(
                 textAlign: TextAlign.end,
                 enabled: true,
@@ -203,6 +232,10 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
                 },
               ),
               const SizedBox(height: 20),
+
+              // ============================================================
+              // DEBIT/CREDIT TYPE (Auto-selected)
+              // ============================================================
               InputDecorator(
                 decoration: InputDecoration(
                   contentPadding: EdgeInsets.symmetric(
@@ -234,6 +267,10 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
                 ),
               ),
               const SizedBox(height: 40),
+
+              // ============================================================
+              // SAVE/UPDATE BUTTON
+              // ============================================================
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.teal,
@@ -254,12 +291,11 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
                       final openbalance = openingbalance.text.trim();
                       final type = dropdownvalu2;
 
-                      // FIXED: Use consistent field names
+                      // Prepare account data
                       Map<String, dynamic> accountsetupData = {
                         "Accountname": accname,
                         "Accounttype": dropdownvalu1,
-                        "balance":
-                            openbalance, // Changed from "Amount" to "balance"
+                        "balance": openbalance,
                         "Type": type,
                       };
 
@@ -300,10 +336,18 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
                           ),
                         );
 
+                        // Clear SharedPreferences
                         final prefs = await SharedPreferences.getInstance();
                         await prefs.remove("account_type");
 
-                        Navigator.pop(context, true);
+                        // ✅ FIX: Return account details to Add Receipt page
+                        Navigator.pop(context, {
+                          'success': true,
+                          'accountName': accname,
+                          'accountType':
+                              dropdownvalu1, // Returns 'Bank', 'Cash', etc.
+                          'isNewAccount': widget.id == "0",
+                        });
                       } else {
                         throw Exception("Database operation failed");
                       }
@@ -319,7 +363,7 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
                           ),
                         );
                       }
-                    } 
+                    }
                   }
                 },
                 child: Text(

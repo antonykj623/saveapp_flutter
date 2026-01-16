@@ -485,46 +485,54 @@ class _SlidebleListState1 extends State<Addaccountsdet1> {
   }
 }
 
+// FILE: lib/view/home/widget/Bank/bank_page/data_base_helper/BankVoucher.dart
+// BankVoucher Model Class
+
 class BankVoucher {
-  int? id;
-  String date;
-  String debit;
-  double amount;
-  String credit;
-  String? remarks;
-  String? transactionType;
+  final int? id;
+  final String date;
+  final String debit;
+  final String credit;
+  final double amount;
+  final String remarks;
+  final String? transactionType;
 
   BankVoucher({
     this.id,
     required this.date,
     required this.debit,
-    required this.amount,
     required this.credit,
-    this.remarks,
+    required this.amount,
+    required this.remarks,
     this.transactionType,
   });
 
+  // Convert BankVoucher to Map for database storage
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'date': date,
       'debit': debit,
-      'amount': amount,
       'credit': credit,
+      'amount': amount,
       'remarks': remarks,
       'transactionType': transactionType,
     };
   }
 
+  // Create BankVoucher from Map
   factory BankVoucher.fromMap(Map<String, dynamic> map) {
     return BankVoucher(
       id: map['id'],
       date: map['date'],
       debit: map['debit'],
-      amount: map['amount'],
       credit: map['credit'],
+      amount: map['amount'],
       remarks: map['remarks'],
       transactionType: map['transactionType'],
     );
   }
+
+  @override
+  String toString() => 'BankVoucher(id: $id, date: $date, debit: $debit, credit: $credit, amount: $amount)';
 }

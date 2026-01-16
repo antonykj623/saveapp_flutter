@@ -7,9 +7,7 @@ import 'Utils.dart';
 
 class DTHPlansScreen extends StatefulWidget {
   final Plan plan;
-
   const DTHPlansScreen(this.plan, {super.key});
-
   @override
   _DTHPlansScreenState createState() => _DTHPlansScreenState(plan);
 }
@@ -1520,4 +1518,3 @@ class _DTHPlansScreenState extends State<DTHPlansScreen>
     ;
   }
 }
- 

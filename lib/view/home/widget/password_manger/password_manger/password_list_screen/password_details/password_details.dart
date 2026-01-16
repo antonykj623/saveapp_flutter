@@ -32,7 +32,6 @@ class _AddPasswordPageState extends State<AddPasswordPage> {
   late Animation<double> _backgroundAnimation;
   bool _obscurePassword = true;
 
-  // Map original border types to new border types
   String _mapBorderType(String originalType) {
     switch (originalType) {
       case 'cyber':
@@ -52,7 +51,6 @@ class _AddPasswordPageState extends State<AddPasswordPage> {
     }
   }
 
-  // Define custom colors to match original ModernAnimatedBorderWidget
   List<Color> _getCustomColors(String borderType) {
     switch (borderType) {
       case 'cyber':
@@ -76,6 +74,7 @@ class _AddPasswordPageState extends State<AddPasswordPage> {
           Color(0xFF00FF87),
           Color(0xFF60EFFF),
           Colors.transparent,
+
         ];
       case 'matrix':
         return [
@@ -227,11 +226,7 @@ class _AddPasswordPageState extends State<AddPasswordPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   GestureDetector(
-                    //             onTap:() =>  Navigator.pushAndRemoveUntil(
-                    //   context,
-                    //   MaterialPageRoute(builder: (context) => SaveApp()), // use your actual home widget
-                    //       (route) => false,
-                    // ),
+                   
                     onTap: () => Navigator.pop(context),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -245,12 +240,7 @@ class _AddPasswordPageState extends State<AddPasswordPage> {
                           child: IconButton(
                             icon: Icon(Icons.arrow_back, color: Colors.white),
                             onPressed: () {
-                              // Navigator.push(
-                              //   context,
-                              //   MaterialPageRoute(
-                              //     builder: (context) => SaveApp(),
-                              //   ),
-                              // );
+                             
                               Navigator.of(context).pop();
                             },
                           ),

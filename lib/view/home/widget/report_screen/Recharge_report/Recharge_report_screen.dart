@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:new_project_2025/services/API_services/API_services.dart';
+import 'package:new_project_2025/services/connectivity_service/connectivity_service.dart';
 import 'package:new_project_2025/view/home/widget/report_screen/Recharge_report/Recharge_report_model.dart';
 
 class RechargeReportPage extends StatefulWidget {
@@ -23,6 +24,16 @@ class _RechargeReportPageState extends State<RechargeReportPage>
   @override
   void initState() {
     super.initState();
+
+    // Connectivity listener
+    ConnectivityUtils.connectivityStream().listen((isConnected) {
+      if (!isConnected && mounted) {
+        debugPrint('📡 Connection lost');
+      } else if (isConnected && mounted) {
+        debugPrint('📡 Connection restored');
+      }
+    });
+
     _setupAnimations();
     getRechargeReports();
   }
@@ -285,10 +296,8 @@ class _RechargeReportPageState extends State<RechargeReportPage>
   Widget _buildReportsGrid() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Calculate appropriate cross axis count based on screen width
         int crossAxisCount = constraints.maxWidth > 600 ? 3 : 2;
         double childAspectRatio = constraints.maxWidth > 600 ? 0.75 : 0.85;
-
         return GridView.builder(
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
@@ -372,7 +381,6 @@ class _RechargeReportPageState extends State<RechargeReportPage>
               ),
               child: Stack(
                 children: [
-                  // Background pattern
                   Positioned(
                     right: -20,
                     top: -20,
@@ -397,7 +405,6 @@ class _RechargeReportPageState extends State<RechargeReportPage>
                       ),
                     ),
                   ),
-                  // Content
                   Padding(
                     padding: const EdgeInsets.all(12.0),
                     child: Column(
@@ -412,7 +419,6 @@ class _RechargeReportPageState extends State<RechargeReportPage>
                       ],
                     ),
                   ),
-                  // Tap indicator
                   Positioned(
                     top: 8,
                     right: 8,
@@ -568,7 +574,17 @@ class _RechargeReportPageState extends State<RechargeReportPage>
     }
   }
 
+  // -- INTERNET CONNECTIVITY ENHANCED FUNCTION --
   Future<void> getRechargeReports() async {
+    bool isConnected = await ConnectivityUtils.isConnected();
+
+    if (!isConnected) {
+      if (mounted) {
+        ConnectivityUtils.showNoInternetDialog(context);
+      }
+      return;
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       showLoaderDialog(context);
     });
@@ -623,22 +639,30 @@ class _RechargeReportPageState extends State<RechargeReportPage>
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.pop(context);
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+
+      bool stillConnected = await ConnectivityUtils.isConnected();
+      if (!stillConnected && mounted) {
+        ConnectivityUtils.showNoInternetSnackbar(context);
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
-        ),
-      );
+        );
+      }
       debugPrint('Error fetching recharge reports: $e');
     }
   }
 }
 
-// Invoice Page for Recharge Reports
+// -------------------------------------------------------------------
+// INVOICE PAGE
+// -------------------------------------------------------------------
 class RechargeInvoicePage extends StatefulWidget {
   final RechargeHistoryData reportData;
 
@@ -1217,7 +1241,7 @@ class _RechargeInvoicePageState extends State<RechargeInvoicePage>
       case "0":
         return "Failed";
       case "2":
-          return "Pending";
+        return "Pending";
       default:
         return "Refunded";
     }

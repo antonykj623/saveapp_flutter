@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'dart:io';
 import 'dart:math' as math;
 import 'package:new_project_2025/app/routes/app_routes.dart';
+import 'package:new_project_2025/services/connectivity_service/connectivity_service.dart';
 import 'package:new_project_2025/view/home/widget/Invoice_page/Invoice_page.dart';
 import 'package:new_project_2025/view/home/widget/profile_page/profilemodel.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -143,6 +144,12 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   void profileUser() async {
+    bool isConnected = await ConnectivityUtils.isConnected();
+
+    if (!isConnected) {
+      ConnectivityUtils.showNoInternetDialog(context);
+      return; // Stop execution
+    }
     setState(() {
       _isLoading = true;
     });

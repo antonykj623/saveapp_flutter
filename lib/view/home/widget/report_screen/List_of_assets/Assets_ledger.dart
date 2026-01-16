@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:new_project_2025/view/home/widget/report_screen/List_of_assets/List_of_assets.dart';
 import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 
-
+  
 class AssetLedgerPage extends StatefulWidget {
   final AssetAccount asset;
 

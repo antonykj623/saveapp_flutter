@@ -33,7 +33,7 @@ class BackupController {
       Navigator.pop(context);
 
       _showLoadingDialog(context, "Opening file picker...");
-      
+
       final result = await platform.invokeMethod('saveBackupFile', {
         'fileName': fileName,
         'filePath': filePath,
@@ -43,8 +43,11 @@ class BackupController {
 
       if (result == 'success') {
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('last_drive_backup_date', DateTime.now().toString());
-        
+        await prefs.setString(
+          'last_drive_backup_date',
+          DateTime.now().toString(),
+        );
+
         _showSuccessDialog(
           context,
           "Backup Saved!",
@@ -82,7 +85,7 @@ class BackupController {
 
       final filePath = result as String;
       final file = File(filePath);
-      
+
       if (!await file.exists()) {
         Navigator.pop(context);
         _showErrorDialog(context, "File not found!");
@@ -91,7 +94,7 @@ class BackupController {
 
       final jsonString = await file.readAsString();
       Map<String, dynamic> backupData;
-      
+
       try {
         backupData = jsonDecode(jsonString);
       } catch (e) {
@@ -201,7 +204,10 @@ class BackupController {
         try {
           backupData = jsonDecode(response.body);
         } catch (e) {
-          _showErrorDialog(context, "Backup file corrupted.\nPlease upload again.");
+          _showErrorDialog(
+            context,
+            "Backup file corrupted.\nPlease upload again.",
+          );
           return;
         }
 
@@ -220,7 +226,10 @@ class BackupController {
       } else if (response.statusCode == 403 || response.statusCode == 401) {
         _showErrorDialog(context, "Access denied!\nPlease login again.");
       } else if (response.statusCode == 404) {
-        _showErrorDialog(context, "No backup found!\nPlease create a backup first.");
+        _showErrorDialog(
+          context,
+          "No backup found!\nPlease create a backup first.",
+        );
       } else {
         _showErrorDialog(context, "Server Error: ${response.statusCode}");
       }
@@ -242,9 +251,14 @@ class BackupController {
       final tableName = t['name'] as String;
       final rows = await db.query(tableName);
       if (rows.isNotEmpty) {
-        backup[tableName] = rows
-            .map((r) => r.map((k, v) => MapEntry(k, v is Uint8List ? base64Encode(v) : v)))
-            .toList();
+        backup[tableName] =
+            rows
+                .map(
+                  (r) => r.map(
+                    (k, v) => MapEntry(k, v is Uint8List ? base64Encode(v) : v),
+                  ),
+                )
+                .toList();
       }
     }
 
@@ -279,7 +293,11 @@ class BackupController {
                 } catch (_) {}
               }
             });
-            await txn.insert(entry.key, row, conflictAlgorithm: ConflictAlgorithm.replace);
+            await txn.insert(
+              entry.key,
+              row,
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
           }
         }
       });
@@ -296,7 +314,7 @@ class BackupController {
   }
 
   // ============================ AUTO BACKUP SETTINGS ============================
-  
+
   // Auto Server Backup
   Future<bool> isAutoServerBackupEnabled() async {
     final prefs = await SharedPreferences.getInstance();
@@ -307,7 +325,10 @@ class BackupController {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('auto_server_backup_enabled', enabled);
     if (enabled) {
-      await prefs.setString('auto_server_backup_enabled_date', DateTime.now().toString());
+      await prefs.setString(
+        'auto_server_backup_enabled_date',
+        DateTime.now().toString(),
+      );
     }
   }
 
@@ -321,7 +342,10 @@ class BackupController {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('auto_drive_backup_enabled', enabled);
     if (enabled) {
-      await prefs.setString('auto_drive_backup_enabled_date', DateTime.now().toString());
+      await prefs.setString(
+        'auto_drive_backup_enabled_date',
+        DateTime.now().toString(),
+      );
     }
   }
 
@@ -329,7 +353,7 @@ class BackupController {
   Future<bool> shouldPerformAutoServerBackup() async {
     final prefs = await SharedPreferences.getInstance();
     final enabled = await isAutoServerBackupEnabled();
-    
+
     if (!enabled) return false;
 
     final lastBackup = prefs.getString('last_auto_server_backup_date');
@@ -345,7 +369,7 @@ class BackupController {
   Future<bool> shouldPerformAutoDriveBackup() async {
     final prefs = await SharedPreferences.getInstance();
     final enabled = await isAutoDriveBackupEnabled();
-    
+
     if (!enabled) return false;
 
     final lastBackup = prefs.getString('last_auto_drive_backup_date');
@@ -369,7 +393,7 @@ class BackupController {
 
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token') ?? '';
-      
+
       if (token.isEmpty) return;
 
       final response = await http.post(
@@ -388,8 +412,11 @@ class BackupController {
         final result = jsonDecode(response.body);
         if (result['status'] == 1 || result['success'] == true) {
           await prefs.setString('last_backup_date', DateTime.now().toString());
-          await prefs.setString('last_auto_server_backup_date', DateTime.now().toString());
-          
+          await prefs.setString(
+            'last_auto_server_backup_date',
+            DateTime.now().toString(),
+          );
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Row(
@@ -426,7 +453,7 @@ class BackupController {
       final directory = await getApplicationDocumentsDirectory();
       final filePath = '${directory.path}/AutoBackups';
       final backupDir = Directory(filePath);
-      
+
       if (!await backupDir.exists()) {
         await backupDir.create(recursive: true);
       }
@@ -435,8 +462,14 @@ class BackupController {
       await file.writeAsString(jsonString);
 
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('last_drive_backup_date', DateTime.now().toString());
-      await prefs.setString('last_auto_drive_backup_date', DateTime.now().toString());
+      await prefs.setString(
+        'last_drive_backup_date',
+        DateTime.now().toString(),
+      );
+      await prefs.setString(
+        'last_auto_drive_backup_date',
+        DateTime.now().toString(),
+      );
       await prefs.setString('last_auto_drive_backup_path', file.path);
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -445,7 +478,9 @@ class BackupController {
             children: [
               Icon(Icons.check_circle, color: Colors.white),
               SizedBox(width: 12),
-              Expanded(child: Text('Auto Drive backup saved to:\n${file.path}')),
+              Expanded(
+                child: Text('Auto Drive backup saved to:\n${file.path}'),
+              ),
             ],
           ),
           backgroundColor: Colors.green,
@@ -469,20 +504,23 @@ class BackupController {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => WillPopScope(
-        onWillPop: () async => false,
-        child: AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(color: Color(0xFF00897B)),
-              SizedBox(height: 20),
-              Text(msg, style: TextStyle(fontWeight: FontWeight.w600)),
-            ],
+      builder:
+          (_) => WillPopScope(
+            onWillPop: () async => false,
+            child: AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(color: Color(0xFF00897B)),
+                  SizedBox(height: 20),
+                  Text(msg, style: TextStyle(fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
     );
   }
 
@@ -494,94 +532,106 @@ class BackupController {
   void _showSuccessDialog(BuildContext c, String t, String m) {
     showDialog(
       context: c,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.green, size: 30),
-            SizedBox(width: 10),
-            Flexible(child: Text(t)),
-          ],
-        ),
-        content: Text(m),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(c),
-            child: Text("OK"),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+      builder:
+          (_) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green, size: 30),
+                SizedBox(width: 10),
+                Flexible(child: Text(t)),
+              ],
+            ),
+            content: Text(m),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(c),
+                child: Text("OK"),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
   void _showErrorDialog(BuildContext c, String m) {
     showDialog(
       context: c,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Icon(Icons.error, color: Colors.red, size: 30),
-            SizedBox(width: 10),
-            Text("Error"),
-          ],
-        ),
-        content: Text(m),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(c),
-            child: Text("OK"),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+      builder:
+          (_) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: Row(
+              children: [
+                Icon(Icons.error, color: Colors.red, size: 30),
+                SizedBox(width: 10),
+                Text("Error"),
+              ],
+            ),
+            content: Text(m),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(c),
+                child: Text("OK"),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
   void _showInfoDialog(BuildContext c, String m) {
     showDialog(
       context: c,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Icon(Icons.info, color: Colors.blue, size: 30),
-            SizedBox(width: 10),
-            Text("Info"),
-          ],
-        ),
-        content: Text(m),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(c),
-            child: Text("OK"),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+      builder:
+          (_) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: Row(
+              children: [
+                Icon(Icons.info, color: Colors.blue, size: 30),
+                SizedBox(width: 10),
+                Text("Info"),
+              ],
+            ),
+            content: Text(m),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(c),
+                child: Text("OK"),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
   Future<bool?> _showConfirmDialog(BuildContext c) {
     return showDialog<bool>(
       context: c,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text("Restore Backup?"),
-        content: Text("This will replace ALL current data.\nContinue?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c, false),
-            child: Text("Cancel"),
+      builder:
+          (_) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: Text("Restore Backup?"),
+            content: Text("This will replace ALL current data.\nContinue?"),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(c, false),
+                child: Text("Cancel"),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(c, true),
+                child: Text("Restore"),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(c, true),
-            child: Text("Restore"),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-          ),
-        ],
-      ),
     );
   }
 }

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:new_project_2025/services/connectivity_service/connectivity_service.dart';
 import '../../../services/API_services/API_services.dart';
 
 class NotificationScreen extends StatefulWidget {
@@ -72,21 +73,23 @@ class _NotificationScreenState extends State<NotificationScreen>
   }
 
   Future<void> fetchNotifications() async {
-    ApiHelper api = ApiHelper();
+    final notifications = await ConnectivityUtils.executeWithConnectivity(
+      context,
+      () async {
+        ApiHelper api = ApiHelper();
+        return await api.getNotifications();
+      },
+      showDialog: true, // Shows dialog if no internet
+    );
 
-    try {
-      List<dynamic> fetchedNotifications = await api.getNotifications();
-
+    if (notifications != null) {
       setState(() {
-        notifications = fetchedNotifications;
+        this.notifications = notifications;
         isLoading = false;
       });
-
-      // Start entrance animations
       _fadeController.forward();
       _slideController.forward();
-    } catch (e) {
-      print("❌ Error fetching notifications: $e");
+    } else {
       setState(() => isLoading = false);
     }
   }

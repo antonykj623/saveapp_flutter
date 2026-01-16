@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:new_project_2025/services/connectivity_service/connectivity_service.dart';
 import 'package:new_project_2025/view/home/widget/More_page/feedback/feed_back.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:new_project_2025/view/home/widget/More_page/how_to_use/how_to_use_page.dart';
 import 'package:new_project_2025/view/home/widget/More_page/share_page/share_page.dart';
-// Add this import
 import 'package:new_project_2025/view/home/widget/home_screen.dart';
+import 'dart:async';
 
 class More extends StatefulWidget {
   const More({super.key});
@@ -14,6 +15,10 @@ class More extends StatefulWidget {
 }
 
 class _MoreState extends State<More> {
+  // ✅ ADD: Stream subscription for connectivity
+  StreamSubscription<bool>? _connectivitySubscription;
+  bool _isConnected = true;
+
   final List<String> item = [
     "How to use",
     "Help on Whatsapp",
@@ -26,7 +31,6 @@ class _MoreState extends State<More> {
     'Cancellation and Refund policy',
   ];
 
-  // URLs for web pages
   final Map<String, String> _webUrls = {
     "About Us": "https://mysaveapp.com/web/about",
     "Privacy Policy": "https://mysaveapp.com/web/privacy_policy",
@@ -37,30 +41,117 @@ class _MoreState extends State<More> {
   };
 
   @override
+  void initState() {
+    super.initState();
+    _checkInitialConnection();
+    _listenToConnectivity();
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription?.cancel();
+    super.dispose();
+  }
+
+  // ✅ NEW: Check initial connection status
+  Future<void> _checkInitialConnection() async {
+    bool connected = await ConnectivityUtils.isConnected();
+    setState(() {
+      _isConnected = connected;
+    });
+  }
+
+  // ✅ NEW: Listen to connectivity changes
+  void _listenToConnectivity() {
+    _connectivitySubscription = ConnectivityUtils.connectivityStream().listen((
+      isConnected,
+    ) {
+      if (mounted) {
+        setState(() {
+          _isConnected = isConnected;
+        });
+
+        // Show message when connection changes
+        if (isConnected) {
+          ConnectivityUtils.showSuccessSnackbar(
+            context,
+            '✓ Internet connection restored',
+          );
+        } else {
+          ConnectivityUtils.showNoInternetSnackbar(context);
+        }
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final Size screenSize = MediaQuery.of(context).size;
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SizedBox(
-        height: screenSize.height,
-        width: screenSize.width,
-        child: ListView.builder(
-          itemCount: item.length,
-          itemBuilder: (context, index) {
-            return _buildReportItem1(
-              title: item[index],
-              onTap: () {
-                _navigateToScreen(context, item[index]);
-              },
-            );
-          },
-        ),
+      body: Column(
+        children: [
+          // ✅ NEW: Connection status indicator
+          if (!_isConnected)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+              color: Colors.red.shade600,
+              child: Row(
+                children: [
+                  const Icon(Icons.wifi_off, color: Colors.white, size: 18),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'No internet connection',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _checkInitialConnection,
+                    child: const Text(
+                      'Retry',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          Expanded(
+            child: SizedBox(
+              height: screenSize.height,
+              width: screenSize.width,
+              child: ListView.builder(
+                itemCount: item.length,
+                itemBuilder: (context, index) {
+                  return _buildReportItem1(
+                    title: item[index],
+                    onTap: () {
+                      _navigateToScreen(context, item[index]);
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Future<void> _launchWhatsApp() async {
+    if (!await context.checkInternet(showDialog: false)) {
+      return;
+    }
+
     const phoneNumber = "919846290789";
 
     final List<String> whatsappUrls = [
@@ -87,53 +178,55 @@ class _MoreState extends State<More> {
 
     if (!launched) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("WhatsApp is not installed or could not be opened"),
-            duration: Duration(seconds: 3),
-          ),
+        ConnectivityUtils.showErrorSnackbar(
+          context,
+          "WhatsApp is not installed or could not be opened",
         );
       }
     }
   }
 
   Future<void> _launchWebUrl(String url) async {
+    if (!await context.checkInternet(showDialog: false)) {
+      return;
+    }
+
     try {
       final Uri uri = Uri.parse(url);
 
-      // First try to launch with platformDefault mode
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.platformDefault);
       } else {
-        // If platformDefault fails, try externalApplication
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       }
     } catch (e) {
       print("Error launching $url: $e");
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              "Could not open the page. Please check your internet connection.",
-            ),
-            duration: Duration(seconds: 3),
-          ),
-        );
+        bool stillConnected = await ConnectivityUtils.isConnected();
+
+        if (!stillConnected) {
+          ConnectivityUtils.showNoInternetSnackbar(context);
+        } else {
+          ConnectivityUtils.showErrorSnackbar(
+            context,
+            "Could not open the page. Please try again.",
+          );
+        }
       }
     }
   }
 
   Future<void> _launchEmail() async {
+    if (!await context.checkInternet(showDialog: false)) {
+      return;
+    }
+
     const String email = 'ramanpalissery@gmail.com';
     const String subject = 'Support Request from Save App';
 
-    // Try different methods to open Gmail with the email pre-filled
     final List<String> emailUrls = [
-      // Standard mailto - this will open Gmail app if it's installed and set as default
       'mailto:$email?subject=${Uri.encodeComponent(subject)}',
-      // Gmail app intent for Android
       'intent://compose?to=$email&subject=${Uri.encodeComponent(subject)}#Intent;scheme=mailto;package=com.google.android.gm;end',
-      // Gmail web interface
       'https://mail.google.com/mail/?view=cm&fs=1&to=$email&su=${Uri.encodeComponent(subject)}',
     ];
 
@@ -155,26 +248,20 @@ class _MoreState extends State<More> {
 
     if (!launched) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              "Could not open Gmail. Please install Gmail app or check your email settings.",
-            ),
-            duration: Duration(seconds: 3),
-          ),
+        ConnectivityUtils.showErrorSnackbar(
+          context,
+          "Could not open Gmail. Please install Gmail app or check your email settings.",
         );
       }
     }
   }
 
   void _navigateToScreen(BuildContext context, String title) {
-    // Check if the title corresponds to a web URL
     if (_webUrls.containsKey(title)) {
       _launchWebUrl(_webUrls[title]!);
       return;
     }
 
-    // Handle WhatsApp and Email separately
     if (title == "Help on Whatsapp") {
       _launchWhatsApp();
       return;
@@ -185,7 +272,6 @@ class _MoreState extends State<More> {
       return;
     }
 
-    // Navigate to other screens
     Widget screen;
     switch (title) {
       case "How to use":

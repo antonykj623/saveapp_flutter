@@ -1,4 +1,4 @@
-class RechargeRequest {
+ class RechargeRequest {
   final String timestamp;
   final String userId;
   final String mobileNumber;
